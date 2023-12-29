@@ -1,6 +1,6 @@
 #!/bin/bash
 
-python3 ../learn_real_data.py \
+python3.8 ../learn_real_data.py \
         --stats_folder "joint_sss" \
         --light_file "gantry" \
         --seed 0 \

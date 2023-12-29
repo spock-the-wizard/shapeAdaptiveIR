@@ -20,7 +20,7 @@ set(CMAKE_MODULE_PATH "${CMAKE_SOURCE_DIR}/CMake" ${CMAKE_MODULE_PATH})
 
 set(PYTHON_INCLUDE_PATH "${CMAKE_SOURCE_DIR}/ext/pybind11/include/" "/usr/include/python3.8/" )
 set(OpenEXR_ROOT "/usr/include/OpenEXR/")
-set(ENOKI_DIR "${CMAKE_SOURCE_DIR}/ext/enoki/")
+#set(ENOKI_DIR "${CMAKE_SOURCE_DIR}/ext/enoki/")
 
 if( WIN32 )
     set(ENOKI_DIR ${CMAKE_SOURCE_DIR}/ext_win64/enoki)
@@ -36,6 +36,7 @@ else()
     if ( NOT PYTHON_INCLUDE_PATH )
         message(FATAL_ERROR "PYTHON_INCLUDE_PATH not set!")
     endif()
+    message(ENOKI_DIR="${ENOKI_DIR} not set!")
 endif()
 
 set(PSDR_CUDA_FILE psdr_cuda)

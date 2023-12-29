@@ -142,6 +142,7 @@ def opt_task(args):
         else:
             filename = refdir + "{}_{:05d}.exr".format(args.scene, i)
         
+        print(filename)
         target = cv2.imread(filename, cv2.IMREAD_ANYCOLOR | cv2.IMREAD_ANYDEPTH)
         # from BGR TO RGB
         t1 = torch.from_numpy(cv2.cvtColor(target, cv2.COLOR_RGB2BGR)).float()
