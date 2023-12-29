@@ -1,0 +1,6 @@
+data_kiwi_soap/
+build/
+build_/
+optix/
+enoki/
+include/ext/
