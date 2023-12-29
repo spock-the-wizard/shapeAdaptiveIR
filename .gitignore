@@ -4,3 +4,4 @@ build_/
 optix/
 enoki/
 include/ext/
+__pycache__/

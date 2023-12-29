@@ -8,7 +8,7 @@ DATA_DIR = os.path.join(HOME_DIR, "data_kiwi_soap")
 SCENES_DIR = os.path.join(ROOT_DIR, "examples/scenes/")
 
 RAW_TEXTURE_DIR = os.path.join(ROOT_DIR, "examples/data/textures_raw/")
-TEXTURE_DIR = os.path.join(DATA_DIR, "textures")
+TEXTURE_DIR = os.path.join(DATA_DIR, "examples/textures")
 REMESH_DIR = os.path.join(HOME_DIR, "botsch-kobbelt-remesher-libigl/build")
 RESULT_DIR = os.path.join(DATA_DIR, "results")
 BLEND_SCENE = os.path.join(SCENES_DIR, "render.blend")

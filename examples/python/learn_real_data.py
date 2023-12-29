@@ -461,6 +461,7 @@ def opt_task(args):
             range_loss = texture_range_loss(A, S, R, G, 100)
             loss = image_loss + range_loss
 
+            breakpoint()
             # total variation loss
             if args.albedo_texture > 0:
                 loss += total_variation_loss(A, args.tot_weight, args.albedo_texture, 3)
