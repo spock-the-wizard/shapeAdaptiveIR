@@ -1,5 +1,7 @@
-data_kiwi_soap/
 build/
+__pycache__/
+ext/
+data_kiwi_soap/
 build_/
 optix/
 enoki/
