@@ -1,3 +1,4 @@
+import sys
 import psdr_cuda
 import enoki as ek
 import cv2
@@ -71,6 +72,8 @@ parser.add_argument('--no_init',            type=str,     default="yes")
 parser.add_argument('--d_type',             type=str,     default="real")
 parser.add_argument('--silhouette',         type=str,     default="yes")
 
+os.environ["OPENCV_IO_ENABLE_OPENEXR"]="1"
+
 args = parser.parse_args()
 
 def saveArgument(ars, file):
@@ -97,6 +100,8 @@ def opt_task(args):
     sc = psdr_cuda.Scene()
     if args.d_type == "syn":
         sc.load_file(SCENES_DIR + "/{}.xml".format(args.scene))
+    elif args.d_type == "custom":
+        sc.load_file(SCENES_DIR + "/{}_out.xml".format(args.scene))
     else: 
         sc.load_file(SCENES_DIR + "/{}_real.xml".format(args.scene))
     ro = sc.opts
@@ -111,6 +116,8 @@ def opt_task(args):
     num_sensors = sc.num_sensors
 
     if args.d_type == "syn":
+        lightdir = LIGHT_DIR + '/lights-sy-{}.npy'.format(args.light_file)
+    elif args.d_type == "custom":
         lightdir = LIGHT_DIR + '/lights-sy-{}.npy'.format(args.light_file)
     elif args.d_type == "real":
         lightdir = LIGHT_DIR + '/lights-gantry.npy'
@@ -130,6 +137,9 @@ def opt_task(args):
         maskdir = RESULT_DIR + "/{}/silhouette/".format(args.scene)
     elif args.d_type == "real":
         refdir = REAL_DIR + "/hdr{}/{}/".format(args.scene, args.ref_folder)
+    elif args.d_type == "custom":
+        # NOTE: tmp setting for sanity check
+        refdir = REAL_DIR + "/{}/{}/".format(args.scene,args.ref_folder)
     else:
         refdir = ESSEN_DIR + "/hdr{}/{}/".format(args.scene, args.ref_folder)
 
@@ -139,6 +149,9 @@ def opt_task(args):
     for i in range(num_sensors):
         if args.d_type == "syn":
             filename = refdir + "/l{}_s{}.exr".format(i, i)
+        elif args.d_type == "custom":
+            # TODO : change this
+            filename = refdir + "{}.exr".format(i)
         else:
             filename = refdir + "{}_{:05d}.exr".format(args.scene, i)
         
@@ -249,7 +262,8 @@ def opt_task(args):
 
         
             albedo  = ek.select(_albedo     > 0.99995,     0.99995, ek.select(_albedo < 0.0, 0.0, _albedo))
-            sigma_t = ek.select(_sigma_t    < 0.0,      0.01,  _sigma_t)
+            # sigma_t = ek.select(_sigma_t    < 0.0,      0.01,  _sigma_t)
+            sigma_t = ek.select(_sigma_t    < 0.0,      0.01,  ek.select(_sigma_t < 0.0, 0.0, _sigma_t))
             roughness = ek.select(_rough    < 0.01,      0.01,  _rough)
             eta       = ek.select(_eta      < 1.0,       1.0,   _eta)
             # sigma_t = ek.exp(_s)
@@ -269,11 +283,12 @@ def opt_task(args):
             
             render_loss= 0    
             
-            
             sensor_indices = active_sensors(batch_size, num_sensors)
             # print("sensor indices: ", sensor_indices)
             for sensor_id in sensor_indices:
-                sc.setlightposition(Vector3fD(lights[sensor_id][0], lights[sensor_id][1], lights[sensor_id][2]))
+                # sc.setlightposition(Vector3fD(lights[sensor_id][0], lights[sensor_id][1], lights[sensor_id][2]))
+                # TODO: change this to custom light file
+                sc.setlightposition(Vector3fD(1.192, -1.3364, 0.889))
                 tar_img = Vector3fD(tars[sensor_id].cuda())
                 # weight_img = Vector3fD(tmeans[sensor_id].cuda()f)
                 our_imgA = myIntegrator.renderD(sc, sensor_id)
@@ -298,9 +313,10 @@ def opt_task(args):
             # print("--------------------------------------------------------")
             FloatD.backward()
             # print("-------------------------V-----------------------------")
-            gradV = ek.gradient(ctx.input1).torch()
-            gradV[torch.isnan(gradV)] = 0.0
-            gradV[torch.isinf(gradV)] = 0.0
+            # gradV = ek.gradient(ctx.input1).torch()
+            # gradV[torch.isnan(gradV)] = 0.0
+            # gradV[torch.isinf(gradV)] = 0.0
+            gradV = None
             # print("-------------------------A-----------------------------")
             gradA = ek.gradient(ctx.input2).torch()
             gradA[torch.isnan(gradA)] = 0.0
@@ -356,7 +372,10 @@ def opt_task(args):
         images = []
         # print(sidxs)
         for idx in sidxs:
-            sc.setlightposition(Vector3fD(lights[idx][0], lights[idx][1], lights[idx][2]))
+            # TODO: tmp setting
+            # sc.setlightposition(Vector3fD(lights[idx][0], lights[idx][1], lights[idx][2]))
+            sc.setlightposition(Vector3fD(1.192, -1.3364, 0.889))
+            # sc.setlightposition(Vector3fD(10, 10, 10))
             img2 = renderNtimes(sc, myIntegrator, args.ref_spp, idx)
             target2 = tars[idx].numpy().reshape((ro.cropheight, ro.cropwidth, 3))
             target2 = cv2.cvtColor(target2, cv2.COLOR_RGB2BGR)
@@ -411,7 +430,8 @@ def opt_task(args):
         R = Variable(sc.param_map[material_key].alpha_u.data.torch(), requires_grad=True)
         G = Variable(sc.param_map[material_key].eta.data.torch(), requires_grad=True)
 
-        V = Variable(sc.param_map[mesh_key].vertex_positions.torch(), requires_grad=True)
+        # TODO: disabled for now
+        V = Variable(sc.param_map[mesh_key].vertex_positions.torch(), requires_grad=False)
         F = sc.param_map[mesh_key].face_indices.torch().long()
         M = compute_matrix(V, F, lambda_ = args.laplacian)
 
@@ -461,7 +481,6 @@ def opt_task(args):
             range_loss = texture_range_loss(A, S, R, G, 100)
             loss = image_loss + range_loss
 
-            breakpoint()
             # total variation loss
             if args.albedo_texture > 0:
                 loss += total_variation_loss(A, args.tot_weight, args.albedo_texture, 3)
@@ -513,7 +532,9 @@ def opt_task(args):
 
             if i == 0 or ((i+1) %  args.n_dump) == 0:
                 # sensor_indices = active_sensors(1, num_sensors)
-                renderPreview(i, np.array([0, 1, 25, 3, 35], dtype=np.int32))
+                # renderPreview(i, np.array([0], dtype=np.int32))
+                renderPreview(i, np.array([0, 1, 4, 10, 19], dtype=np.int32))
+                # renderPreview(i, np.array([0, 1, 25, 3, 35], dtype=np.int32))
 
                 if args.albedo_texture > 0:
                     albedomap = A.detach().cpu().numpy().reshape((alb_texture_width, alb_texture_width, 3))

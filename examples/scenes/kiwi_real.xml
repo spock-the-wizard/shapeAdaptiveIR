@@ -1,31 +1,31 @@
 <?xml version="1.0"?>
 <scene version="0.2.1">
     <integrator type="direct">
-        <integer name="emitter_samples" value="0"/>
+        <integer name="emitter_samples" value="1"/>
         <integer name="bsdf_samples" value="1"/>
     </integrator>
-
 
      <emitter type="point" id="point-light">
         <rgb name='power' value='150000, 150000, 150000'/>
         <transform name="to_world" id='light-transform'>
-			<!-- <translate x="-2.944557" y="48.8898" z="-41.4402"/> -->
             <translate x="-2.944557" y="48.8898" z="-41.4402"/>
 		</transform>
     </emitter>
 
 
-    <bsdf type="hetersub" id="opt">
+    <bsdf type="vaesub" id="opt">
         <texture name="alpha" type="bitmap">
             <string name="filename" value="../../textures/rough_init.exr" />
         </texture>
         <float name='eta' value='1.2029'/>
         <rgb name='specular_reflectance' value='1.0, 1.0, 1.0'/>
         
-        <texture name="albedo" type="bitmap">
+        <!-- <texture name="albedo" type="bitmap">
             <string name="filename" value="../../textures/albedo_init.exr" />
-        </texture>
-        <rgb name="sigma_t" value='2.3218145,  2.3273377,  0.26335016'/>
+        </texture> -->
+        <rgb name="sigma_t" value='1.00, 1.00, 1.00'/>
+        <rgb name="albedo" value='0.900, 0.3400, 0.200'/>
+        <!-- <rgb name="sigma_t" value='2.3218145,  2.3273377,  0.26335016'/> -->
     </bsdf>
 
 

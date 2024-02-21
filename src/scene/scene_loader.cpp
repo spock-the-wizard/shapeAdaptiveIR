@@ -10,6 +10,7 @@
 #include <psdr/bsdf/diffuse.h>
 #include <psdr/bsdf/roughconductor.h>
 #include <psdr/bsdf/hetersub.h>
+#include <psdr/bsdf/vaesub.h>
 #include <psdr/bsdf/layersub.h>
 #include <psdr/bsdf/microfacet.h>
 #include <psdr/emitter/area.h>
@@ -177,6 +178,7 @@ void load_texture(const pugi::xml_node &node, Bitmap<nchannels> &bitmap) {
 
 void SceneLoader::load_from_file(const char *file_name, Scene &scene) {
     pugi::xml_document doc;
+    std::cout << file_name << std::endl;
     PSDR_ASSERT_MSG(doc.load_file(file_name), "XML parsing failed");
     load_scene(doc, scene);
 }
@@ -339,6 +341,7 @@ void SceneLoader::load_emitter(const pugi::xml_node &node, Scene &scene) {
 void SceneLoader::load_bsdf(const pugi::xml_node &node, Scene &scene) {
     const char *bsdf_id = node.attribute("id").value();
     PSDR_ASSERT_MSG(bsdf_id && strcmp(bsdf_id, ""), "BSDF must have an id");
+    std::cout << bsdf_id << std::endl;
 
     BSDF* bsdf = nullptr;
     const char *bsdf_type = node.attribute("type").value();
@@ -400,7 +403,23 @@ void SceneLoader::load_bsdf(const pugi::xml_node &node, Scene &scene) {
         load_texture(sigma_tr, b->m_sigma_t);
         load_texture(albedo, b->m_albedo);
         bsdf = b;
-    }else if(strcmp(bsdf_type, "microfacet") == 0){
+    }
+    else if(strcmp(bsdf_type, "vaesub") == 0){
+        pugi::xml_node alpha = find_child_by_name(node, {"alpha"});
+        pugi::xml_node eta = find_child_by_name(node, {"eta"});
+        pugi::xml_node albedo = find_child_by_name(node, {"albedo"});
+        pugi::xml_node sigma_tr = find_child_by_name(node, {"sigma_t"});
+        pugi::xml_node specular_reflectance = find_child_by_name(node, {"specular_reflectance"});
+        
+        VaeSub *b = new VaeSub();
+        load_texture(alpha, b->m_alpha_u);
+        load_texture(alpha, b->m_alpha_v);
+        load_texture(eta, b->m_eta);
+        load_texture(specular_reflectance, b->m_specular_reflectance);
+        load_texture(sigma_tr, b->m_sigma_t);
+        load_texture(albedo, b->m_albedo);
+        bsdf = b;
+    } else if(strcmp(bsdf_type, "microfacet") == 0){
         pugi::xml_node alpha = find_child_by_name(node, {"alpha"});
         pugi::xml_node reflectance = find_child_by_name(node, {"reflectance"});
         pugi::xml_node specular_reflectance = find_child_by_name(node, {"specular_reflectance"});

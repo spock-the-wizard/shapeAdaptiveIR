@@ -17,6 +17,9 @@ struct BSDFSample_ : public SampleRecord_<Float_> {
     Intersection<ad> po;
     Mask<ad> is_sub;
 
+    // Joon added
+    Int<ad> rgb; //= full<Int<ad>>(1);
+
     ENOKI_DERIVED_STRUCT(BSDFSample_, Base,
         ENOKI_BASE_FIELDS(pdf, is_valid),
         ENOKI_DERIVED_FIELDS(wo, po, is_sub)

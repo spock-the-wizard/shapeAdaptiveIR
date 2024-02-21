@@ -47,6 +47,7 @@ struct Intersection_ : public Interaction_<Float_> {
 
     // Xi Deng added
     Float<ad>           num;                // number of intersection along the ray
+    
     // Int<ad>             pixelIdx;
     ENOKI_DERIVED_STRUCT(Intersection_, Interaction_<Float_>,
         ENOKI_BASE_FIELDS(wi, p, t),

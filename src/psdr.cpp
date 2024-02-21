@@ -20,6 +20,7 @@
 #include <psdr/bsdf/roughconductor.h>
 // #include <psdr/bsdf/subsurface.h>
 #include <psdr/bsdf/hetersub.h>
+#include <psdr/bsdf/vaesub.h>
 // #include <psdr/bsdf/layersub.h>
 #include <psdr/bsdf/microfacet.h>
 
@@ -244,6 +245,21 @@ PYBIND11_MODULE(psdr_cuda, m) {
         .def("setAlbedoTexture", &HeterSub::setAlbedoTexture, "filename"_a)
         .def("setSigmaTexture", &HeterSub::setSigmaTexture, "filename"_a)  
         .def("setAlphaTexture", &HeterSub::setAlphaTexture, "filename"_a);    
+
+    // Linking new VaeBSDF
+    py::class_<VaeSub, BSDF>(m, "VaesubBSDF")
+        .def_readwrite("alpha_u", &VaeSub::m_alpha_u)
+        .def_readwrite("alpha_v", &VaeSub::m_alpha_v)
+        .def_readwrite("eta", &VaeSub::m_eta)
+        .def_readwrite("g", &VaeSub::m_g)
+        .def_readwrite("albedo", &VaeSub::m_albedo)
+        .def_readwrite("sigma_t", &VaeSub::m_sigma_t)
+        .def_readwrite("specular_reflectance", &VaeSub::m_specular_reflectance)
+        .def("setAlbedo", &VaeSub::setAlbedo, "albedo"_a)
+        .def("setSigmaT", &VaeSub::setSigmaT, "sigma_t"_a)
+        .def("setAlbedoTexture", &VaeSub::setAlbedoTexture, "filename"_a)
+        .def("setSigmaTexture", &VaeSub::setSigmaTexture, "filename"_a)  
+        .def("setAlphaTexture", &VaeSub::setAlphaTexture, "filename"_a);    
 
 
     py::class_<Microfacet, BSDF>(m, "MicrofacetBSDF")

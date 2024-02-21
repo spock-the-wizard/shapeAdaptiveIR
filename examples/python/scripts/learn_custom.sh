@@ -1,0 +1,25 @@
+python3.8 ../learn_real_data.py \
+        --stats_folder "joint_custom" \
+        --seed 2 \
+        --scene "duck" \
+        --n_dump 50 \
+        --ref_folder "exr_ref" \
+        --mesh_lr 0.00 \
+        --sigma_lr 0.00 \
+        --albedo_lr 0.00 \
+        --rough_lr 0.00 \
+        --eta_lr 0.005 \
+        --n_reduce_step 1000 \
+        --n_iters 10000 \
+        --laplacian 30 \
+        --sigma_laplacian 0 \
+        --albedo_laplacian 0 \
+        --rough_laplacian 0 \
+        --sigma_texture 0 \
+        --rough_texture 0 \
+        --no_init "no" \
+        --d_type "custom" \
+        --albedo_texture 0 \
+        --spp 16 \
+        --sppe 16 \
+        --sppse 1600

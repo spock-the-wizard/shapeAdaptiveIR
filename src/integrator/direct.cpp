@@ -51,6 +51,8 @@ Spectrum<ad> DirectIntegrator::__Li(const Scene &scene, Sampler &sampler, const 
     Intersection<ad> its = scene.ray_intersect<ad>(ray, active);
 
     std::cout<<"intersection ... "<<std::endl;
+    // std::cout<<its<<std::endl;
+
     active &= its.is_valid();
 
     Spectrum<ad> result = zero<Spectrum<ad>>();
@@ -67,25 +69,31 @@ Spectrum<ad> DirectIntegrator::__Li(const Scene &scene, Sampler &sampler, const 
     Float<ad> dist_sqr = squared_norm(wo);
     Float<ad> dist = safe_sqrt(dist_sqr);
     wo /= dist;
+    std::cout << "bs.rgb at direct.cpp:72 " << bs.rgb << std::endl;
 
     bs.wo = bs.po.sh_frame.to_local(wo);
     bs.po.wi = bs.wo;
     Ray<ad> ray1(bs.po.p, wo, dist);
     Intersection<ad> its1 = scene.ray_intersect<ad, ad>(ray1, active1);
     active1 &= !its1.is_valid();
+
     Spectrum<ad> bsdf_val;
     if constexpr ( ad ) {
         bsdf_val = bsdf_array->eval(its, bs, active1);
     } else {
         bsdf_val = bsdf_array->eval(its, bs, active1);
     }
+    // std::cout<< bsdf_val <<std::endl;
     
     Float<ad> pdfpoint = bsdf_array->pdfpoint(its, bs, active1);
+    // std::cout<< detach(pdfpoint) << " " << active1 <<std::endl;
     Spectrum<ad> Le = scene.m_emitters[0]->eval(bs.po, active1);
+    // std::cout<< Le <<std::endl;
 
     // std::cout<<" common bsdf_val "<<hsum(hsum(bsdf_val))<<std::endl;
 
     masked(result, active1) +=  bsdf_val * Le / detach(pdfpoint); //Spectrum<ad>(detach(dd));  //bsdf_val;//detach(Intensity) / 
+    // std::cout<< detach(pdfpoint) <<std::endl;
     return result;
 }
 
@@ -389,6 +397,7 @@ std::pair<IntC, Spectrum<ad>> DirectIntegrator::eval_secondary_edge(const Scene 
     BSDFSampleC bs1, bs2;
     BSDFArrayC bsdf_array = _its1.shape->bsdf(valid);
     bs1 = bsdf_array->sample(&scene, _its1, scene.m_samplers[2].next_nd<8, false>(), valid);
+    // std::cout << "direct:400" <<bs1.rgb << std::endl;
     Vector3fC &_p1 = bs1.po.p;
     
     // End: Xi Deng added
@@ -397,6 +406,10 @@ std::pair<IntC, Spectrum<ad>> DirectIntegrator::eval_secondary_edge(const Scene 
     bs2.is_valid = _its1.is_valid();
     bs2.pdf = bss.pdf;
     bs2.is_sub = bsdf_array->hasbssdf();
+    std::cout << "bs2 before" << bs2.rgb << std::endl;
+    bs2.rgb = bs1.rgb;
+    // TODO: this part needs rgb mapping
+    std::cout << "bs2 after" << bs2.rgb << std::endl;
     valid &= bs1.po.is_valid();
     // std::cout<<" valid : "<<any(valid)<<std::endl;
 

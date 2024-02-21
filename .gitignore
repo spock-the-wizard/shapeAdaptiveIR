@@ -7,3 +7,10 @@ optix/
 enoki/
 include/ext/
 __pycache__/
+CMakeFiles/
+.vscode/
+
+variables/
+data/
+build_*/
+

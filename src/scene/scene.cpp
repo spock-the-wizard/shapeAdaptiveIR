@@ -318,8 +318,11 @@ template <bool ad, bool path_space>
 Intersection<ad> Scene::ray_all_intersect(const Ray<ad> &ray, Mask<ad> active, const Vector8f<ad> &sample, const int depth, TriangleInfoD *out_info) const {
     static_assert(ad || !path_space);
 
+    // std::cout << "before ray all intersect" << std::endl;
     Intersection<ad> its;
     Vector3i<ad> idx = m_optix->ray_all_intersect<ad>(ray, active, sample, depth);
+    // std::cout << "after ray all intersect" << std::endl;
+    // std::cout << "idx" << idx <<std::endl;
 
     TriangleInfo<ad>    tri_info;
     TriangleUV<ad>      tri_uv_info;

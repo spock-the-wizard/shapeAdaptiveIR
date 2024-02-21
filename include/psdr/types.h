@@ -79,6 +79,9 @@ using Vector8i  = Vectori<8, ad>;
 
 template <bool ad>
 using Vector8f  = Vectorf<8, ad>;
+// // NOTE: added by Joon
+// template <bool ad>
+// using Vector12f  = Vectorf<12, ad>;
 
 using Vector2fC = Vector2f<false>;
 using Vector2fD = Vector2f<true>;
@@ -109,6 +112,9 @@ using Vector7fD = Vector7f<true>;
 
 using Vector8fC = Vector8f<false>;
 using Vector8fD = Vector8f<true>;
+
+// using Vector12fC = Vector12f<false>;
+// using Vector12fD = Vector12f<true>;
 // Matrix arrays (GPU)
 
 template <bool ad>
