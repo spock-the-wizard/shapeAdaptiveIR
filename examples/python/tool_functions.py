@@ -38,10 +38,21 @@ def queryMicrofacetHistory(scenename, statefolder, iterations):
     print("albedo ", albedo[int(iterations / 10)])
 
 def PlotStats(scenename, statefolder):
-    params_stats_file = RESULT_DIR + "/{}/{}/".format(scenename, statefolder) + "parameters_rmse.npy"
+    # params_stats_file = RESULT_DIR + "/{}/{}/".format(scenename, statefolder) + "parameters_rmse.npy"
+    albedo_stats_file = RESULT_DIR + "/{}/{}/".format(scenename, statefolder) + "albedo.npy"
+    sigma_t_stats_file = RESULT_DIR + "/{}/{}/".format(scenename, statefolder) + "sigmas.npy"
     loss_stats_file = RESULT_DIR + "/{}/{}/".format(scenename, statefolder) + "loss.npy"
-    params_rmse = np.load(params_stats_file)
+    # params_rmse = np.load(params_stats_file)
+    albedo = np.load(albedo_stats_file)
+    sigma_t = np.load(sigma_t_stats_file)
     losses = np.load(loss_stats_file)
+
+    # TODO: compute RMSE between GT and estimate
+    # params_gt = np.array([[0.88305,0.183,0.011],[25.00,25.00,25.00]]).reshape(-1,2,3) # [1,2,3]
+    params_gt = np.array([[0.88305,0.183,0.011],[3.21887,3.21887,3.21887]]).reshape(-1,2,3) # [1,2,3]
+    params = np.concatenate((albedo,sigma_t),axis=1) # [N,2,3]
+    params_rmse = np.sqrt(((params - params_gt)**2).mean(axis =-1)) # [N,2]
+    
 
     
     xaxis = np.arange(losses.shape[0]) * 10
@@ -396,12 +407,15 @@ def generateTextureFromImage(name, repeat):
     cv2.imwrite(target + "_reflectance_init_texture.exr", relectance_init_tex)
 
 
-# if __name__ == "__main__":
+if __name__ == "__main__":
+    
     # generateRotateCamera(20, "gantry", 3600)
     # generateRotateCamera(100, dragon, 3600)
     # generatecamerasAndLight(4, 4, 11, "bunny", "bunny", 45)
     # generatecameras(6, 6, 12)
-    # PlotStats("cube_bump", "joint_sss_temp_0")
+    # PlotStats("kiwi", "joint_kiwi_2") #cube_bump", "joint_sss_temp_0")
+    PlotStats("duck", "vae_oldProj_randominit_2") #cube_bump", "joint_sss_temp_0")
+    # PlotStats("duck", "vae_shape_LS_2") #cube_bump", "joint_sss_temp_0")
     # generateTextureFromImage("yellow", 4)
     # generateTextureFromImage("yellow")
     # remesh('/home/dx/Research/psdr-cuda/results/bunny_small/temp2/obj_8000.ply', '/home/dx/Research/psdr-cuda/results/bunny_small/mesh.obj', '/home/dx/Research/psdr-cuda/results/bunny_small/mesh_{}.obj'.format(args.seed), 300)

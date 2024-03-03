@@ -18,11 +18,11 @@ struct BSDFSample_ : public SampleRecord_<Float_> {
     Mask<ad> is_sub;
 
     // Joon added
-    Int<ad> rgb; //= full<Int<ad>>(1);
+    Float<ad> rgb_rv; //= full<Int<ad>>(1);
 
     ENOKI_DERIVED_STRUCT(BSDFSample_, Base,
         ENOKI_BASE_FIELDS(pdf, is_valid),
-        ENOKI_DERIVED_FIELDS(wo, po, is_sub)
+        ENOKI_DERIVED_FIELDS(wo, po, is_sub, rgb_rv)
     )
 };
 
@@ -48,6 +48,8 @@ public:
     // virtual SpectrumD eval(const IntersectionD &its, const BSDFSampleD &bs, MaskD active = true) const = 0;
 
     virtual BSDFSampleC sample(const Scene *scene, const IntersectionC &its, const Vector8fC &sample, MaskC active = true) const = 0;
+    // virtual std::tuple<Vector3fC,Vector3fC, Vector3fC> sample_vae(const Scene *scene, const IntersectionC &its, const Vector8fC &sample, MaskC active = true) const ;
+    // virtual std::tuple<float,float, float> sample_vae(const Scene *scene, const IntersectionC &its, const Vector8fC &sample, MaskC active = true) const ;
     virtual BSDFSampleD sample(const Scene *scene, const IntersectionD &its, const Vector8fD &sample, MaskD active = true) const = 0;
 
     virtual FloatC pdf(const IntersectionC &its, const BSDFSampleC &wo, MaskC active) const = 0;
@@ -61,11 +63,12 @@ PSDR_CLASS_DECL_END(BSDF)
 
 } // namespace psdr
 
-ENOKI_STRUCT_SUPPORT(psdr::BSDFSample_, pdf, is_valid, wo, po, is_sub)
+ENOKI_STRUCT_SUPPORT(psdr::BSDFSample_, pdf, is_valid, wo, po, is_sub,rgb_rv)
 
 ENOKI_CALL_SUPPORT_BEGIN(psdr::BSDF)
     ENOKI_CALL_SUPPORT_METHOD(eval)
     ENOKI_CALL_SUPPORT_METHOD(sample)
+    // ENOKI_CALL_SUPPORT_METHOD(sample_vae)
     ENOKI_CALL_SUPPORT_METHOD(pdf)
     ENOKI_CALL_SUPPORT_METHOD(pdfpoint)
     ENOKI_CALL_SUPPORT_METHOD(anisotropic)

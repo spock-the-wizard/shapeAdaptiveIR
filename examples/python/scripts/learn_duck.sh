@@ -1,8 +1,8 @@
 python3.8 ../learn_real_data.py \
-        --stats_folder "head/inv_deng" \
+        --stats_folder "duck/test_old" \
         --d_type "custom" \
         --seed 2 \
-        --scene "head" \
+        --scene "duck" \
         --n_dump 50 \
         --ref_folder "exr_ref" \
         --mesh_lr 0.00 \

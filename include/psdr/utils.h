@@ -44,6 +44,10 @@ ENOKI_INLINE Vector3f<ad> sphdir(const Float<ad> &theta, const Float<ad> &phi) {
     return Vector3f<ad>(cos_phi*sin_theta, sin_phi*sin_theta, cos_theta);
 }
 
+template <bool ad>
+ENOKI_INLINE Vectorf<20,ad> bilinear20(const Vectorf<20,ad> &p0, const Vectorf<20,ad> &e1, const Vectorf<20,ad> &e2, const Vector2f<ad> &st) {
+    return fmadd(e1, st.x(), fmadd(e2, st.y(), p0));
+}
 
 template <bool ad>
 ENOKI_INLINE Vector3f<ad> bilinear(const Vector3f<ad> &p0, const Vector3f<ad> &e1, const Vector3f<ad> &e2, const Vector2f<ad> &st) {

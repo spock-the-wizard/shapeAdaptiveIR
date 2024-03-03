@@ -1,6 +1,5 @@
 file(REMOVE_RECURSE
   "CMakeFiles/ptx.dir/cuda/psdr_cuda.cpp.o"
-  "CMakeFiles/ptx.dir/cuda/psdr_cuda.cpp.o.d"
   "bin/ptx"
   "bin/ptx.pdb"
   "lib/ptx/ptx_generated_psdr_cuda.cu.ptx"

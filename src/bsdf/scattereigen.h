@@ -26,24 +26,6 @@
 
 // MTS_NAMESPACE_BEGIN
 
-// typedef DynamicArray<Packet<float,1>> VectorXf;
-// typedef Array<Array<float,1>,1> VectorXf; 
-// Define the type for inner and outer dynamic arrays
-// using InnerDynamicArray = DynamicArray<float>;
-// using OuterDynamicArray = DynamicArray<InnerDynamicArray>;
-/* Static float array (the suffix "P" indicates that this is a fixed-size packet) */
-using FloatP = Packet<float, 1>;
-
-/* Dynamic float array (vectorized via FloatP, the suffix "X" indicates arbitrary length) */
-using FloatX = DynamicArray<FloatP>;
-using FloatXX = DynamicArray<FloatX>;
-
-
-// template <typename T, int N>
-// using Vector = enoki::Array<T, N>;
-// template <typename T, int R, int C>
-// using Matrix = enoki::Array<Array<T,C>, R>;
-
 namespace psdr {
 
     class Volpath3D {
@@ -61,33 +43,23 @@ namespace psdr {
 
             static Spectrum effectiveAlbedo(const Spectrum &albedo) {
                 auto res = -log(1.0f - albedo * (1.0f - exp(-8.0f))) / 8.0f;
-                // ret.fromLinearRGB(r, g, b);
                 return res; 
                 
             }
-            // static Spectrum effectiveAlbedo(const Spectrum &albedo) {
-            //     float r = effectiveAlbedo(albedo[0]);
-            //     float g = effectiveAlbedo(albedo[1]);
-            //     float b = effectiveAlbedo(albedo[2]);
-            //     Spectrum ret;
-            //     // ret.fromLinearRGB(r, g, b);
-            //     return ret;
-            // }
-
         
     };
 
 class NetworkHelpers {
 public:
-    template <bool ad>
-    static void onb(Spectrum<ad> &n, Spectrum<ad> &b1, Spectrum<ad> &b2) {
-        auto sign = select(n[2] > 0, full<Float<ad>>(1.0f), full<Float<ad>>(-1.0f));
-        auto a = -1.0f / (sign + n[2]);
-        auto b = n[0] * n[1] * a;
+    // template <bool ad>
+    // static void onb(Spectrum<ad> &n, Spectrum<ad> &b1, Spectrum<ad> &b2) {
+    //     auto sign = select(n[2] > 0, full<Float<ad>>(1.0f), full<Float<ad>>(-1.0f));
+    //     auto a = -1.0f / (sign + n[2]);
+    //     auto b = n[0] * n[1] * a;
 
-        b1 = Spectrum<ad>(1.0f + sign * n[0] * n[0] * a, sign * b, -sign * n[0]);
-        b2 = Spectrum<ad>(b, sign + n[1]*n[1]*a, -n[1]);
-    }
+    //     b1 = Spectrum<ad>(1.0f + sign * n[0] * n[0] * a, sign * b, -sign * n[0]);
+    //     b2 = Spectrum<ad>(b, sign + n[1]*n[1]*a, -n[1]);
+    // }
 
     static inline constexpr int nChooseK(int n, int k) {
         return (k == 0 || n == k) ? 1 : nChooseK(n - 1, k - 1) + nChooseK(n - 1, k);
@@ -144,6 +116,14 @@ public:
             }
         }
     }
+    
+
+
+
+
+
+
+
     };
 }
 #endif /* __SCATTER_EIGEN_H__ */

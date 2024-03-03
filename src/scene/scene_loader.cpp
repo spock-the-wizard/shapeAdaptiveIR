@@ -494,6 +494,41 @@ void SceneLoader::load_shape(const pugi::xml_node &node, Scene &scene) {
         const char *file_name = name_node.attribute("value").value();
         mesh = new Mesh();
         mesh->load(file_name);
+
+
+        pugi::xml_node poly_coeff_node;
+        const char* file_name_poly;
+
+        poly_coeff_node = node.find_node([](pugi::xml_node const& node) {
+            return strcmp(node.attribute("name").value(), "poly_coeff_r") == 0;
+        });
+        file_name_poly = poly_coeff_node.attribute("value").value();
+        if(strcmp(file_name_poly,"")!=0){
+        std::cout << "file_name_poly " << file_name_poly << std::endl;
+        mesh->load_poly(file_name_poly,0);
+        }
+
+        poly_coeff_node = node.find_node([](pugi::xml_node const& node) {
+            return strcmp(node.attribute("name").value(), "poly_coeff_g") == 0;
+        });
+        file_name_poly = poly_coeff_node.attribute("value").value();
+        if(strcmp(file_name_poly,"")!=0){
+        std::cout << "file_name_poly " << file_name_poly << std::endl;
+        mesh->load_poly(file_name_poly,0);
+        }
+        // std::cout << "file_name_poly " << file_name_poly << std::endl;
+        // mesh->load_poly(file_name_poly,1);
+
+        poly_coeff_node = node.find_node([](pugi::xml_node const& node) {
+            return strcmp(node.attribute("name").value(), "poly_coeff_b") == 0;
+        });
+        file_name_poly = poly_coeff_node.attribute("value").value();
+        if(strcmp(file_name_poly,"")!=0){
+        std::cout << "file_name_poly " << file_name_poly << std::endl;
+        mesh->load_poly(file_name_poly,0);
+        }
+        // mesh->load_poly(file_name_poly,2);
+            
     } else {
         PSDR_ASSERT_MSG(false, std::string("Unsupported shape: ") + shape_type);
     }

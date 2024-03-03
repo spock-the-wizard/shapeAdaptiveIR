@@ -181,6 +181,7 @@ Vector2i<ad> Scene_OptiX::ray_all_layer(const Ray<ad> &ray, Mask<ad> &active, co
 
 template <bool ad>
 Vector3i<ad> Scene_OptiX::ray_all_intersect(const Ray<ad> &ray, Mask<ad> &active, const Vector8f<ad> &sample, const int depth) const {
+
     const int m = static_cast<int>(slices(ray.o));
     m_its.reserve(m);
 
@@ -242,6 +243,7 @@ Vector3i<ad> Scene_OptiX::ray_all_intersect(const Ray<ad> &ray, Mask<ad> &active
 
 
     active &= (m_its.shape_id >= 0) && (m_its.triangle_id >= 0);
+    // std::cout << "[DEBUG] scene_optix.cpp:245 active " << active << std::endl;
     return Vector3i<ad>(m_its.shape_id, m_its.triangle_id, m_its.numIntersections);
 
 }
@@ -249,7 +251,10 @@ Vector3i<ad> Scene_OptiX::ray_all_intersect(const Ray<ad> &ray, Mask<ad> &active
 template <bool ad>
 Vector2i<ad> Scene_OptiX::ray_intersect(const Ray<ad> &ray, Mask<ad> &active) const {
     const int m = static_cast<int>(slices(ray.o));
+    // std::cout << "m " << m << std::endl;
     m_its.reserve(m);
+    // std::cout << "ray.tmax " << ray.tmax << std::endl;
+    // std::cout << "m_its.triangle_id " << m_its.triangle_id << std::endl;
 
     cuda_eval();
 
@@ -295,6 +300,10 @@ Vector2i<ad> Scene_OptiX::ray_intersect(const Ray<ad> &ray, Mask<ad> &active) co
     CUDA_SYNC_CHECK();
 
     active &= (m_its.shape_id >= 0) && (m_its.triangle_id >= 0);
+    // active &= (m_its.triangle_id >= 0);
+    // std::cout << "m_its.shape_id " << m_its.shape_id << std::endl;
+    // std::cout << "m_its.triangle_id " << m_its.triangle_id << std::endl;
+    // std::cout << "[DEBUG] scene_optix.cpp active " << active << std::endl;
     return Vector2i<ad>(m_its.shape_id, m_its.triangle_id);
 }
 

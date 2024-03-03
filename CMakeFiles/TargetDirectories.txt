@@ -1,4 +1,4 @@
-/home/xd/Research/psdr-cuda/CMakeFiles/rebuild_cache.dir
-/home/xd/Research/psdr-cuda/CMakeFiles/edit_cache.dir
-/home/xd/Research/psdr-cuda/CMakeFiles/psdr_cuda.dir
-/home/xd/Research/psdr-cuda/CMakeFiles/ptx.dir
+/sss/InverseTranslucent/CMakeFiles/rebuild_cache.dir
+/sss/InverseTranslucent/CMakeFiles/edit_cache.dir
+/sss/InverseTranslucent/CMakeFiles/psdr_cuda.dir
+/sss/InverseTranslucent/CMakeFiles/ptx.dir

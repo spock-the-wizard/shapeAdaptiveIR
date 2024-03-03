@@ -48,10 +48,14 @@ struct Intersection_ : public Interaction_<Float_> {
     // Xi Deng added
     Float<ad>           num;                // number of intersection along the ray
     
+    // Joon added
+    Float<ad>           abs_prob = full<Float<ad>>(1.0f);           // absorption probability;
+    Array<Vectorf<20,ad>,3>      poly_coeff = zero<Array<Vectorf<20,ad>,3>>();
+                                            
     // Int<ad>             pixelIdx;
     ENOKI_DERIVED_STRUCT(Intersection_, Interaction_<Float_>,
         ENOKI_BASE_FIELDS(wi, p, t),
-        ENOKI_DERIVED_FIELDS(shape, n, sh_frame, uv, J, num)
+        ENOKI_DERIVED_FIELDS(shape, n, sh_frame, uv, J, num,abs_prob,poly_coeff)
     )
 };
 
@@ -95,5 +99,5 @@ struct Intersection_ : public Interaction_<Float_> {
 } // namespace psdr
 
 ENOKI_STRUCT_SUPPORT(psdr::Interaction_, wi, p, t)
-ENOKI_STRUCT_SUPPORT(psdr::Intersection_, wi, p, t, shape, n, sh_frame, uv, J, num)
+ENOKI_STRUCT_SUPPORT(psdr::Intersection_, wi, p, t, shape, n, sh_frame, uv, J, num, abs_prob,poly_coeff)
 // ENOKI_STRUCT_SUPPORT(psdr::Intersections__, its, num)

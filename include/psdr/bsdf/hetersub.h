@@ -60,6 +60,10 @@ public:
     FloatC pdf(const IntersectionC &its, const BSDFSampleC &wo, MaskC active = true) const override;
     FloatD pdf(const IntersectionD &its, const BSDFSampleD &wo, MaskD active = true) const override;
 
+    template <bool ad>
+    std::tuple<Intersection<ad>,Float<ad>,Vector3f<ad>,Vector3f<ad>> __sample_sp(const Scene *scene, const Intersection<ad> &its, const Vector8f<ad> &sample, Float<ad> &pdf, Mask<ad>active) const;
+    // Intersection<ad> __sample_sp(const Scene *scene, const Intersection<ad> &its, const Vector8f<ad> &sample, Float<ad> &pdf, Mask<ad>active) const;
+    
     bool anisotropic() const override { return m_anisotropic; }
     bool hasbssdf() const override { return true; }
 
@@ -106,8 +110,6 @@ protected:
     template <bool ad>
     Float<ad> __sample_sr(const Float<ad> &, const Float<ad> &) const;
 
-    template <bool ad>
-    Intersection<ad> __sample_sp(const Scene *scene, const Intersection<ad> &its, const Vector8f<ad> &sample, Float<ad> &pdf, Mask<ad>active) const;
     // template <bool ad>
     // Intersection<ad> __get_intersection(const Scene *scene, const Intersection<ad> &its, const Vector8f<ad> &sample, Vector3f<ad> vx, Vector3f<ad> vy, Vector3f<ad> vz, Float<ad> l, Float<ad> r, Float<ad> phi, Mask<ad> active) const;
     // template <bool ad>

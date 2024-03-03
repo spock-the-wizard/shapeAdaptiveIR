@@ -80,9 +80,17 @@ public:
     BSDFSampleC sample(const Scene *scene, const IntersectionC &its, const Vector8fC &sample, MaskC active = true) const override;
     BSDFSampleD sample(const Scene *scene, const IntersectionD &its, const Vector8fD &sample, MaskD active = true) const override;
 
+    // std::tuple<Vector3fC,Vector3fC,Vector3fC> sample_vae(const Scene *scene, const IntersectionC &its, const Vector8fC &rand, MaskC active) const override;
+
+    // std::tuple<float,float,float> sample_vae(const Scene *scene, const IntersectionC &its, const Vector8fC &rand, MaskC active) const override;
+
     FloatC pdf(const IntersectionC &its, const BSDFSampleC &wo, MaskC active = true) const override;
     FloatD pdf(const IntersectionD &its, const BSDFSampleD &wo, MaskD active = true) const override;
-    
+    // template <bool ad>
+    // std::pair<Intersection<ad>,Float<ad>> __sample_sp(const Scene *scene, const Intersection<ad> &its, const Vector8f<ad> &sample, Float<ad> &pdf, Mask<ad>active) const;
+   template <bool ad>
+    std::tuple<Intersection<ad>,Float<ad>,Vector3f<ad>,Vector3f<ad>> __sample_sp(const Scene *scene, const Intersection<ad> &its, const Vector8f<ad> &sample, Float<ad> &pdf, Mask<ad>active) const;
+   
 
     bool anisotropic() const override { return m_anisotropic; }
     bool hasbssdf() const override { return true; }
@@ -160,20 +168,23 @@ protected:
     Spectrum<ad> __eval(const Intersection<ad>&, const BSDFSample<ad>&, Mask<ad>) const;
     
     // Joon added
+    // template <bool ad,size_t size>
+    // Spectrum<ad> _run(Array<Float<ad>,size> x, Array<Float<ad>,4> latent) const;
+
     template <bool ad,size_t size>
-    Spectrum<ad> _run(Array<Float<ad>,size> x, Array<Float<ad>,4> latent) const;
+    std::pair<Vector3f<ad>,Float<ad>> _run(Array<Float<ad>,size> x, Array<Float<ad>,4> latent) const;
 
     template <bool ad,size_t size>
     Array<Float<ad>,size> _preprocessFeatures(const Intersection<ad>&its, int idx, bool isPlane) const;
 
     template <bool ad,size_t size>
-    Array<Float<ad>,size> _preprocessFeatures(const Intersection<ad>&its, Int<ad> idx, bool isPlane) const;
+    Array<Float<ad>,size> _preprocessFeatures(const Intersection<ad>&its, Float<ad> idx, bool isPlane, Array<Float<ad>,3> wi, bool light_space = false) const;
 
     template <bool ad>
     Float<ad> getKernelEps(const Intersection<ad>& its,int idx) const;
 
     template <bool ad>
-    Float<ad> getKernelEps(const Intersection<ad>& its,Int<ad> idx) const;
+    Float<ad> getKernelEps(const Intersection<ad>& its,Float<ad> idx) const;
     // Xi Deng added
     //
     template <bool ad>
@@ -196,9 +207,7 @@ protected:
 
     // template <bool ad>
     // Intersection<ad> __sample_sp(const Scene *scene, const Intersection<ad> &its, const Vector8f<ad> &sample, Float<ad> &pdf, Mask<ad>active) const;
-    template <bool ad>
-    std::pair<Intersection<ad>,Int<ad>> __sample_sp(const Scene *scene, const Intersection<ad> &its, const Vector8f<ad> &sample, Float<ad> &pdf, Mask<ad>active) const;
-    // template <bool ad>
+     // template <bool ad>
     // Intersection<ad> __get_intersection(const Scene *scene, const Intersection<ad> &its, const Vector8f<ad> &sample, Vector3f<ad> vx, Vector3f<ad> vy, Vector3f<ad> vz, Float<ad> l, Float<ad> r, Float<ad> phi, Mask<ad> active) const;
     // template <bool ad>
     // Intersection<ad> __selectRandomSample(const Int<ad> randomsample, std::vector<Intersection<ad>> inters) const;

@@ -18,6 +18,8 @@ import random
 import imageio
 import json
 import datetime
+from matplotlib import colormaps
+import wandb
 
 
 # from largesteps.optimize import AdamUnifom
@@ -44,6 +46,7 @@ parser.add_argument('--mesh_lr',            type=float,    default=0.05)
 parser.add_argument('--rough_lr',            type=float,   default=0.02)
 
 parser.add_argument('--img_weight',         type=float,    default=1.0)
+parser.add_argument('--range_weight',         type=float,    default=10.0)
 parser.add_argument('--tot_weight',         type=float,    default=0.01)
 parser.add_argument('--laplacian',          type=float,    default=60)
 parser.add_argument('--sigma_laplacian',    type=float,    default=0)
@@ -95,6 +98,17 @@ def opt_task(args):
 
     argsdir = destdir + "/{}_{}/settings_{}.txt".format(args.stats_folder, args.seed, datetime.datetime.now())
     saveArgument(args, argsdir)
+    
+    params_gt = {
+        'duck': {
+            'albedo': [0.88305,0.183,0.011],
+            'sigmat': [25.00, 25.00, 25.00],
+        },
+        'head': {
+            'albedo': [0.9, 0.9, 0.9],
+            'sigmat': [109.00, 109.00, 52.00],
+        }
+    }
 
     # load scene
     sc = psdr_cuda.Scene()
@@ -106,6 +120,7 @@ def opt_task(args):
         sc.load_file(SCENES_DIR + "/{}_real.xml".format(args.scene))
     ro = sc.opts
 
+    # breakpoint()
     ro.sppse = args.sppse
     ro.spp = args.spp
     ro.sppe = args.sppe
@@ -117,13 +132,19 @@ def opt_task(args):
 
     if args.d_type == "syn":
         lightdir = LIGHT_DIR + '/lights-sy-{}.npy'.format(args.light_file)
+    elif args.scene == "duck":
+        # TODO: fix this...
+        lightdir = LIGHT_DIR + '/lights-head.npy'
     elif args.d_type == "custom":
-        lightdir = LIGHT_DIR + '/lights-sy-{}.npy'.format(args.light_file)
+        lightdir = LIGHT_DIR + '/lights-{}.npy'.format(args.scene)
     elif args.d_type == "real":
         lightdir = LIGHT_DIR + '/lights-gantry.npy'
     else:
         lightdir = LIGHT_DIR + '/essen-lights-gantry.npy'
     lights = np.load(lightdir)
+    if args.scene == "duck":
+        lights = lights[:25,:]
+        lights[:,:3] = np.array([1.192, -1.3364, 0.889])
 
     if args.integrator == 'direct':
         myIntegrator = psdr_cuda.DirectIntegrator()
@@ -262,8 +283,7 @@ def opt_task(args):
 
         
             albedo  = ek.select(_albedo     > 0.99995,     0.99995, ek.select(_albedo < 0.0, 0.0, _albedo))
-            # sigma_t = ek.select(_sigma_t    < 0.0,      0.01,  _sigma_t)
-            sigma_t = ek.select(_sigma_t    < 0.0,      0.01,  ek.select(_sigma_t < 0.0, 0.0, _sigma_t))
+            sigma_t = ek.select(_sigma_t    < 0.0,      0.01,  _sigma_t)
             roughness = ek.select(_rough    < 0.01,      0.01,  _rough)
             eta       = ek.select(_eta      < 1.0,       1.0,   _eta)
             # sigma_t = ek.exp(_s)
@@ -286,14 +306,18 @@ def opt_task(args):
             sensor_indices = active_sensors(batch_size, num_sensors)
             # print("sensor indices: ", sensor_indices)
             for sensor_id in sensor_indices:
-                # sc.setlightposition(Vector3fD(lights[sensor_id][0], lights[sensor_id][1], lights[sensor_id][2]))
+                sc.setlightposition(Vector3fD(lights[sensor_id][0], lights[sensor_id][1], lights[sensor_id][2]))
                 # TODO: change this to custom light file
                 sc.setlightposition(Vector3fD(1.192, -1.3364, 0.889))
                 tar_img = Vector3fD(tars[sensor_id].cuda())
                 # weight_img = Vector3fD(tmeans[sensor_id].cuda()f)
                 our_imgA = myIntegrator.renderD(sc, sensor_id)
-                our_imgB = myIntegrator.renderD(sc, sensor_id)
-                render_loss += compute_render_loss(our_imgA, our_imgB, tar_img, args.img_weight) / batch_size
+                render_loss += compute_render_loss(our_imgA, our_imgA, tar_img, args.img_weight) / batch_size
+                # FIXME: tmp disabled for debugging
+                # our_imgB = myIntegrator.renderD(sc, sensor_id)
+                
+                # Save RMSE loss for logging
+                # render_loss += compute_render_loss(our_imgA, our_imgB, tar_img, args.img_weight) / batch_size
 
             if args.silhouette == "yes":
                 sc.opts.spp = 1
@@ -305,7 +329,10 @@ def opt_task(args):
 
             ctx.output = render_loss
             out_torch = ctx.output.torch()
-            return out_torch
+            # TODO: check if valid grammar
+            # rmse_torch = rmse_loss.torch().detach()
+
+            return out_torch #, rmse_torch
 
         @staticmethod
         def backward(ctx, grad_out):
@@ -368,25 +395,72 @@ def opt_task(args):
             cv2.imwrite(statsdir + "/{}_resize_{}.exr".format(textstr, i+1), TextureMap)
         return texturesize
 
+    def rmse(predictions, targets):
+        # Computes error map for each pixel
+        return np.sqrt(((predictions - targets) ** 2).mean(axis=-1))
+
     def renderPreview(i, sidxs):
+        cmap = colormaps.get('inferno')
         images = []
+        error_map = []
+        
         # print(sidxs)
         for idx in sidxs:
             # TODO: tmp setting
-            # sc.setlightposition(Vector3fD(lights[idx][0], lights[idx][1], lights[idx][2]))
+            sc.setlightposition(Vector3fD(lights[idx][0], lights[idx][1], lights[idx][2]))
             sc.setlightposition(Vector3fD(1.192, -1.3364, 0.889))
             # sc.setlightposition(Vector3fD(10, 10, 10))
             img2 = renderNtimes(sc, myIntegrator, args.ref_spp, idx)
+            img2 = np.clip(img2,a_min=0.0, a_max=1.0)
             target2 = tars[idx].numpy().reshape((ro.cropheight, ro.cropwidth, 3))
             target2 = cv2.cvtColor(target2, cv2.COLOR_RGB2BGR)
             absdiff2 = np.abs(img2 - target2)
+                                
+            import matplotlib.pyplot as plt
+            rmse2 = rmse(img2,target2)
+            plt.imshow(rmse2, cmap='inferno')
+            plt.tight_layout()
+            plt.colorbar()
+            plt.axis('off')
+            # plt.show()
+
+            outfile_error = statsdir + "/error_{}.png".format(i+1)
+            plt.savefig(outfile_error,bbox_inches='tight')
+            
+            # rmse2 = cmap(rmse(img2,target2)).astype(np.float32)[...,:3] * 255.0
+            wandb.log({
+                "images/gt": wandb.Image(cv2.cvtColor(target2,cv2.COLOR_BGR2RGB)),
+                "images/out" : wandb.Image(cv2.cvtColor(img2,cv2.COLOR_BGR2RGB)),
+                "images/error": wandb.Image(cv2.cvtColor(cv2.imread(outfile_error),cv2.COLOR_BGR2RGB)),              
+                "loss/rmse_image": rmse(img2,target2).mean(),
+            })
+
+            # target2 = cv2.cvtColor(target2, cv2.COLOR_RGB2BGR)
+            # rmse2 = cv2.cvtColor(rmse2, cv2.COLOR_BGR2RGB)
+
+            # print(rmse2[0,0])
             output2 = np.concatenate((img2, target2, absdiff2))
+            # output2 = np.concatenate((img2, target2, absdiff2,rmse2))
             images.append(output2)
+            # error_map.append(rmse2)
+
         output = np.concatenate((images), axis=1)                
+        # error = np.concatenate((error_map), axis=1)                
         cv2.imwrite(statsdir + "/iter_{}.exr".format(i+1), output)
+        # cv2.imwrite(statsdir + "/error_{}.png".format(i+1), error)
+
 
     def optTask(args):
-        # rmsehistory = []
+        run = wandb.init(
+                # Set the project where this run will be logged
+                project="inverse-learned-sss",
+                # Track hyperparameters and run metadata
+                config=args,
+        )
+        
+        
+
+        rmsehistory = []
         losshistory = [] 
         albedohistory = []
         sigmahistory = []
@@ -431,7 +505,7 @@ def opt_task(args):
         G = Variable(sc.param_map[material_key].eta.data.torch(), requires_grad=True)
 
         # TODO: disabled for now
-        V = Variable(sc.param_map[mesh_key].vertex_positions.torch(), requires_grad=False)
+        V = Variable(sc.param_map[mesh_key].vertex_positions.torch(), requires_grad=not(args.mesh_lr==0))
         F = sc.param_map[mesh_key].face_indices.torch().long()
         M = compute_matrix(V, F, lambda_ = args.laplacian)
 
@@ -477,8 +551,9 @@ def opt_task(args):
 
         for i in range(args.n_iters):
             optimizer.zero_grad()
+            # image_loss = render(V, A, S, R, G, render_batch, i)
             image_loss = render(V, A, torch.exp(S), R, G, render_batch, i)
-            range_loss = texture_range_loss(A, S, R, G, 100)
+            range_loss = texture_range_loss(A, S, R, G, args.range_weight)
             loss = image_loss + range_loss
 
             # total variation loss
@@ -502,17 +577,33 @@ def opt_task(args):
                 albedohistory.append([A.detach().cpu().numpy()])
             if args.sigma_texture == 0:
                 print("\n sigma: ", S.detach().cpu().numpy())
+                # sigmahistory.append([S.detach().cpu().numpy()])   
                 sigmahistory.append([np.exp(S.detach().cpu().numpy())])   
             if args.rough_texture == 0:
                 print("\n rough: ", R.detach().cpu().numpy())
                 roughhistory.append(R.detach().cpu().numpy())    
             
-            # etahistory.append([G.detach().cpu().numpy()])
+            # wandb.log({
+            #     "image loss": loss.item(),
+            #     "eta": G.detach().cpu().numpy(),
+            #     "albedo" : A.detach().cpu().numpy(),
+            #     "sigmaT" : S.detach().cpu().numpy(),
+            #     "rough": R.detach().cpu().numpy(),
+            # })
+
+            etahistory.append([G.detach().cpu().numpy()])
             
             losshistory.append([loss.detach().cpu().numpy()]) 
             
             torch.cuda.empty_cache()
             ek.cuda_malloc_trim()
+            
+        
+            if i == 0 or ((i+1) %  args.n_dump) == 0:
+                wandb.log({
+                        "loss/total": loss.item(),
+                        "loss/image": image_loss.item(),
+                })
             del loss, range_loss, image_loss
             
             if ((i+1) % args.n_reduce_step) == 0:
@@ -530,11 +621,28 @@ def opt_task(args):
 
                 optimizer.setLearningRate(lrs)
 
+            # if ((i+1) %  args.n_dump) == 0:
             if i == 0 or ((i+1) %  args.n_dump) == 0:
                 # sensor_indices = active_sensors(1, num_sensors)
                 # renderPreview(i, np.array([0], dtype=np.int32))
                 renderPreview(i, np.array([0, 1, 4, 10, 19], dtype=np.int32))
                 # renderPreview(i, np.array([0, 1, 25, 3, 35], dtype=np.int32))
+                log_alb = A.detach().cpu().numpy()[0]
+                log_sig = S.detach().cpu().numpy()[0]
+
+                wandb.log({
+                    "loss/rmse_param_alb": rmse(log_alb,params_gt[args.scene]['albedo']),
+                    "loss/rmse_param_sig": rmse(np.exp(log_sig), params_gt[args.scene]['sigmat']),
+
+                    "param/eta": G.detach().cpu().numpy(),
+                    "param/rough": R.detach().cpu().numpy(),
+                    "param/albedo_r" : log_alb[0],
+                    "param/albedo_g" : log_alb[1],
+                    "param/albedo_b" : log_alb[2],
+                    "param/sigmaT_r" : log_sig[0],
+                    "param/sigmaT_g" : log_sig[1],
+                    "param/sigmaT_b" : log_sig[2],
+                })
 
                 if args.albedo_texture > 0:
                     albedomap = A.detach().cpu().numpy().reshape((alb_texture_width, alb_texture_width, 3))

@@ -7,6 +7,22 @@
 #include <psdr/sensor/sensor.h>
 #include <psdr/integrator/integrator.h>
 
+#include <psdr/core/bitmap.h>
+#include <psdr/core/warp.h>
+#include <psdr/core/ray.h>
+#include <psdr/shape/mesh.h>
+#include <psdr/scene/scene.h>
+#include <psdr/utils.h>
+#include <psdr/bsdf/ggx.h>
+
+#include <psdr/bsdf/vaesub.h>
+#include <psdr/bsdf/hetersub.h>
+
+#include <enoki/cuda.h>
+#include <enoki/autodiff.h>
+#include <enoki/special.h>
+#include <enoki/random.h>
+
 namespace psdr
 {
 
@@ -28,6 +44,62 @@ SpectrumC Integrator::renderC(const Scene &scene, int sensor_id) const {
     return result;
 }
 
+std::tuple<Vector3fC, Vector3fC, Vector3fC> Integrator::sample_sub(const Scene &scene, Vector3f<false> pts, Vector3f<false> dir) {
+    
+    // std::cout << "testing" << std::endl;
+    // std::cout << "pts[0]" << pts[0] << std::endl;
+    // std::cout << dir << std::endl;
+
+// std::cout << "pts.slices " << shape(pts)[0]<< shape(pts)[1] << std::endl;
+    constexpr bool ad = false;
+    auto active = full<Mask<ad>>(true); //~isnan(pts[0]);
+
+    // TODO: do not set tmax... fu... use RayC instead (tmax set to inf)
+    // auto tmax = full<Float<ad>>(3000.0f);
+    // Ray<ad> ray(pts,dir,tmax);
+    Intersection<ad> its = scene.ray_intersect<ad>(RayC(pts,dir), true);
+    
+    std::cout << "Surface its " << its.p << std::endl;
+    // std::cout << its.p << std::endl;
+    // std::cout << its.is_valid() << std::endl;
+    // auto active = its.is_valid();
+
+    
+    Float<ad> pdf;
+    Sampler sampler;
+    sampler.seed(arange<UInt64C>(slices(pts)));
+
+    // Type<HeterSub*,ad> vaesub_array = its.shape->bsdf(true);
+    Type<VaeSub*,ad> vaesub_array = its.shape->bsdf(true);
+    // BSDFArray<ad> bsdf_array = its.shape->bsdf(true);
+    // std::cout << "bsdf_array " << bsdf_array << std::endl;
+    // std::cout << "vaesub_array " << vaesub_array << std::endl;
+    
+    // Mask<ad> active = full<Mask<ad>>(true);
+    // auto sampler_ = scene.m_samplers[0]
+    // Vector3fC res1, res2;
+    // Intersection<ad> first;
+    // Float<ad> second;
+    // std::tie(first,second) = vaesub_array[0] -> __sample_sp<ad>(&scene, its, (scene.m_samplers[0].next_nd<8, false>()),pdf, active);
+    // std::cout << "active" << active << std::endl;
+    // std::cout << "its.p" << its.p << std::endl;
+    
+    auto res = vaesub_array[0] -> __sample_sp<ad>(&scene, its, (sampler.next_nd<8, false>()),pdf, active);
+    Intersection<ad> its_sub;
+    Float<ad> second;
+    Vector3f<ad> outPos;
+    Vector3f<ad> projDir;
+    std::tie(its_sub,second,outPos,projDir) = res;
+    std::cout << "its_sub.p " << its_sub.p << std::endl;
+    auto active_sub = its_sub.is_valid();
+    // std::cout << "active_sub " << active_sub << std::endl;
+    // std::cout << "hsum(active_sub) " << hsum(active_sub) << std::endl;
+    // std::cout << "second" << second << std::endl;
+    // std::cout << "outPos" << outPos << std::endl;
+    // std::cout << "projDir" << projDir << std::endl;
+
+    return std::make_tuple(its_sub.p,outPos,projDir);
+}
 
 SpectrumD Integrator::renderD(const Scene &scene, int sensor_id) const {
     using namespace std::chrono;

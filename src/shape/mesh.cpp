@@ -12,12 +12,16 @@
 #include <psdr/emitter/emitter.h>
 #include <psdr/shape/mesh.h>
 
+// Joon added: cnpy for reading poly coeffs in npy
+#include "cnpy.h"
+
 
 namespace psdr
 {
 
 template <bool ad>
-static std::pair<TriangleInfo<ad>, Vector3f<ad>> process_mesh(const Vector3f<ad> &vertex_positions, const Vector3i<ad> &face_indices) {
+static std::pair<TriangleInfo<ad>, Vector3f<ad>> process_mesh(const Vector3f<ad> &vertex_positions, const Vector3i<ad> &face_indices,
+    const Array<Vectorf<20,ad>,3> &poly_coeffs = zero<Array<Vectorf<20,ad>,3>>()) {
     const int num_vertices = static_cast<int>(slices(vertex_positions));
 
     // std::cout<<"processing mesh"<<std::endl;
@@ -50,6 +54,11 @@ static std::pair<TriangleInfo<ad>, Vector3f<ad>> process_mesh(const Vector3f<ad>
     // Normalize the face normals
     face_normals /= face_areas;
     face_areas *= 0.5f;
+    
+    // TODO: add poly coeffs
+    triangles.poly0 = gather<Array<Vectorf<20,ad>,3>>(poly_coeffs, face_indices[0]);
+    triangles.poly1 = gather<Array<Vectorf<20,ad>,3>>(poly_coeffs, face_indices[1]);
+    triangles.poly2 = gather<Array<Vectorf<20,ad>,3>>(poly_coeffs, face_indices[2]);
     
     return { triangles, vertex_normals };
 }
@@ -103,6 +112,63 @@ void Mesh::instance(const Mesh * origin_mesh, float offset){
     m_ready = false;
 }
 
+
+void Mesh::load_poly(const char *fname, int index, bool verbose) {
+    std::cout << "load_poly function " << fname << std::endl;
+    cnpy::NpyArray arr = cnpy::npy_load(fname);
+    
+    // Load from npy data
+    // float* loaded_data = arr.data<float>();
+    double* loaded_data = arr.data<double>();
+    std::vector<size_t> shape = arr.shape;
+
+    std::cout << "SHAPE " << shape[0] << " " << shape[1] << std::endl;
+    std::cout << slices(m_poly_coeff) << std::endl;
+    std::cout << m_num_vertices << std::endl;
+
+
+    PSDR_ASSERT_MSG(shape[0] == m_num_vertices, "Number of vertices do not match between obj and poly_coeffs");
+
+    std::vector<float> buffers[20];
+    //resize shapeCoeffs
+    for(auto& buffer: buffers)
+        buffer.resize(m_num_vertices);
+    // buffers[0].resize(m_num_vertices);
+    // buffers[1].resize(m_num_vertices);
+    // buffers[2].resize(m_num_vertices);
+    for ( int i = 0; i < m_num_vertices; ++i ){
+        for ( int j = 0; j < shape[1]; ++j ){
+            buffers[j][i] = loaded_data[20*i + j];
+        }
+    }
+    // TODO: is there a better way...
+    // Load buffers to enoki array
+    m_poly_coeff.coeff(index) = Vectorf<20,true>(FloatD::copy(buffers[0].data(), m_num_vertices),
+                                   FloatD::copy(buffers[1].data(), m_num_vertices),
+                                   FloatD::copy(buffers[2].data(), m_num_vertices),
+                                   FloatD::copy(buffers[3].data(), m_num_vertices),
+                                   FloatD::copy(buffers[4].data(), m_num_vertices),
+
+                                   FloatD::copy(buffers[5].data(), m_num_vertices),
+                                   FloatD::copy(buffers[6].data(), m_num_vertices),
+                                   FloatD::copy(buffers[7].data(), m_num_vertices),
+                                   FloatD::copy(buffers[8].data(), m_num_vertices),
+                                   FloatD::copy(buffers[9].data(), m_num_vertices),
+
+                                   FloatD::copy(buffers[10].data(), m_num_vertices),
+                                   FloatD::copy(buffers[11].data(), m_num_vertices),
+                                   FloatD::copy(buffers[12].data(), m_num_vertices),
+                                   FloatD::copy(buffers[13].data(), m_num_vertices),
+                                   FloatD::copy(buffers[14].data(), m_num_vertices),
+
+                                   FloatD::copy(buffers[15].data(), m_num_vertices),
+                                   FloatD::copy(buffers[16].data(), m_num_vertices),
+                                   FloatD::copy(buffers[17].data(), m_num_vertices),
+                                   FloatD::copy(buffers[18].data(), m_num_vertices),
+                                   FloatD::copy(buffers[19].data(), m_num_vertices)
+                                   );
+    // std::cout << m_poly_coeff[1] << std::endl;
+}
 
 void Mesh::load(const char *fname, bool verbose) {
     tinyobj::attrib_t attrib;
@@ -265,7 +331,7 @@ void Mesh::configure() {
     }
 
     // Calculating the "raw" (i.e., object-space) vertex normals
-    std::tie(std::ignore, m_vertex_normals_raw) = process_mesh<true>(m_vertex_positions_raw, m_face_indices);
+    std::tie(std::ignore, m_vertex_normals_raw) = process_mesh<true>(m_vertex_positions_raw, m_face_indices,m_poly_coeff);
     // std::cout<<"new mesh: "<<slices(m_vertex_positions_raw)<<std::endl;
     // std::cout<<"new mesh: "<<slices(m_face_indices)<<std::endl;
 
@@ -282,7 +348,7 @@ void Mesh::configure() {
 
     m_triangle_info = new TriangleInfoD();
     TriangleInfoD &triangle_info = *m_triangle_info;
-    std::tie(triangle_info, std::ignore) = process_mesh<true>(m_vertex_positions, m_face_indices);
+    std::tie(triangle_info, std::ignore) = process_mesh<true>(m_vertex_positions, m_face_indices, m_poly_coeff);
 
     const FloatD &face_areas = triangle_info.face_area;
     m_total_area = hsum(face_areas)[0];

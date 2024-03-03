@@ -342,7 +342,8 @@ PYBIND11_MODULE(psdr_cuda, m) {
     py::class_<Integrator, Object>(m, "Integrator")
         .def("renderC", &Integrator::renderC, "scene"_a, "sensor_id"_a = 0)
         .def("renderD", &Integrator::renderD, "scene"_a, "sensor_id"_a = 0)
-        .def("preprocess_secondary_edges", &Integrator::preprocess_secondary_edges, "scene"_a, "sensor_id"_a, "resolution"_a, "nrounds"_a = 1);
+        .def("preprocess_secondary_edges", &Integrator::preprocess_secondary_edges, "scene"_a, "sensor_id"_a, "resolution"_a, "nrounds"_a = 1)
+        .def("sample_sub", &Integrator::sample_sub, "scene"_a, "pts"_a,"dir"_a);
 
     py::class_<FieldExtractionIntegrator, Integrator>(m, "FieldExtractionIntegrator")
         .def(py::init<const char*>());

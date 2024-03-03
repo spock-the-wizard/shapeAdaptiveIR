@@ -69,7 +69,6 @@ Spectrum<ad> DirectIntegrator::__Li(const Scene &scene, Sampler &sampler, const 
     Float<ad> dist_sqr = squared_norm(wo);
     Float<ad> dist = safe_sqrt(dist_sqr);
     wo /= dist;
-    std::cout << "bs.rgb at direct.cpp:72 " << bs.rgb << std::endl;
 
     bs.wo = bs.po.sh_frame.to_local(wo);
     bs.po.wi = bs.wo;
@@ -361,6 +360,7 @@ void DirectIntegrator::eval_secondary_edge_bssrdf(const Scene &scene, const Inte
 
 template <bool ad>
 std::pair<IntC, Spectrum<ad>> DirectIntegrator::eval_secondary_edge(const Scene &scene, const Sensor &sensor, const Vector3fC &sample3) const {
+    // std::cout << "eval_secondary_edge" << std::endl;
     BoundarySegSampleDirect bss = scene.sample_boundary_segment_direct(sample3);
     MaskC valid = bss.is_valid;
 
@@ -400,16 +400,16 @@ std::pair<IntC, Spectrum<ad>> DirectIntegrator::eval_secondary_edge(const Scene 
     // std::cout << "direct:400" <<bs1.rgb << std::endl;
     Vector3fC &_p1 = bs1.po.p;
     
+    // std::cout<<bs1.po.abs_prob<<std::endl;
     // End: Xi Deng added
     bs2.po = _its1;
+    // std::cout<<bs2.po.abs_prob<<std::endl;
     bs2.wo = _its1.sh_frame.to_local(_dir);
     bs2.is_valid = _its1.is_valid();
     bs2.pdf = bss.pdf;
     bs2.is_sub = bsdf_array->hasbssdf();
-    std::cout << "bs2 before" << bs2.rgb << std::endl;
-    bs2.rgb = bs1.rgb;
+    bs2.rgb_rv = bs1.rgb_rv;
     // TODO: this part needs rgb mapping
-    std::cout << "bs2 after" << bs2.rgb << std::endl;
     valid &= bs1.po.is_valid();
     // std::cout<<" valid : "<<any(valid)<<std::endl;
 

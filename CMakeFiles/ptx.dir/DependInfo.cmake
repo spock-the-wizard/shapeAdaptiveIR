@@ -1,14 +1,30 @@
-
-# Consider dependencies only in project.
-set(CMAKE_DEPENDS_IN_PROJECT_ONLY OFF)
-
 # The set of languages for which implicit dependencies are needed:
 set(CMAKE_DEPENDS_LANGUAGES
+  "CXX"
+  )
+# The set of files for implicit dependencies of each language:
+set(CMAKE_DEPENDS_CHECK_CXX
+  "/sss/InverseTranslucent/cuda/psdr_cuda.cpp" "/sss/InverseTranslucent/CMakeFiles/ptx.dir/cuda/psdr_cuda.cpp.o"
+  )
+set(CMAKE_CXX_COMPILER_ID "GNU")
+
+# Preprocessor definitions for this target.
+set(CMAKE_TARGET_DEFINITIONS_CXX
+  "OPTIX_SAMPLE_NAME_DEFINE=ptx"
+  "PSDR_CUDA_FILE=\"psdr_cuda\""
   )
 
-# The set of dependency files which are needed:
-set(CMAKE_DEPENDS_DEPENDENCY_FILES
-  "/home/xd/Research/psdr-cuda/cuda/psdr_cuda.cpp" "CMakeFiles/ptx.dir/cuda/psdr_cuda.cpp.o" "gcc" "CMakeFiles/ptx.dir/cuda/psdr_cuda.cpp.o.d"
+# The include file search paths:
+set(CMAKE_CXX_TARGET_INCLUDE_PATH
+  "include"
+  "ext/optix/include"
+  "cuda"
+  "."
+  "/usr/local/cuda/include"
+  "/usr/include/OpenEXR"
+  "ext/pybind11/include"
+  "/usr/include/python3.8"
+  "/home/enoki/include"
   )
 
 # Targets to which this target links.

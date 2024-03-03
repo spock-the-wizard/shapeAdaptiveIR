@@ -20,12 +20,13 @@
         <float name='eta' value='1.2029'/>
         <rgb name='specular_reflectance' value='1.0, 1.0, 1.0'/>
         
-        <texture name="albedo" type="bitmap">
+        <!-- <texture name="albedo" type="bitmap">
             <string name="filename" value="../../textures/albedo_init.exr" />
-        </texture>
-        <!-- <rgb name="sigma_t" value='1.00, 1.00, 1.00'/> -->
-        <!-- <rgb name="albedo" value='0.900, 0.3400, 0.200'/> -->
-        <rgb name="sigma_t" value='2.3218145,  2.3273377,  0.26335016'/>
+        </texture> -->
+        <rgb name="sigma_t" value='1.00, 1.00, 1.00'/>
+        <rgb name="albedo" value='0.500, 0.500, 0.500' />
+       
+        <!-- <rgb name="sigma_t" value='2.3218145,  2.3273377,  0.26335016'/> -->
     </bsdf>
 
 

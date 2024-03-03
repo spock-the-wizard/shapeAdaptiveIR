@@ -173,9 +173,11 @@ struct TriangleInfo_ {
 
     Vector3f<ad> p0, e1, e2, n0, n1, n2, face_normal;
     Float<ad>    face_area;
+    Array<Vectorf<20,ad>,3> poly0, poly1, poly2;
 
     ENOKI_STRUCT(TriangleInfo_, p0, e1, e2,
                                 n0, n1, n2,
+                                poly0,poly1,poly2,
                                 face_normal,
                                 face_area)
 };
@@ -222,5 +224,5 @@ struct RenderOption {
 
 } // namespace psdr
 
-ENOKI_STRUCT_SUPPORT(psdr::TriangleInfo_, p0, e1, e2, n0, n1, n2,
+ENOKI_STRUCT_SUPPORT(psdr::TriangleInfo_, p0, e1, e2, n0, n1, n2,poly0,poly1,poly2,
                                           face_normal, face_area)

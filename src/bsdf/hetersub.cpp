@@ -242,7 +242,9 @@ Spectrum<ad> HeterSub::__eval_sub(const Intersection<ad> &its, const BSDFSample<
     Spectrum<ad> sp = sqrt(__Sp<ad>(bs.po, its)) * sqrt(__Sp<ad>(its, bs.po));
     Spectrum<ad> sw =  __Sw<ad>(bs.po, bs.wo, active);
     
+    std::cout << "[DEBUG] Active rate: " << 100*count(active)/slices(active) << std::endl;
     Spectrum<ad> value = sp * sw * (1.0f - F) * cos_theta_o;
+    std::cout << "cos_theta_o " << cos_theta_o << std::endl;
     if constexpr ( ad ) {
         value = value * bs.po.J;    
     }
@@ -284,6 +286,8 @@ BSDFSample<ad> HeterSub::__sample(const Scene *scene, const Intersection<ad> &it
     bs.po.sh_frame.s = select(sample.x() > prob, bs.po.sh_frame.s, bsdf_bs.po.sh_frame.s);
     bs.po.sh_frame.t = select(sample.x() > prob, bs.po.sh_frame.t, bsdf_bs.po.sh_frame.t);
     bs.po.sh_frame.n = select(sample.x() > prob, bs.po.sh_frame.n, bsdf_bs.po.sh_frame.n);
+    bs.po.abs_prob = select(sample.x() > prob, bs.po.abs_prob, bsdf_bs.po.abs_prob);
+    bs.rgb_rv = select(sample.x() > prob, bs.rgb_rv, bsdf_bs.rgb_rv);
     return bs;
 }
 
@@ -304,6 +308,9 @@ BSDFSample<ad> HeterSub::__sample_bsdf(const Intersection<ad> &its, const Vector
     bs.pdf = __pdf_bsdf<ad>(its, bs, active) * F;
     bs.is_valid = (cos_theta_i > 0.f) & active;
     bs.is_sub = false;
+
+    bs.rgb_rv = full<Float<ad>>(-1.0f);
+    bs.po.abs_prob = full<Float<ad>>(0.0f);
     return bs;
 }
 
@@ -313,7 +320,9 @@ BSDFSample<ad> HeterSub::__sample_sub(const Scene *scene, const Intersection<ad>
     Float<ad> cos_theta_i = Frame<ad>::cos_theta(its.wi);
     BSDFSample<ad> bs;
     Float<ad> pdf_po = Frame<ad>::cos_theta(its.wi);
-    bs.po = __sample_sp<ad>(scene, its, sample, pdf_po, active);
+    // bs.po = __sample_sp<ad>(scene, its, sample, pdf_po, active);
+    Vector3f<ad> dummy;
+    std::tie(bs.po, bs.rgb_rv,dummy,dummy) = __sample_sp<ad>(scene, its, sample, pdf_po, active);
     bs.wo = warp::square_to_cosine_hemisphere<ad>(tail<2>(sample));
     bs.pdf = pdf_po;
     // TODO: add an id check
@@ -322,6 +331,7 @@ BSDFSample<ad> HeterSub::__sample_sub(const Scene *scene, const Intersection<ad>
     
     pdf_po = __pdf_sub<ad>(its, bs, active) * warp::square_to_cosine_hemisphere_pdf<ad>(bs.wo);
     bs.pdf = pdf_po;
+    bs.rgb_rv = 1.0f;
     return bs;
 }
 
@@ -434,7 +444,8 @@ Float<ad> HeterSub::__sample_sr(const Float<ad> &miu_t, const Float<ad> &x) cons
 }
 
 template <bool ad>
-Intersection<ad> HeterSub::__sample_sp(const Scene *scene, const Intersection<ad> &its, const Vector8f<ad> &sample, Float<ad> &pdf, Mask<ad> active) const {        
+std::tuple<Intersection<ad>,Float<ad>,Vector3f<ad>,Vector3f<ad>> HeterSub::__sample_sp(const Scene *scene, const Intersection<ad> &its, const Vector8f<ad> &sample, Float<ad> &pdf, Mask<ad> active) const {        
+// Intersection<ad> HeterSub::__sample_sp(const Scene *scene, const Intersection<ad> &its, const Vector8f<ad> &sample, Float<ad> &pdf, Mask<ad> active) const {        
         Vector3f<ad> vx = its.sh_frame.s;
         Vector3f<ad> vy = its.sh_frame.t;
         Vector3f<ad> vz = its.sh_frame.n;
@@ -484,7 +495,16 @@ Intersection<ad> HeterSub::__sample_sp(const Scene *scene, const Intersection<ad
 
         Ray<ad> ray2(its.p + r * (vx * cos(phi) + vy * sin(phi)) - vz * 0.5f * l, vz, l);
         Intersection<ad> its2 = scene->ray_all_intersect<ad, ad>(ray2, active, sample, 5);
-        return its2;
+        auto mask = its2.is_valid();
+        float validity = 100*count(mask) / slices(mask);
+        std::cout << "validity " << validity << std::endl;
+
+        // return its2;
+        // NOTE: modified for viz
+        auto outPos = its.p + r * (vx * cos(phi) + vy * sin(phi));
+        auto projDir = vz;
+        
+        return std::tuple<Intersection<ad>,Float<ad>,Vector3f<ad>,Vector3f<ad>>(its2,sample[5],outPos,projDir);
     }
 
 

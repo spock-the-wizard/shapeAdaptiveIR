@@ -73,6 +73,7 @@ void Scene::configure() {
     // std::cout<<"configure sampler"<<std::endl;
     if ( m_opts.spp  > 0 ) {
         int64_t sample_count = static_cast<int64_t>(m_opts.cropheight)*m_opts.cropwidth*m_opts.spp;
+        std::cout << sample_count << std::endl;
         if ( m_samplers[0].m_sample_count != sample_count )
             // m_samplers[0].seed(arange<UInt64C>(sample_count));
             m_samplers[0].seed(arange<UInt64C>(sample_count) + m_seed);
@@ -350,9 +351,11 @@ Intersection<ad> Scene::ray_all_intersect(const Ray<ad> &ray, Mask<ad> active, c
         face_normal_mask = gather<MaskC>(detach(m_triangle_face_normals), idx[1], active);
         its.J = 1.f;
     }
+    // std::cout << "tri_info.p0 " << tri_info.p0 << std::endl;
     its.n = tri_info.face_normal;
 
     const Vector3f<ad> &vertex0 = tri_info.p0, &edge1 = tri_info.e1, &edge2 = tri_info.e2;
+    // std::cout << "vertex0 " << vertex0 << std::endl;
 
     if constexpr ( !ad || path_space ) {
         // Path-space formulation
@@ -383,6 +386,17 @@ Intersection<ad> Scene::ray_all_intersect(const Ray<ad> &ray, Mask<ad> active, c
                                tri_uv_info[1] - tri_uv_info[0],
                                tri_uv_info[2] - tri_uv_info[0],
                                uv);
+        // Joon added 
+        // Poly coeffs interpolation 
+        for(int i=0;i<3;i++){
+            its.poly_coeff[i] = bilinear20<ad>(tri_info.poly0[i],
+                                            tri_info.poly1[i] - tri_info.poly0[i],
+                                            tri_info.poly2[i] - tri_info.poly0[i],
+                                            uv);
+
+        }
+        // std::cout << "poly_coeff " << poly_coeff << std::endl;
+        // std::cout << "poly_coeff " << poly_coef << std::endl;
     } else {
         // Standard (solid-angle) formulation
         auto [uv, t] = ray_intersect_triangle<true>(vertex0, edge1, edge2, ray);
@@ -406,11 +420,20 @@ Intersection<ad> Scene::ray_all_intersect(const Ray<ad> &ray, Mask<ad> active, c
                                  tri_uv_info[2] - tri_uv_info[0],
                                  uv);
 
+        for(int i=0;i<3;i++){
+            its.poly_coeff[i] = bilinear20<ad>(tri_info.poly0[i],
+                                            tri_info.poly1[i] - tri_info.poly0[i],
+                                            tri_info.poly2[i] - tri_info.poly0[i],
+                                            uv);
+            
+        }
         // int num_samples = static_cast<int>(slices(ray.o));
         // FloatC tmp = zero<FloatC>(num_samples);
         // masked(tmp, detach(active)) = norm(Vector2fC(detach(u_d), detach(v_d)) - m_optix->m_its.uv);
         // std::cout << hmax(tmp) << std::endl;
     }
+    
+
     its.num = idx[2];
     return its;
 }
@@ -478,11 +501,15 @@ Intersection<ad> Scene::ray_intersect(const Ray<ad> &ray, Mask<ad> active, Trian
     static_assert(ad || !path_space);
 
     Intersection<ad> its;
+    // std::cout << active << std::endl;
     Vector2i<ad> idx = m_optix->ray_intersect<ad>(ray, active);
+    // std::cout << "idx[1] " << idx[1] << std::endl;
 
+    
     TriangleInfo<ad>    tri_info;
     TriangleUV<ad>      tri_uv_info;
     Mask<ad>            face_normal_mask;
+
     if constexpr ( ad ) {
         tri_info = gather<TriangleInfoD>(m_triangle_info, idx[1], active);
         if ( out_info != nullptr ) *out_info = tri_info;
@@ -540,6 +567,18 @@ Intersection<ad> Scene::ray_intersect(const Ray<ad> &ray, Mask<ad> active, Trian
                                tri_uv_info[1] - tri_uv_info[0],
                                tri_uv_info[2] - tri_uv_info[0],
                                uv);
+        // Joon added 
+        // Poly coeffs interpolation 
+        for(int i=0;i<3;i++){
+            its.poly_coeff[i] = bilinear20<ad>(tri_info.poly0[i],
+                                            tri_info.poly1[i] - tri_info.poly0[i],
+                                            tri_info.poly2[i] - tri_info.poly0[i],
+                                            uv);
+        }
+        // its.poly_coeff = bilinear20<ad>(tri_info.poly0,
+        //                                 tri_info.poly1 - tri_info.poly0,
+        //                                 tri_info.poly2 - tri_info.poly0,
+        //                                 uv);
     } else {
         // Standard (solid-angle) formulation
         auto [uv, t] = ray_intersect_triangle<true>(vertex0, edge1, edge2, ray);
@@ -562,7 +601,14 @@ Intersection<ad> Scene::ray_intersect(const Ray<ad> &ray, Mask<ad> active, Trian
                                  tri_uv_info[1] - tri_uv_info[0],
                                  tri_uv_info[2] - tri_uv_info[0],
                                  uv);
-
+        // Joon added 
+        // Poly coeffs interpolation 
+        for(int i=0;i<3;i++){
+            its.poly_coeff[i] = bilinear20<ad>(tri_info.poly0[i],
+                                            tri_info.poly1[i] - tri_info.poly0[i],
+                                            tri_info.poly2[i] - tri_info.poly0[i],
+                                            uv);
+        }
         // int num_samples = static_cast<int>(slices(ray.o));
         // FloatC tmp = zero<FloatC>(num_samples);
         // masked(tmp, detach(active)) = norm(Vector2fC(detach(u_d), detach(v_d)) - m_optix->m_its.uv);

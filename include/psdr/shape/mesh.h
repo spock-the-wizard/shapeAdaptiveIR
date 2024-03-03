@@ -14,6 +14,7 @@ public:
 
 
     void load(const char *fname, bool verbose = false);
+    void load_poly(const char *fname, int index, bool verbose = false);
     
     // xi deng added for multilayer bssrdf
     void instance(const Mesh *mesh, float offset=0.01f);
@@ -110,6 +111,15 @@ public:
     // For OptiX ray tracing
     FloatC              m_vertex_buffer;
     IntC                m_face_buffer;
+    
+    // Joon added
+    Array<Vectorf<20,true>,3>    m_poly_coeff = Array<Vectorf<20,true>,3>(zero<Vectorf<20,true>>(),
+                                                                        zero<Vectorf<20,true>>(),
+                                                                        zero<Vectorf<20,true>>());
+    //  = Array<Vectorf<20,true>,3>(zero<Vectorf<20,true>>(), 
+    //                                                                     zero<Vectorf<20,true>>(),
+    //                                                                     zero<Vectorf<20,true>>()
+    //                                                                     );
 
     ENOKI_PINNED_OPERATOR_NEW(FloatD)
 
