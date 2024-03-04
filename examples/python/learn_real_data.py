@@ -307,8 +307,6 @@ def opt_task(args):
             # print("sensor indices: ", sensor_indices)
             for sensor_id in sensor_indices:
                 sc.setlightposition(Vector3fD(lights[sensor_id][0], lights[sensor_id][1], lights[sensor_id][2]))
-                # TODO: change this to custom light file
-                sc.setlightposition(Vector3fD(1.192, -1.3364, 0.889))
                 tar_img = Vector3fD(tars[sensor_id].cuda())
                 # weight_img = Vector3fD(tmeans[sensor_id].cuda()f)
                 our_imgA = myIntegrator.renderD(sc, sensor_id)
@@ -408,8 +406,6 @@ def opt_task(args):
         for idx in sidxs:
             # TODO: tmp setting
             sc.setlightposition(Vector3fD(lights[idx][0], lights[idx][1], lights[idx][2]))
-            sc.setlightposition(Vector3fD(1.192, -1.3364, 0.889))
-            # sc.setlightposition(Vector3fD(10, 10, 10))
             img2 = renderNtimes(sc, myIntegrator, args.ref_spp, idx)
             img2 = np.clip(img2,a_min=0.0, a_max=1.0)
             target2 = tars[idx].numpy().reshape((ro.cropheight, ro.cropwidth, 3))
@@ -426,6 +422,7 @@ def opt_task(args):
 
             outfile_error = statsdir + "/error_{}.png".format(i+1)
             plt.savefig(outfile_error,bbox_inches='tight')
+            plt.close()
             
             # rmse2 = cmap(rmse(img2,target2)).astype(np.float32)[...,:3] * 255.0
             wandb.log({

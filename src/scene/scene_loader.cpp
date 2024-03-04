@@ -514,7 +514,7 @@ void SceneLoader::load_shape(const pugi::xml_node &node, Scene &scene) {
         file_name_poly = poly_coeff_node.attribute("value").value();
         if(strcmp(file_name_poly,"")!=0){
         std::cout << "file_name_poly " << file_name_poly << std::endl;
-        mesh->load_poly(file_name_poly,0);
+        mesh->load_poly(file_name_poly,1);
         }
         // std::cout << "file_name_poly " << file_name_poly << std::endl;
         // mesh->load_poly(file_name_poly,1);
@@ -525,7 +525,7 @@ void SceneLoader::load_shape(const pugi::xml_node &node, Scene &scene) {
         file_name_poly = poly_coeff_node.attribute("value").value();
         if(strcmp(file_name_poly,"")!=0){
         std::cout << "file_name_poly " << file_name_poly << std::endl;
-        mesh->load_poly(file_name_poly,0);
+        mesh->load_poly(file_name_poly,2);
         }
         // mesh->load_poly(file_name_poly,2);
             

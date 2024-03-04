@@ -1,5 +1,5 @@
 python3.8 ../learn_real_data.py \
-        --stats_folder "head/inv_deng" \
+        --stats_folder "test_smallNet" \
         --d_type "custom" \
         --seed 2 \
         --scene "head" \
@@ -17,9 +17,9 @@ python3.8 ../learn_real_data.py \
         --albedo_laplacian 0 \
         --rough_laplacian 0 \
         --no_init "no" \
-        --spp 4 \
-        --sppe 8 \
-        --sppse 8 \
+        --spp 16 \
+        --sppe 32 \
+        --sppse 32 \
         --ref_spp 50 \
         --albedo_texture 0 \
         --rough_texture 0 \

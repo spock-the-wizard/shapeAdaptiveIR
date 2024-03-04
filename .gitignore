@@ -14,3 +14,13 @@ variables/
 data/
 build_*/
 
+viz/
+wandb/
+*.npy
+*.obj
+
+CMakeLists.txt
+*.cmake
+Makefile
+test
+
