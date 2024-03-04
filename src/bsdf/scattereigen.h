@@ -108,6 +108,8 @@ public:
         int32_t rows, cols;
         f.read(reinterpret_cast<char *>(&rows), sizeof(rows));
         f.read(reinterpret_cast<char *>(&cols), sizeof(cols));
+        std::cout << "rows" << rows << std::endl;
+        std::cout << "cols" << cols << std::endl;
 
         for (size_t i = 0; i < rows; ++i)
         {

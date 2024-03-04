@@ -28,31 +28,43 @@ namespace psdr
         const std::string shapeFeaturesName = "mlsPolyLS3";
         int PolyOrder = 3;
         
-        NetworkHelpers::loadVector(variablePath + "/absorption_dense_bias.bin", (float*) &absorption_dense_bias);
-        NetworkHelpers::loadVector(variablePath + "/absorption_mlp_fcn_0_biases.bin", (float*) &absorption_mlp_fcn_0_biases);
-
-        NetworkHelpers::loadVector(variablePath + "/scatter_decoder_fcn_fcn_0_biases.bin",(float*) &scatter_decoder_fcn_fcn_0_biases);
-        NetworkHelpers::loadVector(variablePath + "/scatter_decoder_fcn_fcn_1_biases.bin",(float*) &scatter_decoder_fcn_fcn_1_biases);
-        NetworkHelpers::loadVector(variablePath + "/scatter_decoder_fcn_fcn_2_biases.bin",(float*) &scatter_decoder_fcn_fcn_2_biases);
+        NetworkHelpers::loadMat(variablePath + "/scatter_decoder_fcn_fcn_0_weights.bin",(float*) &m_scatter_decoder_fcn_fcn_0_weights);
+        NetworkHelpers::loadMat(variablePath + "/scatter_decoder_fcn_fcn_1_weights.bin",(float*) &m_scatter_decoder_fcn_fcn_1_weights);
+        NetworkHelpers::loadMat(variablePath + "/scatter_decoder_fcn_fcn_2_weights.bin",(float*) &m_scatter_decoder_fcn_fcn_2_weights);
+        NetworkHelpers::loadVector(variablePath + "/scatter_decoder_fcn_fcn_0_biases.bin",(float*) &m_scatter_decoder_fcn_fcn_0_biases);
+        NetworkHelpers::loadVector(variablePath + "/scatter_decoder_fcn_fcn_1_biases.bin",(float*) &m_scatter_decoder_fcn_fcn_1_biases);
+        NetworkHelpers::loadVector(variablePath + "/scatter_decoder_fcn_fcn_2_biases.bin",(float*) &m_scatter_decoder_fcn_fcn_2_biases);
+        NetworkHelpers::loadMat(variablePath + "/scatter_dense_2_kernel.bin", (float*) &m_scatter_dense_2_kernel,3);
+        NetworkHelpers::loadVector(variablePath + "/scatter_dense_2_bias.bin",(float*) &m_scatter_dense_2_bias);
+        // NetworkHelpers::loadMat(variablePath + "/scatter_decoder_fcn_fcn_0_weights.bin",(float*) &scatter_decoder_fcn_fcn_0_weights,68);
+        // NetworkHelpers::loadMat(variablePath + "/scatter_decoder_fcn_fcn_1_weights.bin",(float*) &scatter_decoder_fcn_fcn_1_weights);
+        // NetworkHelpers::loadMat(variablePath + "/scatter_decoder_fcn_fcn_2_weights.bin",(float*) &scatter_decoder_fcn_fcn_2_weights);
+        // NetworkHelpers::loadVector(variablePath + "/scatter_decoder_fcn_fcn_0_biases.bin",(float*) &scatter_decoder_fcn_fcn_0_biases);
+        // NetworkHelpers::loadVector(variablePath + "/scatter_decoder_fcn_fcn_1_biases.bin",(float*) &scatter_decoder_fcn_fcn_1_biases);
+        // NetworkHelpers::loadVector(variablePath + "/scatter_decoder_fcn_fcn_2_biases.bin",(float*) &scatter_decoder_fcn_fcn_2_biases);
+        // NetworkHelpers::loadMat(variablePath + "/scatter_dense_2_kernel.bin", (float*) &scatter_dense_2_kernel);
+        // NetworkHelpers::loadVector(variablePath + "/scatter_dense_2_bias.bin",(float*) &scatter_dense_2_bias);
         
+
+        NetworkHelpers::loadMat(variablePath + "/shared_preproc_mlp_2_shapemlp_fcn_0_weights.bin",(float*) &m_shared_preproc_mlp_2_shapemlp_fcn_0_weights);
+        NetworkHelpers::loadMat(variablePath + "/shared_preproc_mlp_2_shapemlp_fcn_1_weights.bin",(float*) &m_shared_preproc_mlp_2_shapemlp_fcn_1_weights);
+        NetworkHelpers::loadMat(variablePath + "/shared_preproc_mlp_2_shapemlp_fcn_2_weights.bin",(float*) &m_shared_preproc_mlp_2_shapemlp_fcn_2_weights);
         NetworkHelpers::loadVector(variablePath + "/shared_preproc_mlp_2_shapemlp_fcn_0_biases.bin",(float*) &shared_preproc_mlp_2_shapemlp_fcn_0_biases);
         NetworkHelpers::loadVector(variablePath + "/shared_preproc_mlp_2_shapemlp_fcn_1_biases.bin",(float*) &shared_preproc_mlp_2_shapemlp_fcn_1_biases);
         NetworkHelpers::loadVector(variablePath + "/shared_preproc_mlp_2_shapemlp_fcn_2_biases.bin",(float*) &shared_preproc_mlp_2_shapemlp_fcn_2_biases);
+        // NetworkHelpers::loadMat(variablePath + "/shared_preproc_mlp_2_shapemlp_fcn_0_weights.bin",(float*) &shared_preproc_mlp_2_shapemlp_fcn_0_weights);
+        // NetworkHelpers::loadMat(variablePath + "/shared_preproc_mlp_2_shapemlp_fcn_1_weights.bin",(float*) &shared_preproc_mlp_2_shapemlp_fcn_1_weights);
+        // NetworkHelpers::loadMat(variablePath + "/shared_preproc_mlp_2_shapemlp_fcn_2_weights.bin",(float*) &shared_preproc_mlp_2_shapemlp_fcn_2_weights);
+        
 
-        NetworkHelpers::loadVector(variablePath + "/scatter_dense_2_bias.bin",(float*) &scatter_dense_2_bias);
-        NetworkHelpers::loadMat(variablePath + "/scatter_decoder_fcn_fcn_0_weights.bin",(float*) &scatter_decoder_fcn_fcn_0_weights,68);
-        NetworkHelpers::loadMat(variablePath + "/scatter_decoder_fcn_fcn_1_weights.bin",(float*) &scatter_decoder_fcn_fcn_1_weights);
-        NetworkHelpers::loadMat(variablePath + "/scatter_decoder_fcn_fcn_2_weights.bin",(float*) &scatter_decoder_fcn_fcn_2_weights);
-        
-        NetworkHelpers::loadMat(variablePath + "/shared_preproc_mlp_2_shapemlp_fcn_0_weights.bin",(float*) &shared_preproc_mlp_2_shapemlp_fcn_0_weights);
-        NetworkHelpers::loadMat(variablePath + "/shared_preproc_mlp_2_shapemlp_fcn_1_weights.bin",(float*) &shared_preproc_mlp_2_shapemlp_fcn_1_weights);
-        NetworkHelpers::loadMat(variablePath + "/shared_preproc_mlp_2_shapemlp_fcn_2_weights.bin",(float*) &shared_preproc_mlp_2_shapemlp_fcn_2_weights);
-
-        NetworkHelpers::loadMat(variablePath + "/scatter_dense_2_kernel.bin", (float*) &scatter_dense_2_kernel);
-        
-        
-        NetworkHelpers::loadMat(variablePath + "/absorption_dense_kernel.bin",(float*) &absorption_dense_kernel);
-        NetworkHelpers::loadMat(variablePath + "/absorption_mlp_fcn_0_weights.bin",(float*) &absorption_mlp_fcn_0_weights);
+        NetworkHelpers::loadMat(variablePath + "/absorption_dense_kernel.bin",(float*) &m_absorption_dense_kernel,1);
+        NetworkHelpers::loadMat(variablePath + "/absorption_mlp_fcn_0_weights.bin",(float*) &m_absorption_mlp_fcn_0_weights,32); //[32,64]
+        NetworkHelpers::loadVector(variablePath + "/absorption_dense_bias.bin", (float*) &m_absorption_dense_bias);
+        NetworkHelpers::loadVector(variablePath + "/absorption_mlp_fcn_0_biases.bin", (float*) &m_absorption_mlp_fcn_0_biases);
+        // NetworkHelpers::loadMat(variablePath + "/absorption_dense_kernel.bin",(float*) &absorption_dense_kernel);
+        // NetworkHelpers::loadMat(variablePath + "/absorption_mlp_fcn_0_weights.bin",(float*) &absorption_mlp_fcn_0_weights);
+        // NetworkHelpers::loadVector(variablePath + "/absorption_dense_bias.bin", (float*) &absorption_dense_bias);
+        // NetworkHelpers::loadVector(variablePath + "/absorption_mlp_fcn_0_biases.bin", (float*) &absorption_mlp_fcn_0_biases);
 
         std::ifstream inStreamStats(featStatsFilePath);
         if (inStreamStats) {
@@ -72,8 +84,6 @@ namespace psdr
             m_shapeFeatMean[i]   = stats[shapeFeaturesName + "_mean"][i];
             m_shapeFeatStdInv[i] = stats[shapeFeaturesName + "_stdinv"][i];
         }
-        
-
     }
 
 SpectrumC VaeSub::eval(const IntersectionC &its, const Vector3fC &wo, MaskC active) const {
@@ -510,38 +520,62 @@ Float<ad> VaeSub::__sample_sr(const Float<ad> &miu_t, const Float<ad> &x) const 
 template <typename T, int C, int R>
 using Matrix = enoki::Array<Array<T,C>,R>;
 
-template <bool ad,size_t size>
-std::pair<Vector3f<ad>,Float<ad>> VaeSub::_run(Array<Float<ad>,size> x,Array<Float<ad>,4> latent) const {
-    // TODO: add absoprtion
-        auto features = max(shared_preproc_mlp_2_shapemlp_fcn_0_weights * x + shared_preproc_mlp_2_shapemlp_fcn_0_biases,0.0f);
+template <int C, int R,bool ad>
+Array<Float<ad>,R> matmul(Array<Array<float,R>,C> mat, Array<Float<ad>,C> vec) {
+    using EVector = Array<Float<ad>,R>;
+    Array<Float<ad>,R> sum = mat.coeff(0) * EVector::full_(vec[0],1); //[64] * [1,N]
+    
+    for (int i=1;i<C;i++){
+        sum = fmadd(mat.coeff(i),EVector::full_(vec.coeff(i),1),sum);
+    }
+    return sum;
+}
+
+template <bool ad>
+std::pair<Vector3f<ad>,Float<ad>> VaeSub::_run(Array<Float<ad>,23> x,Array<Float<ad>,4> latent) const {
+        
+        // auto feat = max(shared_preproc_mlp_2_shapemlp_fcn_0_weights * x + shared_preproc_mlp_2_shapemlp_fcn_0_biases,0.0f);
+        // feat = max(shared_preproc_mlp_2_shapemlp_fcn_1_weights * feat + shared_preproc_mlp_2_shapemlp_fcn_1_biases,0.0f);
+        // feat = max(shared_preproc_mlp_2_shapemlp_fcn_2_weights * feat + shared_preproc_mlp_2_shapemlp_fcn_2_biases,0.0f);
+        // std::cout << "feat" << feat[0] << std::endl;
         // features = max(shared_preproc_mlp_2_shapemlp_fcn_1_weights * features + shared_preproc_mlp_2_shapemlp_fcn_1_biases,0.0f);
         // features = max(shared_preproc_mlp_2_shapemlp_fcn_2_weights * features + shared_preproc_mlp_2_shapemlp_fcn_2_biases,0.0f);
+        auto features = max(matmul<23,64,ad>(m_shared_preproc_mlp_2_shapemlp_fcn_0_weights,x) + shared_preproc_mlp_2_shapemlp_fcn_0_biases,0.0f);
+        features = max(matmul<64,64,ad>(m_shared_preproc_mlp_2_shapemlp_fcn_1_weights,features) + shared_preproc_mlp_2_shapemlp_fcn_1_biases,0.0f);
+        features = max(matmul<64,64,ad>(m_shared_preproc_mlp_2_shapemlp_fcn_2_weights,features) + shared_preproc_mlp_2_shapemlp_fcn_2_biases,0.0f);
+        
 
         // auto abs = head<32,Array<Float<ad>,64>>(max(absorption_mlp_fcn_0_weights * features + absorption_mlp_fcn_0_biases,0.0f));
         // Represents 32 dim vector although shape is 64 (invalid regions are set to zero)
-        Array<Float<ad>,64> abs = max(absorption_mlp_fcn_0_weights * features + absorption_mlp_fcn_0_biases,0.0f); // Vector 32
-        abs = absorption_dense_kernel * abs + absorption_dense_bias[0];
-        abs = abs + absorption_dense_bias[0];
-        // Take only the first element of the 64 dim shape
-        auto absorption = NetworkHelpers::sigmoid<ad>(abs.x());
+        // Array<Float<ad>,64> abs = max(absorption_mlp_fcn_0_weights * features + absorption_mlp_fcn_0_biases,0.0f); // Vector 32
+        // abs = absorption_dense_kernel * abs + absorption_dense_bias[0];
+        // abs = abs + absorption_dense_bias[0];
+        // auto absorption = NetworkHelpers::sigmoid<ad>(abs.x());
+        Array<Float<ad>,32> abs1 = max(matmul<64,32,ad>(m_absorption_mlp_fcn_0_weights, features) + m_absorption_mlp_fcn_0_biases,0.0f); // Vector 32
+        auto abs2 = matmul<32,1,ad>(m_absorption_dense_kernel, abs1) + m_absorption_dense_bias[0];
+        auto absorption = NetworkHelpers::sigmoid<ad>(abs2.x());
+
 
         // Gaussian noise
         latent = float(M_SQRT2) * erfinv(2.f*latent - 1.f);
-        // std::cout<< "gaussian latent: "<<hmean(latent)<< std::endl;
-        
         auto featLatent = concat(latent,features);
-        auto y = head<64,Array<Float<ad>,68>>(scatter_decoder_fcn_fcn_0_weights * featLatent);
+        
+        // auto y = head<64,Array<Float<ad>,68>>(scatter_decoder_fcn_fcn_0_weights * featLatent);
         // y = max(y + scatter_decoder_fcn_fcn_0_biases,0.0f); 
         // y = max(scatter_decoder_fcn_fcn_1_weights * y + scatter_decoder_fcn_fcn_1_biases,0.0f); 
         // y = max(scatter_decoder_fcn_fcn_2_weights * y + scatter_decoder_fcn_fcn_2_biases,0.0f); 
-        auto outPos = head<3,Array<Float<ad>,64>>(scatter_dense_2_kernel * y);
-        outPos = outPos + scatter_dense_2_bias;
-        
-        return std::pair(outPos,absorption);
+        // auto outPos = head<3,Array<Float<ad>,64>>(scatter_dense_2_kernel * y);
+        // outPos = outPos + scatter_dense_2_bias;
+        auto y2 = max(matmul<68,64,ad>(m_scatter_decoder_fcn_fcn_0_weights,featLatent)+m_scatter_decoder_fcn_fcn_0_biases,0.0f);
+        y2 = max(matmul<64,64,ad>(m_scatter_decoder_fcn_fcn_1_weights,y2)+m_scatter_decoder_fcn_fcn_1_biases,0.0f);
+        y2 = max(matmul<64,64,ad>(m_scatter_decoder_fcn_fcn_2_weights,y2)+m_scatter_decoder_fcn_fcn_2_biases,0.0f);
+        auto outPos2 = matmul<64,3,ad>(m_scatter_dense_2_kernel,y2) + m_scatter_dense_2_bias;
+
+        return std::pair(outPos2,absorption);
 }
-template <bool ad,size_t size>
+template <bool ad>
 // Array<Float<ad>,size> VaeSub::_preprocessFeatures(const Intersection<ad>&its, int ch_idx, bool isPlane) const {
-Array<Float<ad>,size> VaeSub::_preprocessFeatures(const Intersection<ad>&its, Float<ad> rnd, bool isPlane,
+Array<Float<ad>,23> VaeSub::_preprocessFeatures(const Intersection<ad>&its, Float<ad> rnd, bool isPlane,
         Array<Float<ad>,3> wi, bool lightSpace
             ) const {
     float scale = 1.0f;
@@ -588,7 +622,8 @@ Array<Float<ad>,size> VaeSub::_preprocessFeatures(const Intersection<ad>&its, Fl
     // b = concat(b,gNorm);
     // b = concat(b,iorNorm);
     // Array<Float<ad>,size> x;
-    Array<Float<ad>,64> x = full<Array<Float<ad>,64>>(0.0f); // = zero<Array<Float<ad>,64>>();
+    using Vector23f = Array<Float<ad>,23>;
+    Vector23f x = full<Vector23f>(0.0f); // = zero<Array<Float<ad>,23>>();
     for (int i=0;i<20;i++){
         x[i] = shapeFeaturesNorm[i];
     }
@@ -693,28 +728,22 @@ std::tuple<Intersection<ad>,Float<ad>,Vector3f<ad>,Vector3f<ad>> VaeSub::__sampl
 // template <bool ad>
 // std::pair<Intersection<ad>,Float<ad>> VaeSub::__sample_sp(const Scene *scene, const Intersection<ad> &its, const Vector8f<ad> &sample, Float<ad> &pdf, Mask<ad> active) const {        
     
-        // testRotatePolynomial();
         Float<ad> rnd = sample[5];
         // rnd = full<Float<ad>>(0.50f);
 
-        float is_plane = false; //false; //false; //true; //false;
-        float is_light_space = true; //false; //false;
-        // Spectrum<ad> test_albedo = m_albedo.eval<ad>(its.uv);
-        // auto test = select(rnd<(1.0f/3.0f),test_albedo.x(),test_albedo.y());
-        // std::cout << "test" << test << std::endl;
+        float is_plane = false; 
+        float is_light_space = true; 
 
-        // auto x = _preprocessFeatures<ad,64>(its,rnd,false);
-        auto x = _preprocessFeatures<ad,64>(its,rnd,is_plane,its.wi,is_light_space);
+        auto x = _preprocessFeatures<ad>(its,rnd,is_plane,its.wi,is_light_space);
         auto kernelEps = getKernelEps<ad>(its,rnd);
         auto fitScaleFactor = 1.0f / sqrt(kernelEps);
-        // std::cout << fitScaleFactor << std::endl;
         
         // Network Inference: computationally heavy from here...
         rnd = sample.y();
         Array<Float<ad>,4> latent(sample[2],sample[3],sample[6],sample[7]);
         Spectrum<ad> outPos;
         Float<ad> absorption;
-        std::tie(outPos,absorption)= _run<ad,64>(x,latent);
+        std::tie(outPos,absorption)= _run<ad>(x,latent);
         
         // Planar Sampling as in [Deng 2022]
         Vector3f<ad> vx = its.sh_frame.s;
@@ -829,7 +858,6 @@ std::tuple<Intersection<ad>,Float<ad>,Vector3f<ad>,Vector3f<ad>> VaeSub::__sampl
         Intersection<ad> its3 = scene->ray_intersect<ad, ad>(ray3, active);
         // Choose on of all intersections along ray with equal probability
         // Intersection<ad> its3 = scene->ray_all_intersect<ad, ad>(ray3, active,sample,5);
-        
         std::cout << "active " << active << std::endl;
 
         // Intersection<ad> its3 = scene->ray_intersect<ad, ad>(Ray<ad>(outPos,projDir), active); //,sample,5);
@@ -856,25 +884,14 @@ std::tuple<Intersection<ad>,Float<ad>,Vector3f<ad>,Vector3f<ad>> VaeSub::__sampl
             its3.shape = select(!((its2.t<its3.t) && its2.is_valid()),its3.shape,its2.shape);
         }
             
-        std::cout << "tmax " << tmax << std::endl;
+        // std::cout << "tmax " << tmax << std::endl;
         auto mask = its3.is_valid();
         float validity = 100*count(detach(mask)) / slices(detach(mask));
         std::cout << "validity " << validity << std::endl;
         // std::cout << "its3.t" << its3.t << std::endl;
 
         rnd = sample[5];
-        // FIXME: tmp set to zero
-        // rnd = full<Float<ad>>(0.50f);
         return std::tuple<Intersection<ad>,Float<ad>,Vector3f<ad>,Vector3f<ad>>(its3,rnd,outPos,projDir);
-
-        // auto mask = its_sub.is_valid();
-        // float validity = 100*count(mask) / slices(mask);
-        // std::cout << "validity " << validity << std::endl;
-
-        // return std::tuple<Intersection<ad>,Float<ad>,Vector3f<ad>,Vector3f<ad>>(its_sub,sample[5],outPos,projDir);
-        
-        // Return its2 and random variable for RGB channel selection
-        // return std::pair<Intersection<ad>,Float<ad>>(its2,sample[5]);
     
 } // namespace psdr
 

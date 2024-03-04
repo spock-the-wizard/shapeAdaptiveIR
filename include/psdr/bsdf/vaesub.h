@@ -107,44 +107,66 @@ public:
     using Vector64f = Array<float,64>;
     using Vector1f = Array<float,1>;
     using Vector20f = Array<float,20>;
+    using Vector32f = Array<float,32>;
+    
+    // using Matrix32_64 = Array<Array<float,64>,32>;
+    using Matrix64_23 = Array<Array<float,64>,23>;
+    // using Matrix23_64 = Array<Array<float,23>,64>;
+    using Matrix32_64 = Array<Array<float,32>,64>;
+    using Matrix64_64 = Array<Array<float,64>,64>;
+    using Matrix1_32= Array<Array<float,1>,32>;
+    // using Matrix68_64 = Array<Array<float,64>,68>;
     // using Vector3f = Array<float,3>;
     
-    // Eigen::Matrix<float, 32, PreLayerWidth> absorption_mlp_fcn_0_weights; // Eigen::Matrix<float,32,64>
-    // Eigen::Matrix<float, 32, 1> absorption_mlp_fcn_0_biases;
-    // Eigen::Matrix<float, 1, 32> absorption_dense_kernel;
-    // Eigen::Matrix<float, 1, 1> absorption_dense_bias;
-    Matrix64f absorption_mlp_fcn_0_weights = zero<Matrix64f>(); // Eigen::Matrix<float,32,64>
-    Vector64f absorption_mlp_fcn_0_biases = zero<Vector64f>();
-    Matrix64f absorption_dense_kernel = zero<Matrix64f>();
-    Vector1f absorption_dense_bias = zero<Vector1f>();
+    
+    Matrix32_64 m_absorption_mlp_fcn_0_weights = zero<Matrix32_64>(); // Eigen::Matrix<float,32,64>
+    Vector32f m_absorption_mlp_fcn_0_biases = zero<Vector32f>();
+    Matrix1_32 m_absorption_dense_kernel = zero<Matrix1_32>();
+    Vector1f m_absorption_dense_bias = zero<Vector1f>();
 
-    // Eigen::Matrix<float, LayerWidth, 1> scatter_decoder_fcn_fcn_0_biases;
-    // Eigen::Matrix<float, LayerWidth, 1> scatter_decoder_fcn_fcn_1_biases;
-    // Eigen::Matrix<float, LayerWidth, 1> scatter_decoder_fcn_fcn_2_biases;
-    Vector64f scatter_decoder_fcn_fcn_0_biases = zero<Vector64f>();
-    Vector64f scatter_decoder_fcn_fcn_1_biases = zero<Vector64f>();
-    Vector64f scatter_decoder_fcn_fcn_2_biases = zero<Vector64f>();
+    // Matrix64f absorption_mlp_fcn_0_weights = zero<Matrix64f>(); // Eigen::Matrix<float,32,64>
+    // Vector64f absorption_mlp_fcn_0_biases = zero<Vector64f>();
+    // Matrix64f absorption_dense_kernel = zero<Matrix64f>();
+    // Vector1f absorption_dense_bias = zero<Vector1f>();
+
+    // Vector64f m_scatter_decoder_fcn_fcn_0_biases = zero<Vector64f>();
+    // Vector64f m_scatter_decoder_fcn_fcn_1_biases = zero<Vector64f>();
+    // Vector64f m_scatter_decoder_fcn_fcn_2_biases = zero<Vector64f>();
+    // using Vector20f = Array<float,20>;
+    // using Vector32f = Array<float,32>;
+    using Matrix64_68 = Array<Array<float,64>,68>;
+    using Matrix3_64 = Array<Array<float,3>,64>;
+    // using Matrix23_64 = Array<Array<float,23>,64>;
+
+    Matrix64_68 m_scatter_decoder_fcn_fcn_0_weights = zero<Matrix64_68>(); // [64,68]
+    Matrix64_64 m_scatter_decoder_fcn_fcn_1_weights = zero<Matrix64_64>();
+    Matrix64_64 m_scatter_decoder_fcn_fcn_2_weights = zero<Matrix64_64>();
+    Vector64f m_scatter_decoder_fcn_fcn_0_biases = zero<Vector64f>();
+    Vector64f m_scatter_decoder_fcn_fcn_1_biases = zero<Vector64f>();
+    Vector64f m_scatter_decoder_fcn_fcn_2_biases = zero<Vector64f>();
+    Matrix3_64 m_scatter_dense_2_kernel = zero<Matrix3_64>();
+    Array<float,3> m_scatter_dense_2_bias = zero<Array<float,3>>();
+
+    // Matrix68f scatter_decoder_fcn_fcn_0_weights = zero<Matrix68f>();
+    // Matrix64f scatter_decoder_fcn_fcn_1_weights = zero<Matrix64f>();
+    // Matrix64f scatter_decoder_fcn_fcn_2_weights = zero<Matrix64f>();
+    // Vector64f scatter_decoder_fcn_fcn_0_biases = zero<Vector64f>();
+    // Vector64f scatter_decoder_fcn_fcn_1_biases = zero<Vector64f>();
+    // Vector64f scatter_decoder_fcn_fcn_2_biases = zero<Vector64f>();
+    // Matrix64f scatter_dense_2_kernel = zero<Matrix64f>();
+    // Array<float,3> scatter_dense_2_bias = zero<Array<float,3>>();
+
+    // Matrix64f shared_preproc_mlp_2_shapemlp_fcn_0_weights = zero<Matrix64f>(); // [64,23]
+    // Matrix64f shared_preproc_mlp_2_shapemlp_fcn_1_weights = zero<Matrix64f>();  // [64,64]
+    // Matrix64f shared_preproc_mlp_2_shapemlp_fcn_2_weights = zero<Matrix64f>(); // [64,64]
 
     Vector64f shared_preproc_mlp_2_shapemlp_fcn_0_biases = zero<Vector64f>();
     Vector64f shared_preproc_mlp_2_shapemlp_fcn_1_biases = zero<Vector64f>();
     Vector64f shared_preproc_mlp_2_shapemlp_fcn_2_biases = zero<Vector64f>();
-    // Eigen::Matrix<float, 3, 1> scatter_dense_2_bias;
-    Array<float,3> scatter_dense_2_bias = zero<Array<float,3>>();
 
-    // Eigen::Matrix<float, LayerWidth, PreLayerWidth + NLatent> scatter_decoder_fcn_fcn_0_weights;
-    // Eigen::Matrix<float, LayerWidth, LayerWidth> scatter_decoder_fcn_fcn_1_weights;
-    // Eigen::Matrix<float, LayerWidth, LayerWidth> scatter_decoder_fcn_fcn_2_weights;
-    // Eigen::Matrix<float, 3, LayerWidth> scatter_dense_2_kernel;
-    Matrix68f scatter_decoder_fcn_fcn_0_weights = zero<Matrix68f>();
-    Matrix64f scatter_decoder_fcn_fcn_1_weights = zero<Matrix64f>();
-    Matrix64f scatter_decoder_fcn_fcn_2_weights = zero<Matrix64f>();
-    Matrix64f scatter_dense_2_kernel = zero<Matrix64f>();
-
-    Matrix64f shared_preproc_mlp_2_shapemlp_fcn_0_weights = zero<Matrix64f>(); // [64,23]
-    Matrix64f shared_preproc_mlp_2_shapemlp_fcn_1_weights = zero<Matrix64f>();  // [64,64]
-    Matrix64f shared_preproc_mlp_2_shapemlp_fcn_2_weights = zero<Matrix64f>(); // [64,64]
-
-    // Eigen::Matrix<float, 20, 1> m_shapeFeatMean, m_shapeFeatStdInv;
+    Matrix64_23 m_shared_preproc_mlp_2_shapemlp_fcn_0_weights = zero<Matrix64_23>(); // [64,23]
+    Matrix64_64 m_shared_preproc_mlp_2_shapemlp_fcn_1_weights = zero<Matrix64_64>();  // [64,64]
+    Matrix64_64 m_shared_preproc_mlp_2_shapemlp_fcn_2_weights = zero<Matrix64_64>(); // [64,64]
     Vector20f m_shapeFeatMean,m_shapeFeatStdInv;
     
     json stats; 
@@ -171,14 +193,14 @@ protected:
     // template <bool ad,size_t size>
     // Spectrum<ad> _run(Array<Float<ad>,size> x, Array<Float<ad>,4> latent) const;
 
-    template <bool ad,size_t size>
-    std::pair<Vector3f<ad>,Float<ad>> _run(Array<Float<ad>,size> x, Array<Float<ad>,4> latent) const;
+    template <bool ad>
+    std::pair<Vector3f<ad>,Float<ad>> _run(Array<Float<ad>,23> x, Array<Float<ad>,4> latent) const;
 
     template <bool ad,size_t size>
     Array<Float<ad>,size> _preprocessFeatures(const Intersection<ad>&its, int idx, bool isPlane) const;
 
-    template <bool ad,size_t size>
-    Array<Float<ad>,size> _preprocessFeatures(const Intersection<ad>&its, Float<ad> idx, bool isPlane, Array<Float<ad>,3> wi, bool light_space = false) const;
+    template <bool ad>
+    Array<Float<ad>,23> _preprocessFeatures(const Intersection<ad>&its, Float<ad> idx, bool isPlane, Array<Float<ad>,3> wi, bool light_space = false) const;
 
     template <bool ad>
     Float<ad> getKernelEps(const Intersection<ad>& its,int idx) const;
