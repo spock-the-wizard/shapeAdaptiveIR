@@ -1,5 +1,5 @@
 python3.8 ../learn_real_data.py \
-        --stats_folder "test_smallNet" \
+        --stats_folder "test_splitB" \
         --d_type "custom" \
         --seed 2 \
         --scene "head" \
@@ -17,9 +17,9 @@ python3.8 ../learn_real_data.py \
         --albedo_laplacian 0 \
         --rough_laplacian 0 \
         --no_init "no" \
-        --spp 16 \
-        --sppe 32 \
-        --sppse 32 \
+        --spp 4 \
+        --sppe 4 \
+        --sppse 4 \
         --ref_spp 50 \
         --albedo_texture 0 \
         --rough_texture 0 \

@@ -729,7 +729,9 @@ std::tuple<Intersection<ad>,Float<ad>,Vector3f<ad>,Vector3f<ad>> VaeSub::__sampl
 // std::pair<Intersection<ad>,Float<ad>> VaeSub::__sample_sp(const Scene *scene, const Intersection<ad> &its, const Vector8f<ad> &sample, Float<ad> &pdf, Mask<ad> active) const {        
     
         Float<ad> rnd = sample[5];
+        // rnd = full<Float<ad>>(0.00f);
         // rnd = full<Float<ad>>(0.50f);
+        // rnd = full<Float<ad>>(0.99f);
 
         float is_plane = false; 
         float is_light_space = true; 
@@ -891,6 +893,10 @@ std::tuple<Intersection<ad>,Float<ad>,Vector3f<ad>,Vector3f<ad>> VaeSub::__sampl
         // std::cout << "its3.t" << its3.t << std::endl;
 
         rnd = sample[5];
+        // rnd = full<Float<ad>>(0.00f);
+        // rnd = full<Float<ad>>(0.50f);
+        // rnd = full<Float<ad>>(0.99f);
+
         return std::tuple<Intersection<ad>,Float<ad>,Vector3f<ad>,Vector3f<ad>>(its3,rnd,outPos,projDir);
     
 } // namespace psdr
