@@ -19,7 +19,6 @@ wandb/
 *.npy
 *.obj
 
-CMakeLists.txt
 *.cmake
 Makefile
 test
