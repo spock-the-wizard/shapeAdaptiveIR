@@ -1,5 +1,5 @@
 python3.8 ../learn_real_data.py \
-        --stats_folder "duck/forward_vae_shapeGT" \
+        --stats_folder "exp1/forward_vae_projOld" \
         --d_type "custom" \
         --seed 2 \
         --scene "duck" \
@@ -19,8 +19,8 @@ python3.8 ../learn_real_data.py \
         --no_init "no" \
         --spp 8 \
         --sppe 8 \
-        --sppse 0 \
-        --ref_spp 50 \
+        --sppse 8  \
+        --ref_spp 128 \
         --albedo_texture 0 \
         --rough_texture 0 \
         --sigma_texture 0 \

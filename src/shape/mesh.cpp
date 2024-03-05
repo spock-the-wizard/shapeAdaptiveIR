@@ -12,6 +12,9 @@
 #include <psdr/emitter/emitter.h>
 #include <psdr/shape/mesh.h>
 
+#include <Eigen/Core> 
+#include <Eigen/Dense>
+
 // Joon added: cnpy for reading poly coeffs in npy
 #include "cnpy.h"
 
@@ -184,6 +187,13 @@ void Mesh::load(const char *fname, bool verbose) {
     assert(attrib.vertices.size() % 3 == 0);
     m_num_vertices = static_cast<int>(attrib.vertices.size())/3;
 
+    using Index = uint32_t;
+    using Points = Eigen::Matrix<float, Eigen::Dynamic, 3, Eigen::RowMajor>;
+    using Triangle = Eigen::Matrix<Index, Eigen::Dynamic, 3, Eigen::RowMajor>;
+    // Eigen::Matrix<float,Eigen::Dynamic,3> verts;
+    // Points verts;
+    // Triangle faces;
+
     // Loading vertex positions
     {
         std::vector<float> buffers[3];
@@ -191,15 +201,30 @@ void Mesh::load(const char *fname, bool verbose) {
         buffers[1].resize(m_num_vertices);
         buffers[2].resize(m_num_vertices);
 
+        
+        // Triangle faces;
+
         for ( int i = 0; i < m_num_vertices; ++i ){
             for ( int j = 0; j < 3; ++j ){
                 buffers[j][i] = attrib.vertices[3*i + j];
+                // verts(j,i) = attrib.vertices[3*i + j];
             }
         }
 
         m_vertex_positions_raw = Vector3fD(FloatD::copy(buffers[0].data(), m_num_vertices),
                                            FloatD::copy(buffers[1].data(), m_num_vertices),
                                            FloatD::copy(buffers[2].data(), m_num_vertices));
+        
+        
+        // auto verts = Eigen::Map<Points>(buffers, 3, m_num_vertices);
+        // SDF(Eigen::Ref<const Points> verts, Eigen::Ref<const Triangles> faces,
+        //         bool robust = true, bool copy = false);
+        // auto verts = Points(buffers);
+        // auto faces = Points(buffers);
+        // sdf::SDF m_sdf(verts,faces);
+        // buffers[0].data(),buffers[1].data(),buffers[2].data()),
+                        // Triangles(buffers[0].data(),buffers[1].data(),buffers[2].data()));
+                        // Triangles());
     }
 
 #ifdef PSDR_MESH_ENABLE_1D_VERTEX_OFFSET
@@ -234,11 +259,14 @@ void Mesh::load(const char *fname, bool verbose) {
         for ( size_t f = 0; f < shapes[s].mesh.num_face_vertices.size(); ++f ) {
             int fv = shapes[s].mesh.num_face_vertices[f];
             assert(fv == 3);
+            int j=0;
             for ( int i = 0; i < fv; ++i ) {
                 auto idx = shapes[s].mesh.indices[3*f + i];
                 v[i].push_back(idx.vertex_index);
                 if ( m_has_uv )
                     v[3 + i].push_back(idx.texcoord_index);
+                // faces(i,j) = idx.vertex_index;
+                j = j+1;
             }
         }
     }
@@ -314,6 +342,11 @@ void Mesh::load(const char *fname, bool verbose) {
                                           IntD::copy(buffers[3].data(), m_num_edges),
                                           IntD::copy(buffers[4].data(), m_num_edges));
     }
+
+
+
+    // Joon added
+    // sdf::SDF m_sdf(verts,faces);
 
     if ( verbose ) {
         std::cout << "Loaded " << m_num_vertices << " vertices, "

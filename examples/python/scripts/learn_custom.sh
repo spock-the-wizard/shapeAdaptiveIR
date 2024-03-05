@@ -1,5 +1,5 @@
 python3.8 ../learn_real_data.py \
-        --stats_folder "test_splitB" \
+        --stats_folder "exp3/forward_vae_proj" \
         --d_type "custom" \
         --seed 2 \
         --scene "head" \
@@ -20,7 +20,7 @@ python3.8 ../learn_real_data.py \
         --spp 4 \
         --sppe 4 \
         --sppse 4 \
-        --ref_spp 50 \
+        --ref_spp 64 \
         --albedo_texture 0 \
         --rough_texture 0 \
         --sigma_texture 0 \

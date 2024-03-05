@@ -7,9 +7,13 @@
 
 
 // Added Eigen and Json 
-#include <Eigen/Core>
-#include <Eigen/Dense>
+// #include <Eigen/Core>
+// #include <Eigen/Dense>
 #include <psdr/bsdf/json.hpp>
+// #include <sdf/sdf>
+// #include <sdf/sdf>
+#include "sdf/sdf.hpp"
+// #include "sdf.hpp"
 
 #include "bsdf.h"
 #define PreLayerWidth 64
@@ -101,6 +105,9 @@ public:
     Bitmap1fD m_eta, m_g;
     Bitmap3fD m_albedo, m_sigma_t; // medium features
     Bitmap3fD m_specular_reflectance; // reflectance
+                                      // 
+
+                                    
 
     using Matrix64f = Matrix<float,64>;
     using Matrix68f = Matrix<float,68>;

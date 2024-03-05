@@ -107,6 +107,10 @@ def opt_task(args):
         'head': {
             'albedo': [0.9, 0.9, 0.9],
             'sigmat': [109.00, 109.00, 52.00],
+        },
+        'sphere1': {
+            'albedo': [0.9, 0.9, 0.9],
+            'sigmat': [54.00, 72.00, 98.00],
         }
     }
 
@@ -218,11 +222,14 @@ def opt_task(args):
 
     def renderNtimes(scene, integrator, n, sensor_id):
         image = integrator.renderC(scene, sensor_id)
+        
         weight = 1.0 / n
         out = image.numpy().reshape((scene.opts.cropheight, scene.opts.cropwidth, 3))
+        
         for i in range(1, n):
             image = integrator.renderC(scene, sensor_id)
             out += image.numpy().reshape((scene.opts.cropheight, scene.opts.cropwidth, 3))
+            
         out *= weight
         out = cv2.cvtColor(out, cv2.COLOR_BGR2RGB)
         return out

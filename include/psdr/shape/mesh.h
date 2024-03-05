@@ -3,6 +3,11 @@
 #include <psdr/psdr.h>
 #include <psdr/core/records.h>
 #include <psdr/edge/edge.h>
+#include <sdf/sdf.hpp>
+
+// #include<Eigen/Core>
+// #include<Eigen/Array>
+// #include <Eigen/Dense>
 
 namespace psdr
 {
@@ -116,6 +121,9 @@ public:
     Array<Vectorf<20,true>,3>    m_poly_coeff = Array<Vectorf<20,true>,3>(zero<Vectorf<20,true>>(),
                                                                         zero<Vectorf<20,true>>(),
                                                                         zero<Vectorf<20,true>>());
+    
+
+    // sdf::SDF m_sdf; //(m_vertex_positions, m_face_indices);
     //  = Array<Vectorf<20,true>,3>(zero<Vectorf<20,true>>(), 
     //                                                                     zero<Vectorf<20,true>>(),
     //                                                                     zero<Vectorf<20,true>>()

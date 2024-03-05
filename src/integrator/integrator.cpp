@@ -90,7 +90,7 @@ std::tuple<Vector3fC, Vector3fC, Vector3fC> Integrator::sample_sub(const Scene &
     Vector3f<ad> outPos;
     Vector3f<ad> projDir;
     std::tie(its_sub,second,outPos,projDir) = res;
-    std::cout << "its_sub.p " << its_sub.p << std::endl;
+    // std::cout << "its_sub.p " << its_sub.p << std::endl;
     auto active_sub = its_sub.is_valid();
     // std::cout << "active_sub " << active_sub << std::endl;
     // std::cout << "hsum(active_sub) " << hsum(active_sub) << std::endl;

@@ -17,7 +17,8 @@ def datasetIRON2PSDR(src_dir,dst_dir,light_out,xml_file,xml_out):
     root = et.getroot()
     lightdir = [a for a in os.listdir(src_dir) if os.path.isdir(os.path.join(src_dir,a))]
     list_imgfile = sorted(os.listdir(os.path.join(src_dir,lightdir[0],"train/image")))
-    list_lightidx = np.random.choice(len(lightdir)-1,size=len(list_imgfile))
+    breakpoint()
+    list_lightidx = np.random.choice(len(lightdir),size=len(list_imgfile))
     cam_dict = json.load(open(os.path.join(src_dir,lightdir[0],"train/cam_dict_norm.json"),"r"))
     
     files_light = glob(os.path.join(src_dir,"*/light.txt"))
@@ -119,11 +120,11 @@ def datasetIRON2PSDR_single(src_dir,dst_dir,xml_out):
     
 
 if __name__ == "__main__":
-    datasetIRON2PSDR(src_dir="./data/head/head",
-                     dst_dir="./data_kiwi_soap/realdata/head",
-                     light_out="./examples/scenes/light/lights-head",
+    datasetIRON2PSDR(src_dir="./data/sphere_240305_205722",
+                     dst_dir="./data_kiwi_soap/realdata/sphere1",
+                     light_out="./examples/scenes/light/lights-sphere1",
                      xml_file="./examples/scenes/head_out.xml",
-                     xml_out="./examples/scenes/head_out_2.xml")
+                     xml_out="./examples/scenes/sphere_out.xml")
     
 # if __name__ == "__main__":
 #     src_dir = "data/duck/light00/test/image"
