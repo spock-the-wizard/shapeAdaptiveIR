@@ -1,5 +1,5 @@
 python3.8 ../learn_real_data.py \
-        --stats_folder "exp2/inv_ours_TS" \
+        --stats_folder "exp2/inv_deng" \
         --d_type "custom" \
         --seed 2 \
         --scene "sphere1" \

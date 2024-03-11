@@ -13,30 +13,27 @@
     </emitter>
 
 
-    <bsdf type="hetersub" id="opt">
-    <!-- <bsdf type="vaesub" id="opt"> -->
     
+    <bsdf type="vaesub" id="opt">
+    <!-- <bsdf type="hetersub" id="opt"> -->
     
-        <float name="eta" value="1.2029" />
+        <float name="eta" value="1.00" />
         <rgb name="specular_reflectance" value="0, 0, 0" />
         <rgb name="alpha" value="0.0, 0.0, 0.0" />
-        <rgb name="sigma_t" value="60.00, 60.00, 60.00" />
-        <rgb name="albedo" value="0.60, 0.60, 0.60" />
-        
-        <!-- <rgb name="sigma_t" value="54.00, 72.00, 98.00" />
-        <rgb name="albedo" value="0.90, 0.90, 0.90" /> -->
+        <rgb name="sigma_t" value="20.00 20.00 20.00" />
+        <rgb name="albedo" value="0.98, 0.98, 0.98" />
         
     </bsdf>
 
 
     <shape type="obj" id="init">
-        <string name="filename" value="../../smoothshape/sphere_v2.obj" />
+        <string name="filename" value="../../smoothshape/vicini/cone_.obj" />
         <int name="layer_count" value="0" />
         <float name="layer_depth" value="0.15" />
-        <string name="poly_coeff_b" value="../../polycoeffs/sphere_gt_b.npy" />
-        <string name="poly_coeff_g" value="../../polycoeffs/sphere_gt_g.npy" />
-        <string name="poly_coeff_r" value="../../polycoeffs/sphere_gt_r.npy" />
-                     
+
+        <string name="poly_coeff_b" value="../../polycoeffs/cone_albedo0.98_sigmat20_g0.0.npy" />
+        <string name="poly_coeff_g" value="../../polycoeffs/cone_albedo0.98_sigmat20_g0.0.npy" />
+        <string name="poly_coeff_r" value="../../polycoeffs/cone_albedo0.98_sigmat20_g0.0.npy" />
         <ref id="opt" />
     </shape>
 

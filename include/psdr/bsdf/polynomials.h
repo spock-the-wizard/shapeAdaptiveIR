@@ -165,7 +165,7 @@ std::pair<Float<ad>, Vector<ad>> evalPolyGrad(const Point<ad> &pos,
 }
 
 template<bool ad> 
-Vector<ad> evalGradient(const Point<ad> &pos,
+std::pair<Float<ad>,Vector<ad>> evalGradient(const Point<ad> &pos,
  const VectorShape<ad> &coeffs, const Point<ad> &p, size_t degree, Float<ad> scaleFactor, 
  bool useLocalDir, const Vector<ad> &refDir) {
 
@@ -175,6 +175,7 @@ Vector<ad> evalGradient(const Point<ad> &pos,
     Float<ad> polyValue;
     Vector<ad> gradient;
     std::tie(polyValue, gradient) = evalPolyGrad<ad>(pos, p, degree, permX, permY, permZ, scaleFactor, useLocalDir, refDir, coeffs);
+    // std::cout << "gradient " << gradient << std::endl;
 
     // TODO: impl
     if (useLocalDir) {
@@ -183,7 +184,7 @@ Vector<ad> evalGradient(const Point<ad> &pos,
         Frame<ad> local(s, t, refDir);
         gradient = local.to_world(gradient);
     }
-    return gradient;
+    return std::make_pair(polyValue,gradient);
 }
 
     template<int order,bool ad>

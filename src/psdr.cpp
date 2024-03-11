@@ -54,6 +54,10 @@ PYBIND11_MODULE(psdr_cuda, m) {
 
     m.doc() = "Path-space differentiable renderer";
 
+    // auto vector20f_class = bind<Vector20fC>(m, s, "Vector20f");
+    // py::class_<Vector20fC>(m,"Vector20f")
+    //     .def(py::init<const Vector20fC  &>());
+
     py::class_<Object>(m, "Object")
         .def("type_name", &Object::type_name)
         .def_readonly("id", &Object::m_id)

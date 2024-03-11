@@ -67,6 +67,7 @@ find_package(OptiX REQUIRED)
 find_package (Eigen3 3.3 REQUIRED NO_MODULE)
 # Added cnpy
 # add_subdirectory( ../../usr/local/lib)
+find_package(sdf)
 
 
 if( WIN32 )
@@ -245,6 +246,7 @@ else()
     # NOTE: added eigen
     target_link_libraries(psdr_cuda Eigen3::Eigen)
     target_link_libraries(psdr_cuda cnpy)
+    target_link_libraries(psdr_cuda sdf::sdf)
     # add_compile_options(-Wno-unused-variable) # Suppress all warnings for all targets
     
 endif()

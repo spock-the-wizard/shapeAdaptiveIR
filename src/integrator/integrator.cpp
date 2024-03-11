@@ -44,7 +44,8 @@ SpectrumC Integrator::renderC(const Scene &scene, int sensor_id) const {
     return result;
 }
 
-std::tuple<Vector3fC, Vector3fC, Vector3fC> Integrator::sample_sub(const Scene &scene, Vector3f<false> pts, Vector3f<false> dir) {
+std::tuple<Vector3fC, Vector3fC, Vector3fC, Vector20fC> Integrator::sample_sub(const Scene &scene, Vector3f<false> pts, Vector3f<false> dir) {
+// std::tuple<Vector3fC, Vector3fC, Vector3fC, Array<Array<Float<false>,20>,3>> Integrator::sample_sub(const Scene &scene, Vector3f<false> pts, Vector3f<false> dir) {
     
     // std::cout << "testing" << std::endl;
     // std::cout << "pts[0]" << pts[0] << std::endl;
@@ -58,8 +59,20 @@ std::tuple<Vector3fC, Vector3fC, Vector3fC> Integrator::sample_sub(const Scene &
     // auto tmax = full<Float<ad>>(3000.0f);
     // Ray<ad> ray(pts,dir,tmax);
     Intersection<ad> its = scene.ray_intersect<ad>(RayC(pts,dir), true);
+    // its.poly_coeff = zero<decltype(its.poly_coeff)>();
+    // for (int i=0;i<3;i++){
+    //     // Case 1. Plane f = z
+    //     its.poly_coeff[i][3] = 1.0;
+
+    //     // Case 2. f = -z + x^2 + y^2
+    //     // its.poly_coeff[i][3] = 1.0f;
+    //     // its.poly_coeff[i][4] = -1.0f;
+    //     // its.poly_coeff[i][7] = -1.0f;
+    // }
+    // std::cout << "its.poly_coeff " << its.poly_coeff << std::endl;
+    // its.poly_coeff[3] = 1.0;
     
-    std::cout << "Surface its " << its.p << std::endl;
+    // std::cout << "Surface its " << its.p << std::endl;
     // std::cout << its.p << std::endl;
     // std::cout << its.is_valid() << std::endl;
     // auto active = its.is_valid();
@@ -85,11 +98,14 @@ std::tuple<Vector3fC, Vector3fC, Vector3fC> Integrator::sample_sub(const Scene &
     // std::cout << "its.p" << its.p << std::endl;
     
     auto res = vaesub_array[0] -> __sample_sp<ad>(&scene, its, (sampler.next_nd<8, false>()),pdf, active);
+    // poly_coeffs = its.poly_coeffs
     Intersection<ad> its_sub;
     Float<ad> second;
     Vector3f<ad> outPos;
     Vector3f<ad> projDir;
     std::tie(its_sub,second,outPos,projDir) = res;
+    Vector20f<ad> poly_coeffs = its.poly_coeff.x();
+    // Array<Array<Float<ad>,20>,3> poly_coeffs = its.poly_coeff;
     // std::cout << "its_sub.p " << its_sub.p << std::endl;
     auto active_sub = its_sub.is_valid();
     // std::cout << "active_sub " << active_sub << std::endl;
@@ -98,7 +114,7 @@ std::tuple<Vector3fC, Vector3fC, Vector3fC> Integrator::sample_sub(const Scene &
     // std::cout << "outPos" << outPos << std::endl;
     // std::cout << "projDir" << projDir << std::endl;
 
-    return std::make_tuple(its_sub.p,outPos,projDir);
+    return std::make_tuple(its_sub.p,outPos,projDir,poly_coeffs);
 }
 
 SpectrumD Integrator::renderD(const Scene &scene, int sensor_id) const {

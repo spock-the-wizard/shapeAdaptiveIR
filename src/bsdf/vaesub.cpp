@@ -277,15 +277,17 @@ Spectrum<ad> VaeSub::__eval_sub(const Intersection<ad> &its, const BSDFSample<ad
     Spectrum<ad> F = __FersnelDi<ad>(1.0f, m_eta.eval<ad>(its.uv), cos_theta_i);
 
     // Joon added: sample contribution for each channel
-    Spectrum<ad> r = zero<Spectrum<ad>>();
-    Spectrum<ad> g = zero<Spectrum<ad>>();
-    Spectrum<ad> b = zero<Spectrum<ad>>();
-    r[0] = 1.0f;
-    g[1] = 1.0f;
-    b[2] = 1.0f;
-    // Spectrum<ad> r = full<Spectrum<ad>>(1.0f);
-    // Spectrum<ad> g = full<Spectrum<ad>>(1.0f);
-    // Spectrum<ad> b = full<Spectrum<ad>>(1.0f);
+    // Spectrum<ad> r = zero<Spectrum<ad>>();
+    // Spectrum<ad> g = zero<Spectrum<ad>>();
+    // Spectrum<ad> b = zero<Spectrum<ad>>();
+    // r[0] = 1.0f;
+    // g[1] = 1.0f;
+    // b[2] = 1.0f;
+
+    // FIXME: testing monochromatic
+    Spectrum<ad> r = full<Spectrum<ad>>(1.0f);
+    Spectrum<ad> g = full<Spectrum<ad>>(1.0f);
+    Spectrum<ad> b = full<Spectrum<ad>>(1.0f);
     
     // std::cout << "bs.its.prob" << bs.po.abs_prob << std::endl;
     // std::cout << "bs.rgb_rv" << bs.rgb_rv << std::endl;
@@ -297,15 +299,10 @@ Spectrum<ad> VaeSub::__eval_sub(const Intersection<ad> &its, const BSDFSample<ad
     // sp = select(bs.rgb == 2, b, sp); 
     // std::cout << "sp " << sp << std::endl;
     Spectrum<ad> sw =  __Sw<ad>(bs.po, bs.wo, active);
-    // std::cout << "sw" << sw << std::endl;
-    // std::cout << "active" << active << std::endl;
-    // std::cout << "[DEBUG] Active rate: " << 100*count(active)/slices(active) << std::endl;
     
-    // Spectrum<ad> value = sw * (1.0f - F) * sp; //cos_theta_o;
-    // std::cout << "cos_theta_o " << cos_theta_o << std::endl;
-    // Spectrum<ad> value = sp *sw * (1.0f - F) * cos_theta_o;
-    // FIXME: tmp setting for validity check.
-    // Spectrum<ad> value = sp; //*sw * (1.0f - F) * cos_theta_o;
+    // FIXME : testing kernel idea
+    sp = __Sp<ad>(bs.po, its) * sp *0.1f;
+    
     Spectrum<ad> value = sp* (1.0f - F) *sw * cos_theta_o;
     if constexpr ( ad ) {
         value = value * bs.po.J;    
@@ -538,6 +535,52 @@ Array<Float<ad>,R> matmul(Array<Array<float,R>,C> mat, Array<Float<ad>,C> vec) {
     }
     return sum;
 }
+template <bool ad>
+std::pair<Vector3f<ad>,Float<ad>> VaeSub::_run(Array<Float<ad>,23> x,Array<Float<ad>,23> x2,Array<Float<ad>,4> latent) const {
+        
+        // auto feat = max(shared_preproc_mlp_2_shapemlp_fcn_0_weights * x + shared_preproc_mlp_2_shapemlp_fcn_0_biases,0.0f);
+        // feat = max(shared_preproc_mlp_2_shapemlp_fcn_1_weights * feat + shared_preproc_mlp_2_shapemlp_fcn_1_biases,0.0f);
+        // feat = max(shared_preproc_mlp_2_shapemlp_fcn_2_weights * feat + shared_preproc_mlp_2_shapemlp_fcn_2_biases,0.0f);
+        // std::cout << "feat" << feat[0] << std::endl;
+        // features = max(shared_preproc_mlp_2_shapemlp_fcn_1_weights * features + shared_preproc_mlp_2_shapemlp_fcn_1_biases,0.0f);
+        // features = max(shared_preproc_mlp_2_shapemlp_fcn_2_weights * features + shared_preproc_mlp_2_shapemlp_fcn_2_biases,0.0f);
+        auto features = max(matmul<23,64,ad>(m_shared_preproc_mlp_2_shapemlp_fcn_0_weights,x) + shared_preproc_mlp_2_shapemlp_fcn_0_biases,0.0f);
+        features = max(matmul<64,64,ad>(m_shared_preproc_mlp_2_shapemlp_fcn_1_weights,features) + shared_preproc_mlp_2_shapemlp_fcn_1_biases,0.0f);
+        features = max(matmul<64,64,ad>(m_shared_preproc_mlp_2_shapemlp_fcn_2_weights,features) + shared_preproc_mlp_2_shapemlp_fcn_2_biases,0.0f);
+        
+
+        // auto abs = head<32,Array<Float<ad>,64>>(max(absorption_mlp_fcn_0_weights * features + absorption_mlp_fcn_0_biases,0.0f));
+        // Represents 32 dim vector although shape is 64 (invalid regions are set to zero)
+        // Array<Float<ad>,64> abs = max(absorption_mlp_fcn_0_weights * features + absorption_mlp_fcn_0_biases,0.0f); // Vector 32
+        // abs = absorption_dense_kernel * abs + absorption_dense_bias[0];
+        // abs = abs + absorption_dense_bias[0];
+        // auto absorption = NetworkHelpers::sigmoid<ad>(abs.x());
+        auto features_LS = max(matmul<23,64,ad>(m_shared_preproc_mlp_2_shapemlp_fcn_0_weights,x2) + shared_preproc_mlp_2_shapemlp_fcn_0_biases,0.0f);
+        features_LS = max(matmul<64,64,ad>(m_shared_preproc_mlp_2_shapemlp_fcn_1_weights,features_LS) + shared_preproc_mlp_2_shapemlp_fcn_1_biases,0.0f);
+        features_LS = max(matmul<64,64,ad>(m_shared_preproc_mlp_2_shapemlp_fcn_2_weights,features_LS) + shared_preproc_mlp_2_shapemlp_fcn_2_biases,0.0f);
+        Array<Float<ad>,32> abs1 = max(matmul<64,32,ad>(m_absorption_mlp_fcn_0_weights, features_LS) + m_absorption_mlp_fcn_0_biases,0.0f); // Vector 32
+                                                                                                                                         //
+        auto abs2 = matmul<32,1,ad>(m_absorption_dense_kernel, abs1) + m_absorption_dense_bias[0];
+        auto absorption = NetworkHelpers::sigmoid<ad>(abs2.x());
+
+
+        // Gaussian noise
+        latent = float(M_SQRT2) * erfinv(2.f*latent - 1.f);
+        auto featLatent = concat(latent,features);
+        
+        // auto y = head<64,Array<Float<ad>,68>>(scatter_decoder_fcn_fcn_0_weights * featLatent);
+        // y = max(y + scatter_decoder_fcn_fcn_0_biases,0.0f); 
+        // y = max(scatter_decoder_fcn_fcn_1_weights * y + scatter_decoder_fcn_fcn_1_biases,0.0f); 
+        // y = max(scatter_decoder_fcn_fcn_2_weights * y + scatter_decoder_fcn_fcn_2_biases,0.0f); 
+        // auto outPos = head<3,Array<Float<ad>,64>>(scatter_dense_2_kernel * y);
+        // outPos = outPos + scatter_dense_2_bias;
+        auto y2 = max(matmul<68,64,ad>(m_scatter_decoder_fcn_fcn_0_weights,featLatent)+m_scatter_decoder_fcn_fcn_0_biases,0.0f);
+        y2 = max(matmul<64,64,ad>(m_scatter_decoder_fcn_fcn_1_weights,y2)+m_scatter_decoder_fcn_fcn_1_biases,0.0f);
+        y2 = max(matmul<64,64,ad>(m_scatter_decoder_fcn_fcn_2_weights,y2)+m_scatter_decoder_fcn_fcn_2_biases,0.0f);
+        auto outPos2 = matmul<64,3,ad>(m_scatter_dense_2_kernel,y2) + m_scatter_dense_2_bias;
+
+        return std::pair(outPos2,absorption);
+}
 
 template <bool ad>
 std::pair<Vector3f<ad>,Float<ad>> VaeSub::_run(Array<Float<ad>,23> x,Array<Float<ad>,4> latent) const {
@@ -611,12 +654,13 @@ Array<Float<ad>,23> VaeSub::_preprocessFeatures(const Intersection<ad>&its, Floa
     else{
         shapeFeatures = select(rnd < (1.0f / 3.0f), its.poly_coeff.x(), its.poly_coeff.y());
         shapeFeatures = select(rnd > (2.0f / 3.0f), its.poly_coeff.z(), shapeFeatures);
-    // std::cout << "shapeFeatures " << shapeFeatures << std::endl;
     }
     
     // std::cout << "shapeFeatures[3]" << shapeFeatures[3] << std::endl;
+    // std::cout << "shapeFeatures " << shapeFeatures << std::endl;
 
     if(lightSpace){
+    // if(false){ //lightSpace){
         // TODO: Debugging: TS -> LS
         Vector<ad> s,t,n;
         n = -wi;
@@ -741,18 +785,23 @@ std::tuple<Intersection<ad>,Float<ad>,Vector3f<ad>,Vector3f<ad>> VaeSub::__sampl
         // rnd = full<Float<ad>>(0.50f);
         // rnd = full<Float<ad>>(0.99f);
 
-        float is_plane = true; //false; 
+        float is_plane = false; //false; 
         float is_light_space = false; //true; 
 
+        // its.wi = -its.sh_frame.n;
+
         auto x = _preprocessFeatures<ad>(its,rnd,is_plane,its.wi,is_light_space);
+        // auto x2 = _preprocessFeatures<ad>(its,rnd,is_plane,its.wi,true);
         auto kernelEps = getKernelEps<ad>(its,rnd);
+        // std::cout << "kernelEps" << kernelEps << std::endl;
         auto fitScaleFactor = 1.0f / sqrt(kernelEps);
         
         // Network Inference: computationally heavy from here...
         rnd = sample.y();
         Array<Float<ad>,4> latent(sample[2],sample[3],sample[6],sample[7]);
-        Spectrum<ad> outPos;
-        Float<ad> absorption;
+        Spectrum<ad> outPos,outPos2;
+        Float<ad> absorption,absorption2;
+        // std::tie(outPos,absorption)= _run<ad>(x,x2,latent);
         std::tie(outPos,absorption)= _run<ad>(x,latent);
         
         // Planar Sampling as in [Deng 2022]
@@ -766,6 +815,7 @@ std::tuple<Intersection<ad>,Float<ad>,Vector3f<ad>,Vector3f<ad>> VaeSub::__sampl
         Float<ad> tmax;
         auto inNormal = vz; // -its.wi;
         auto projDir = vz;
+        Float<ad> polyVal;
         // if(true) {
         if(false) {
         // if(is_plane){ // plane
@@ -804,6 +854,12 @@ std::tuple<Intersection<ad>,Float<ad>,Vector3f<ad>,Vector3f<ad>> VaeSub::__sampl
             auto inPos = its.p;
             outPos = inPos + outPos.x() * tangent1 + outPos.y() * tangent2 + outPos.z() * inNormal;
             outPos = inPos + (outPos - inPos) / fitScaleFactor;
+
+            auto shapeFeatures = select(rnd < (1.0f / 3.0f), its.poly_coeff.x(), its.poly_coeff.y());
+            shapeFeatures = select(rnd > (2.0f / 3.0f), its.poly_coeff.z(), shapeFeatures);
+            
+            // projDir = -evalGradient<ad>(detach(outPos),shapeFeatures,its.p,3,detach(fitScaleFactor),true,vz);
+            // projDir = select(sample[2] <0.5f,projDir,vz);
         }
         else {
             rnd = sample[5];
@@ -815,6 +871,7 @@ std::tuple<Intersection<ad>,Float<ad>,Vector3f<ad>,Vector3f<ad>> VaeSub::__sampl
             Float<ad> miu_tr_0 = 0.5f;
             miu_tr_0 = select(rnd < 1.0f / 3.0f, miu_tr.x(), miu_tr.y());
             miu_tr_0 = select(rnd > 2.0f / 3.0f, miu_tr.z(), miu_tr_0);
+            // TODO: implementing polyVal regularization50// 
             // Float<ad> r = __sample_sr<ad>(miu_tr_0, sample.z());
             Vector3f<ad> dv = outPos - its.p;
             Vector3f<ad> dLocal(dot(vx,dv),dot(vy,dv),dot(vz,dv));
@@ -828,6 +885,7 @@ std::tuple<Intersection<ad>,Float<ad>,Vector3f<ad>,Vector3f<ad>> VaeSub::__sampl
             
             if(is_light_space){
                 inNormal = -its.wi;
+                // inNormal = vz;
             }
             else {
                 inNormal = vz;
@@ -836,44 +894,47 @@ std::tuple<Intersection<ad>,Float<ad>,Vector3f<ad>,Vector3f<ad>> VaeSub::__sampl
             auto shapeFeatures = select(rnd < (1.0f / 3.0f), its.poly_coeff.x(), its.poly_coeff.y());
             shapeFeatures = select(rnd > (2.0f / 3.0f), its.poly_coeff.z(), shapeFeatures);
             
+            // if (false) { //is_plane){
             if (is_plane){
                 shapeFeatures = zero<Array<Float<ad>,20>>();
                 shapeFeatures[3] = 1.0;
+                // shapeFeatures[4] = -1.0;
+                // shapeFeatures[7] = -1.0;
             }
 
             // Construct orthogonal frame
             Spectrum<ad> tangent1, tangent2;
             onb<ad>(inNormal, tangent1, tangent2);
 
-            // Local to World coordinates 
             auto inPos = its.p;
             outPos = inPos + outPos.x() * tangent1 + outPos.y() * tangent2 + outPos.z() * inNormal;
             outPos = inPos + (outPos - inPos) / fitScaleFactor;
 
-            projDir = -evalGradient<ad>(detach(outPos),shapeFeatures,its.p,3,detach(fitScaleFactor),true,vz);
-            // projDir = vz;
-            // projDir = evalGradient<ad>(outPos,shapeFeatures,its.p,3,fitScaleFactor,true,-its.wi);
-
+            // NOTE: evalGradient accepts world space coordinates
+            std::tie(polyVal,projDir) = evalGradient<ad>(detach(outPos),shapeFeatures,its.p,3,detach(fitScaleFactor),true,vz);
+            projDir = -sign(polyVal) * projDir;
         }
         
-            // tmax = 2*kernelEps*100;
-        // TODO: rotate outPos according to projection direction
-
-        // tmax = full<Float<ad>>(1.0f); 
+        std::cout << "polyVal" << hmean(abs(detach(polyVal))) << std::endl;
+        tmax = 2*sqrt(kernelEps);
         projDir = normalize(projDir);
+        // std::cout << "projDir " << projDir << std::endl;
         Ray<ad> ray3(outPos - 0.5f*tmax*projDir,projDir, tmax);
+        // TODO: implementing polyVal regularization
+        // active = active*(abs(polyVal) < 50.0);
         // Ray<ad> ray3(outPos - 0.5f*tmax*projDir, projDir, tmax);
         // Ray<ad> ray2(outPos, vz, tmax);
         
         // Ray_all_intersect selects one of numIntersection samples uniformly.
         // We'll just use ray_intesect
-        // Intersection<ad> its3 = scene->ray_intersect<ad, ad>(ray3, active);
+        Intersection<ad> its3 = scene->ray_intersect<ad, ad>(ray3, active);
+        // std::cout << "its3.t" << its3.t << std::endl;
         // Choose on of all intersections along ray with equal probability5
         // Intersection<ad> its3 = scene->ray_all_intersect<ad, ad>(ray3, active,sample,5);
         // std::cout << "active " << active << std::endl;
 
         // Intersection<ad> its3 = scene->ray_intersect<ad, ad>(Ray<ad>(outPos,projDir), active); //,sample,5);
-        Intersection<ad> its3 = scene->ray_intersect<ad, ad>(ray3, active); //,sample,5);
+        // Intersection<ad> its3 = scene->ray_intersect<ad, ad>(ray3, active); //,sample,5);
         its3.abs_prob = absorption;
         // if(true) {
         // // if(!is_plane){

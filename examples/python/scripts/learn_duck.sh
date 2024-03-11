@@ -1,5 +1,5 @@
 python3.8 ../learn_real_data.py \
-        --stats_folder "exp1/forward_vae_projOld" \
+        --stats_folder "exp1/forward_vae_TS" \
         --d_type "custom" \
         --seed 2 \
         --scene "duck" \

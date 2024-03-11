@@ -10,6 +10,8 @@
 #include <enoki/random.h>
 #include <enoki/special.h>
 
+#include<vector>
+
 // #include <enoki/dynamic.h>
 
 // using Matrix = enoki::Matrix;
@@ -70,6 +72,24 @@ void loadMat(const std::string &filename,float* array)
     }
 }
 
+float get_kernelEps(float albedo_ch, float sigma_t_ch, float g_ch){
+
+    auto sigma_s = sigma_t_ch * albedo_ch;
+    auto sigma_a = sigma_t_ch - sigma_s;
+
+    auto miu_s_p = (1.0f - g_ch) * sigma_s;
+    auto miu_t_p = miu_s_p + sigma_a;
+    auto alpha_p = miu_s_p / miu_t_p;
+
+    auto effectiveAlbedo = -log(1.0f-alpha_p * (1.0f - exp(-8.0f))) / 8.0f;
+    
+    auto val = 0.25f * g_ch + 0.25f * alpha_p + 1.0f * effectiveAlbedo;
+    auto res = 4.0f * val * val / (miu_t_p * miu_t_p);
+    // std::cout << "res" << res << std::endl;
+
+    return res;
+}
+
 // template <typename Array>
 // void printArray(const Array& arr) {
 //     for (size_t i = 0; i < arr.size(); ++i) {
@@ -85,107 +105,116 @@ void loadMat(const std::string &filename,float* array)
 //     std::cout << std::endl; // Newline for readability
 // }
 
+
+
 using namespace enoki;
 int main() {
 
-    /////////////////////////////////////////////////////////////////
-    std::cout << "[Test 1] Matrix vector multiplication" << std::endl;
-
-    Matrix<float, 3> mat(1,2,3,4,5,6,7,8,9);
-    Array<float, 3> vec(1,2,3);
-    auto result = mat*vec;
-    std::cout << result << std::endl;
-    
-    /////////////////////////////////////////////////////////////////
-    const std::string variablePath = "./variables";
-    std::cout << "[Test 2] 64 dim matrix" << std::endl;
-    const int DIM = 64;
-    const int ROWS = 23;
-    const int COLS = 64;
-    auto mat2 = arange<Matrix<float,DIM>>(); //(0);
-    auto vec2 = arange<Array<float, DIM>>();
-    auto dummy = zero<Array<float,DIM>>();
-    for(int i=0;i<64;i++){
-        for(int j=0;j<23;j++){
-            mat2[j][i] = 1.0;
-        }
-    }
-    for(int i=0;i<23;i++){
-        dummy[i] = 1.0;
+    std::vector<float> sigmas = {1.0, 5.0, 20.0, 50.0, 100.0};
+    for (auto sigma_t :sigmas){
+        auto k = get_kernelEps(0.98,sigma_t,0.0);
+        k = std::sqrt(k);
+        std::cout << "k" << k << std::endl;
     }
 
-    // loadVector(variablePath + "/shared_preproc_mlp_2_shapemlp_fcn_0_biases.bin",(float*) &vec2);
-    // loadMat(variablePath + "/shared_preproc_mlp_2_shapemlp_fcn_0_weights.bin",(float*) &mat2);
+    // /////////////////////////////////////////////////////////////////
+    // std::cout << "[Test 1] Matrix vector multiplication" << std::endl;
+
+    // Matrix<float, 3> mat(1,2,3,4,5,6,7,8,9);
+    // Array<float, 3> vec(1,2,3);
+    // auto result = mat*vec;
+    // std::cout << result << std::endl;
     
-    // std::cout << dummy << mat2[0] <<std::endl;
-    // std::cout<< "hsum " <<hsum(mat2[0]) <<std::endl;
-    std::cout << mat2 << vec2 << std::endl; //result2 <<std::endl; //[0] <<" " <<result2[1]<<std::endl;
-    auto result2 = mat2*dummy; // + vec2;
-    std::cout << result2 <<std::endl; //[0] <<" " <<result2[1]<<std::endl;
-    // for (int i=0;i<ROWS;i++){
-    //     for(int j=0;j<COLS;j++){
-    //         mat2[i][j] = 1.0;
+    // /////////////////////////////////////////////////////////////////
+    // const std::string variablePath = "./variables";
+    // std::cout << "[Test 2] 64 dim matrix" << std::endl;
+    // const int DIM = 64;
+    // const int ROWS = 23;
+    // const int COLS = 64;
+    // auto mat2 = arange<Matrix<float,DIM>>(); //(0);
+    // auto vec2 = arange<Array<float, DIM>>();
+    // auto dummy = zero<Array<float,DIM>>();
+    // for(int i=0;i<64;i++){
+    //     for(int j=0;j<23;j++){
+    //         mat2[j][i] = 1.0;
     //     }
     // }
-    // for (int i=0;i<ROWS;i++){
-    //     vec2[i] = 1.0;
+    // for(int i=0;i<23;i++){
+    //     dummy[i] = 1.0;
     // }
 
+    // // loadVector(variablePath + "/shared_preproc_mlp_2_shapemlp_fcn_0_biases.bin",(float*) &vec2);
+    // // loadMat(variablePath + "/shared_preproc_mlp_2_shapemlp_fcn_0_weights.bin",(float*) &mat2);
+    
+    // // std::cout << dummy << mat2[0] <<std::endl;
+    // // std::cout<< "hsum " <<hsum(mat2[0]) <<std::endl;
+    // std::cout << mat2 << vec2 << std::endl; //result2 <<std::endl; //[0] <<" " <<result2[1]<<std::endl;
+    // auto result2 = mat2*dummy; // + vec2;
+    // std::cout << result2 <<std::endl; //[0] <<" " <<result2[1]<<std::endl;
+    // // for (int i=0;i<ROWS;i++){
+    // //     for(int j=0;j<COLS;j++){
+    // //         mat2[i][j] = 1.0;
+    // //     }
+    // // }
+    // // for (int i=0;i<ROWS;i++){
+    // //     vec2[i] = 1.0;
+    // // }
 
-    auto mat3 = zero<Matrix<float,DIM>>(); //(0);
-    auto vec3 = zero<Array<float, DIM>>();
-    auto mat31 = zero<Matrix<float,DIM>>(); //(0);
-    auto vec31 = zero<Array<float, DIM>>();
-    auto mat32 = zero<Matrix<float,DIM>>(); //(0);
-    auto vec32 = zero<Array<float, DIM>>();
-    // auto dummy = zero<Array<float,DIM>>();
-    loadVector(variablePath + "/shared_preproc_mlp_2_shapemlp_fcn_0_biases.bin",(float*) &vec3);
-    loadMat(variablePath + "/shared_preproc_mlp_2_shapemlp_fcn_0_weights.bin",(float*) &mat3);
-    loadVector(variablePath + "/shared_preproc_mlp_2_shapemlp_fcn_1_biases.bin",(float*) &vec31);
-    loadMat(variablePath + "/shared_preproc_mlp_2_shapemlp_fcn_1_weights.bin",(float*) &mat31);
-    loadVector(variablePath + "/shared_preproc_mlp_2_shapemlp_fcn_2_biases.bin",(float*) &vec32);
-    loadMat(variablePath + "/shared_preproc_mlp_2_shapemlp_fcn_2_weights.bin",(float*) &mat32);
 
-    using Matrix64f = Matrix<float,64>;
-    using Vector64f = Array<float,64>;
-    using Vector32f = Array<float,32>;
-    using Vector1f = Array<float,1>;
+    // auto mat3 = zero<Matrix<float,DIM>>(); //(0);
+    // auto vec3 = zero<Array<float, DIM>>();
+    // auto mat31 = zero<Matrix<float,DIM>>(); //(0);
+    // auto vec31 = zero<Array<float, DIM>>();
+    // auto mat32 = zero<Matrix<float,DIM>>(); //(0);
+    // auto vec32 = zero<Array<float, DIM>>();
+    // // auto dummy = zero<Array<float,DIM>>();
+    // loadVector(variablePath + "/shared_preproc_mlp_2_shapemlp_fcn_0_biases.bin",(float*) &vec3);
+    // loadMat(variablePath + "/shared_preproc_mlp_2_shapemlp_fcn_0_weights.bin",(float*) &mat3);
+    // loadVector(variablePath + "/shared_preproc_mlp_2_shapemlp_fcn_1_biases.bin",(float*) &vec31);
+    // loadMat(variablePath + "/shared_preproc_mlp_2_shapemlp_fcn_1_weights.bin",(float*) &mat31);
+    // loadVector(variablePath + "/shared_preproc_mlp_2_shapemlp_fcn_2_biases.bin",(float*) &vec32);
+    // loadMat(variablePath + "/shared_preproc_mlp_2_shapemlp_fcn_2_weights.bin",(float*) &mat32);
+
+    // using Matrix64f = Matrix<float,64>;
+    // using Vector64f = Array<float,64>;
+    // using Vector32f = Array<float,32>;
+    // using Vector1f = Array<float,1>;
     
-    Matrix64f absorption_mlp_fcn_0_weights = zero<Matrix64f>(); // Eigen::Matrix<float,32,64>
-    Vector64f absorption_mlp_fcn_0_biases = zero<Vector64f>();
-    Matrix64f absorption_dense_kernel = zero<Matrix64f>();
-    Vector1f absorption_dense_bias;
-    loadMat(variablePath + "/absorption_mlp_fcn_0_weights.bin",(float*) &absorption_mlp_fcn_0_weights);
-    loadMat(variablePath + "/absorption_dense_kernel.bin",(float*) &absorption_dense_kernel);
-    loadVector(variablePath + "/absorption_dense_bias.bin", (float*) &absorption_dense_bias);
-    loadVector(variablePath + "/absorption_mlp_fcn_0_biases.bin", (float*) &absorption_mlp_fcn_0_biases);
+    // Matrix64f absorption_mlp_fcn_0_weights = zero<Matrix64f>(); // Eigen::Matrix<float,32,64>
+    // Vector64f absorption_mlp_fcn_0_biases = zero<Vector64f>();
+    // Matrix64f absorption_dense_kernel = zero<Matrix64f>();
+    // Vector1f absorption_dense_bias;
+    // loadMat(variablePath + "/absorption_mlp_fcn_0_weights.bin",(float*) &absorption_mlp_fcn_0_weights);
+    // loadMat(variablePath + "/absorption_dense_kernel.bin",(float*) &absorption_dense_kernel);
+    // loadVector(variablePath + "/absorption_dense_bias.bin", (float*) &absorption_dense_bias);
+    // loadVector(variablePath + "/absorption_mlp_fcn_0_biases.bin", (float*) &absorption_mlp_fcn_0_biases);
     
-    auto result3 = max(mat3 * dummy + vec3,0.0f);
-    result3 = max(mat31 * result3 + vec31,0.0f);
-    result3 = max(mat32 * result3 + vec32,0.0f);
-    std::cout << result3 << std::endl;
+    // auto result3 = max(mat3 * dummy + vec3,0.0f);
+    // result3 = max(mat31 * result3 + vec31,0.0f);
+    // result3 = max(mat32 * result3 + vec32,0.0f);
+    // std::cout << result3 << std::endl;
     
-    auto feature = result3;
+    // auto feature = result3;
+    // // auto abs = max(absorption_mlp_fcn_0_weights * feature + absorption_mlp_fcn_0_biases,0.0f);
     // auto abs = max(absorption_mlp_fcn_0_weights * feature + absorption_mlp_fcn_0_biases,0.0f);
-    auto abs = max(absorption_mlp_fcn_0_weights * feature + absorption_mlp_fcn_0_biases,0.0f);
-    abs = absorption_dense_kernel * abs + absorption_dense_bias[0];
-    // abs = absorption_dense_kernel * abs + absorption_dense_bias;
-    std::cout << "Absorption is " << abs << std::endl;
+    // abs = absorption_dense_kernel * abs + absorption_dense_bias[0];
+    // // abs = absorption_dense_kernel * abs + absorption_dense_bias;
+    // std::cout << "Absorption is " << abs << std::endl;
     
-    // Array<float,64+4> inputFeature;
-    // Array<float,4> latent;
-    // input << latent,feature;
-    // Sample random vector
-    using UInt32      = Packet<uint32_t>;
-    using RNG         = PCG32<UInt32>;
-    using UInt64      = RNG::UInt64;
-    RNG rng(PCG32_DEFAULT_STATE, arange<UInt64>() + (0 * UInt32::Size));
-    auto x = rng.next_float32();
-    Array<float,4> latent(rng.next_float32()[0],rng.next_float32()[0],rng.next_float32()[0],rng.next_float32()[0]);
+    // // Array<float,64+4> inputFeature;
+    // // Array<float,4> latent;
+    // // input << latent,feature;
+    // // Sample random vector
+    // using UInt32      = Packet<uint32_t>;
+    // using RNG         = PCG32<UInt32>;
+    // using UInt64      = RNG::UInt64;
+    // RNG rng(PCG32_DEFAULT_STATE, arange<UInt64>() + (0 * UInt32::Size));
+    // auto x = rng.next_float32();
+    // Array<float,4> latent(rng.next_float32()[0],rng.next_float32()[0],rng.next_float32()[0],rng.next_float32()[0]);
     
-    // Importance sample from normal distribution using output of PCG32
-    auto y = float(M_SQRT2) * erfinv(2.f*latent - 1.f);
-    std::cout << y << std::endl;
+    // // Importance sample from normal distribution using output of PCG32
+    // auto y = float(M_SQRT2) * erfinv(2.f*latent - 1.f);
+    // std::cout << y << std::endl;
     
     return 0;
     // enoki::Array<float, 4> v(1,1,1,1); // = {2.3, 1.0, 2.2, 3.0};

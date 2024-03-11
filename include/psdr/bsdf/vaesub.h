@@ -203,6 +203,9 @@ protected:
     template <bool ad>
     std::pair<Vector3f<ad>,Float<ad>> _run(Array<Float<ad>,23> x, Array<Float<ad>,4> latent) const;
 
+    template <bool ad>
+    std::pair<Vector3f<ad>,Float<ad>> _run(Array<Float<ad>,23> xTS, Array<Float<ad>,23> xLS, Array<Float<ad>,4> latent) const;
+
     template <bool ad,size_t size>
     Array<Float<ad>,size> _preprocessFeatures(const Intersection<ad>&its, int idx, bool isPlane) const;
 

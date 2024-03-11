@@ -54,6 +54,9 @@ template <bool ad>
 using Vector3f  = Vectorf<3, ad>;
 
 template <bool ad>
+using Vector20f  = Vectorf<20, ad>;
+
+template <bool ad>
 using Vector3i  = Vectori<3, ad>;
 
 template <bool ad>
@@ -91,6 +94,9 @@ using Vector2iD = Vector2i<true>;
 
 using Vector3fC = Vector3f<false>;
 using Vector3fD = Vector3f<true>;
+
+using Vector20fC = Vector20f<false>;
+using Vector20fD = Vector20f<true>;
 
 using Vector3iC = Vector3i<false>;
 using Vector3iD = Vector3i<true>;

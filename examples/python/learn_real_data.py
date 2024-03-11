@@ -111,7 +111,43 @@ def opt_task(args):
         'sphere1': {
             'albedo': [0.9, 0.9, 0.9],
             'sigmat': [54.00, 72.00, 98.00],
-        }
+        },
+        'cone1': {
+            'albedo': [0.98, 0.98, 0.98],
+            'sigmat': [1.00, 1.00, 1.00],
+        },
+        'cone2': {
+            'albedo': [0.98, 0.98, 0.98],
+            'sigmat': [5.00, 5.00, 5.00],
+        },
+        'cone3': {
+            'albedo': [0.98, 0.98, 0.98],
+            'sigmat': [20.00, 20.00,20.00],
+        },
+        'cone4': {
+            'albedo': [0.98, 0.98, 0.98],
+            'sigmat': [50.00, 50.00,50.00],
+        },
+        'cone5': {
+            'albedo': [0.98, 0.98, 0.98],
+            'sigmat': [100.00, 100.00,100.00],
+        },
+        'pyramid4': {
+            'albedo': [0.98, 0.98, 0.98],
+            'sigmat': [50.00, 50.00,50.00],
+        },
+        'pyramid5': {
+            'albedo': [0.98, 0.98, 0.98],
+            'sigmat': [100.00, 100.00,100.00],
+        },
+        'cylinder4': {
+            'albedo': [0.98, 0.98, 0.98],
+            'sigmat': [50.00, 50.00,50.00],
+        },
+        'cylinder5': {
+            'albedo': [0.98, 0.98, 0.98],
+            'sigmat': [100.00, 100.00,100.00],
+        },
     }
 
     # load scene
@@ -408,6 +444,7 @@ def opt_task(args):
         cmap = colormaps.get('inferno')
         images = []
         error_map = []
+        rmse_list = []
         
         # print(sidxs)
         for idx in sidxs:
@@ -427,17 +464,10 @@ def opt_task(args):
             plt.axis('off')
             # plt.show()
 
-            outfile_error = statsdir + "/error_{}.png".format(i+1)
+            outfile_error = statsdir + "/error_{}_{}.png".format(i+1,idx)
             plt.savefig(outfile_error,bbox_inches='tight')
             plt.close()
             
-            # rmse2 = cmap(rmse(img2,target2)).astype(np.float32)[...,:3] * 255.0
-            wandb.log({
-                "images/gt": wandb.Image(cv2.cvtColor(target2,cv2.COLOR_BGR2RGB)),
-                "images/out" : wandb.Image(cv2.cvtColor(img2,cv2.COLOR_BGR2RGB)),
-                "images/error": wandb.Image(cv2.cvtColor(cv2.imread(outfile_error),cv2.COLOR_BGR2RGB)),              
-                "loss/rmse_image": rmse(img2,target2).mean(),
-            })
 
             # target2 = cv2.cvtColor(target2, cv2.COLOR_RGB2BGR)
             # rmse2 = cv2.cvtColor(rmse2, cv2.COLOR_BGR2RGB)
@@ -447,11 +477,23 @@ def opt_task(args):
             # output2 = np.concatenate((img2, target2, absdiff2,rmse2))
             images.append(output2)
             # error_map.append(rmse2)
+            wandb.log({
+                "images/gt": wandb.Image(cv2.cvtColor(target2,cv2.COLOR_BGR2RGB)),
+                "images/out" : wandb.Image(cv2.cvtColor(img2,cv2.COLOR_BGR2RGB)),
+                "images/error": wandb.Image(cv2.cvtColor(cv2.imread(outfile_error),cv2.COLOR_BGR2RGB)),              
+                "loss/rmse_image": rmse(img2,target2).mean(),
+            })
+            
+            rmse_list.append(rmse(img2,target2).mean())
 
+        # rmse2 = cmap(rmse(img2,target2)).astype(np.float32)[...,:3] * 255.0
         output = np.concatenate((images), axis=1)                
         # error = np.concatenate((error_map), axis=1)                
         cv2.imwrite(statsdir + "/iter_{}.exr".format(i+1), output)
         # cv2.imwrite(statsdir + "/error_{}.png".format(i+1), error)
+        wandb.log({
+            "loss/rmse_avg_image": sum(rmse_list) / len(rmse_list), #rmse(img2,target2).mean(),
+        })
 
 
     def optTask(args):
