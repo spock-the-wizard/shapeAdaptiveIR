@@ -87,12 +87,19 @@ Spectrum<ad> DirectIntegrator::__Li(const Scene &scene, Sampler &sampler, const 
     Float<ad> pdfpoint = bsdf_array->pdfpoint(its, bs, active1);
     // std::cout<< detach(pdfpoint) << " " << active1 <<std::endl;
     Spectrum<ad> Le = scene.m_emitters[0]->eval(bs.po, active1);
-    // std::cout<< Le <<std::endl;
+    // Le = Le * 100;
+    // std::cout << "scene.m_emitters[0] " << scene.m_emitters[0] << std::endl;
 
     // std::cout<<" common bsdf_val "<<hsum(hsum(bsdf_val))<<std::endl;
 
     masked(result, active1) +=  bsdf_val * Le / detach(pdfpoint); //Spectrum<ad>(detach(dd));  //bsdf_val;//detach(Intensity) / 
+    // std::cout<< "Le" << Le <<std::endl;
+    // std::cout << "bsdf_val " << count(bsdf_val != 0) << std::endl;
+    // std::cout << "pdfpoint " << count(pdfpoint != 0) << std::endl;
+    // std::cout << "active1 " << count(active1 != 0) << std::endl;
     // std::cout<< detach(pdfpoint) <<std::endl;
+
+    // std::cout << "result " << result << std::endl;
     return result;
 }
 
@@ -458,6 +465,10 @@ std::pair<IntC, Spectrum<ad>> DirectIntegrator::eval_secondary_edge(const Scene 
     SpectrumC bsdf_val = bsdf_array->eval(bs1.po, bs2, valid);
     FloatC pdfpoint = bsdf_array->pdfpoint(bs2.po, bs1, valid);
     SpectrumC value0 = (bsdf_val*scene.m_emitters[0]->eval(bs2.po, valid)*(base_v * sds.sensor_val/bss.pdf/pdfpoint)) & valid;
+    
+    // std::cout << "pdfpoint " << pdfpoint << std::endl;
+    // std::cout << "value0 " << value0 << std::endl;
+    
     if constexpr ( ad ) {
         Vector3fC n = normalize(cross(_its1.n, proj));
         value0 *= sign(dot(e, bss.edge2))*sign(dot(e, n));

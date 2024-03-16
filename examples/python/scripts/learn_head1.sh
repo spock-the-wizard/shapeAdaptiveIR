@@ -1,8 +1,8 @@
 python3.8 ../learn_real_data.py \
-        --stats_folder "exp1/for_ours" \
+        --stats_folder "exp1/var15" \
         --d_type "custom" \
         --seed 2 \
-        --scene "head" \
+        --scene "head1" \
         --n_dump 25 \
         --ref_folder "exr_ref" \
         --mesh_lr 0.00 \
@@ -20,7 +20,7 @@ python3.8 ../learn_real_data.py \
         --spp 4 \
         --sppe 4 \
         --sppse 4 \
-        --ref_spp 256 \
+        --ref_spp 512 \
         --albedo_texture 0 \
         --rough_texture 0 \
         --sigma_texture 0 \

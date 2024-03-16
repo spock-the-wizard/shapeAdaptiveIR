@@ -6,37 +6,34 @@
 
      <emitter type="point" id="point-light">
         
-        <rgb name="power" value="500, 500, 500" />
+        <!-- <rgb name="power" value="500" />  -->
+        <rgb name="power" value="500, 500, 500" /> 
         <transform name="to_world" id="light-transform">
             
 		</transform>
     </emitter>
 
 
-    
-    
-    <!-- <bsdf type="hetersub" id="opt">  -->
-     <bsdf type="vaesub" id="opt">
-    
-        <float name="eta" value="1.00" />
+    <!-- <bsdf type="hetersub" id="opt"> -->
+    <bsdf type="vaesub" id="opt">
+        
+        <float name="eta" value="1.2029" />
         <rgb name="specular_reflectance" value="0, 0, 0" />
         <rgb name="alpha" value="0.0, 0.0, 0.0" />
-        <!-- <rgb name="sigma_t" value="35.00 35.00 35.00" />
-        <rgb name="albedo" value="0.85, 0.85, 0.85" /> -->
-        <rgb name="sigma_t" value="50.00 50.00 50.00" />
-        <rgb name="albedo" value="0.98, 0.98, 0.98" />
-        
+        <rgb name="sigma_t" value="109.00, 109.00, 52.00" />
+        <rgb name="albedo" value="0.90, 0.90, 0.90" />
+
     </bsdf>
 
 
     <shape type="obj" id="init">
-        <string name="filename" value="../../smoothshape/vicini/cone_.obj" />
+        <string name="filename" value="../../smoothshape/head_v2.obj" />
         <int name="layer_count" value="0" />
         <float name="layer_depth" value="0.15" />
-
-        <string name="poly_coeff_b" value="../../polycoeffs/cone_albedo0.98_sigmat50_g0.0.npy" />
-        <string name="poly_coeff_g" value="../../polycoeffs/cone_albedo0.98_sigmat50_g0.0.npy" />
-        <string name="poly_coeff_r" value="../../polycoeffs/cone_albedo0.98_sigmat50_g0.0.npy" />
+        <string name="poly_coeff_b" value="../../polycoeffs/head_gt_b.npy" />
+        <string name="poly_coeff_g" value="../../polycoeffs/head_gt_r.npy" />
+        <string name="poly_coeff_r" value="../../polycoeffs/head_gt_r.npy" />
+                     
         <ref id="opt" />
     </shape>
 

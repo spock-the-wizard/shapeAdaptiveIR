@@ -83,6 +83,7 @@ void Mesh::instance(const Mesh * origin_mesh, float offset){
     }
 
 #ifdef PSDR_MESH_ENABLE_1D_VERTEX_OFFSET
+    // std::cout << "AAAAAAAAAAAAAAAAAAAAAAARRRRRRRRRRHHHHHHHHHHHHHH" << std::endl;
     m_vertex_offset = zero<FloatD>(m_num_vertices) + offset;
 #endif
 
@@ -372,6 +373,7 @@ void Mesh::configure() {
 
     // Calculating the world-space vertex positions
 #ifdef PSDR_MESH_ENABLE_1D_VERTEX_OFFSET
+    std::cout<<m_vertex_offset<<std::endl;
     m_vertex_positions = transform_pos(
         to_world, fnmadd(m_vertex_normals_raw, m_vertex_offset, m_vertex_positions_raw)
     ); // xi deng changed from fmadd to fnmadd to fit for shell texture

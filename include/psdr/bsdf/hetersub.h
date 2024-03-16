@@ -63,6 +63,12 @@ public:
     template <bool ad>
     std::tuple<Intersection<ad>,Float<ad>,Vector3f<ad>,Vector3f<ad>> __sample_sp(const Scene *scene, const Intersection<ad> &its, const Vector8f<ad> &sample, Float<ad> &pdf, Mask<ad>active) const;
     // Intersection<ad> __sample_sp(const Scene *scene, const Intersection<ad> &its, const Vector8f<ad> &sample, Float<ad> &pdf, Mask<ad>active) const;
+    template <bool ad>
+    Spectrum<ad> __eval_sub(const Intersection<ad> &its, const BSDFSample<ad> &bs, Mask<ad> active) const;
+    template <bool ad>
+    BSDFSample<ad> __sample(const Scene *scene, const Intersection<ad>&, const Vector8f<ad>&, Mask<ad>) const;
+    template <bool ad>
+    BSDFSample<ad> __sample_sub(const Scene *scene, const Intersection<ad> &its, const Vector8f<ad> &sample, Mask<ad> active) const;
     
     bool anisotropic() const override { return m_anisotropic; }
     bool hasbssdf() const override { return true; }
@@ -78,8 +84,6 @@ public:
     bool m_anisotropic;
 
 protected:
-    template <bool ad>
-    BSDFSample<ad> __sample(const Scene *scene, const Intersection<ad>&, const Vector8f<ad>&, Mask<ad>) const;
    
     template <bool ad>
     Float<ad> __pdf(const Intersection<ad> &, const BSDFSample<ad> &, Mask<ad>) const;
@@ -123,13 +127,9 @@ protected:
     template <bool ad>
     BSDFSample<ad> __sample_bsdf(const Intersection<ad> &its, const Vector8f<ad> &sample, Mask<ad> active) const;
     template <bool ad>
-    BSDFSample<ad> __sample_sub(const Scene *scene, const Intersection<ad> &its, const Vector8f<ad> &sample, Mask<ad> active) const;
-    template <bool ad>
     Intersection<ad> __sample_better_sp(const Scene *scene, const Intersection<ad> &its, const Vector8f<ad> &sample, Float<ad> &pdf, Mask<ad> active) const;
     template <bool ad>
     Spectrum<ad> __eval_bsdf(const Intersection<ad> &its, const BSDFSample<ad> &bs, Mask<ad> active) const;
-    template <bool ad>
-    Spectrum<ad> __eval_sub(const Intersection<ad> &its, const BSDFSample<ad> &bs, Mask<ad> active) const;
     // help functions
     template <bool ad> Spectrum<ad> __FresnelMoment1(Spectrum<ad> eta) const;
     template <bool ad> Spectrum<ad> __FresnelMoment2(Spectrum<ad> eta) const;

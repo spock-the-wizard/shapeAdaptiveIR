@@ -6,7 +6,7 @@ import numpy as np
 import xml.etree.ElementTree as ET
 
 
-def datasetIRON2PSDR(src_dir,dst_dir,light_out,xml_file,xml_out):
+def datasetIRON2PSDR(src_dir,dst_dir,light_out,xml_file,xml_out,n_lights = -1):
     """
     Transform IRON dataset structure to PSDR-CUDA dataset
     """
@@ -15,9 +15,13 @@ def datasetIRON2PSDR(src_dir,dst_dir,light_out,xml_file,xml_out):
     # et = ET.parse("examples/scenes/head_out.xml")
     et = ET.parse(xml_file)
     root = et.getroot()
+
     lightdir = [a for a in os.listdir(src_dir) if os.path.isdir(os.path.join(src_dir,a))]
     # lightdir = lightdir[:-1]
     list_imgfile = sorted(os.listdir(os.path.join(src_dir,lightdir[0],"train/image")))
+    
+    if n_lights == 1:
+        lightdir = [lightdir[0]]
     list_lightidx = np.random.choice(len(lightdir),size=len(list_imgfile))
     cam_dict = json.load(open(os.path.join(src_dir,lightdir[0],"train/cam_dict_norm.json"),"r"))
     
@@ -121,18 +125,26 @@ def datasetIRON2PSDR_single(src_dir,dst_dir,xml_out):
 
 if __name__ == "__main__":
     name = "cylinder5"
+    name = "botijo4"
+    name = "botijo5"
+    name = "head1"
+    
     datasetIRON2PSDR(
         # src_dir="./data/cone_240307_201131",
         # src_dir="./data/cone_240308_002127",
         # src_dir="./data/cone_240309_142041",
         # src_dir="./data/cone_240309_151714",
         # src_dir="./data/cylinder_240310_201540",
-        src_dir="./data/cylinder_240310_224957",
+        # src_dir="./data/cylinder_240310_224957",
+        # src_dir="./data/botijo_240312_015009",
+        # src_dir="./data/botijo_240311_234447",
+        src_dir="./data/head/head",
          dst_dir=f"./data_kiwi_soap/realdata/{name}",
          light_out=f"./examples/scenes/light/lights-{name}",
-         xml_file="./examples/scenes/cone3_out.xml",
+         xml_file="./examples/scenes/head_out.xml",
         #  xml_file="./examples/scenes/head_out.xml",
-         xml_out=f"./examples/scenes/{name}_out.xml")
+         xml_out=f"./examples/scenes/{name}_out.xml",
+         n_lights=1)
     
 # if __name__ == "__main__":
 #     src_dir = "data/duck/light00/test/image"

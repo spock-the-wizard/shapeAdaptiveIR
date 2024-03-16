@@ -16,7 +16,7 @@ public:
     // Vector3f<false> sample_sub(const Scene &scene, Vector3f<false> pts, Vector3f<false> dir);
     // std::tuple<Vector3fC,Vector3fC,Vector3fC,Array<Array<Float<false>,20>,3>> sample_sub(const Scene &scene, Vector3f<false> pts, Vector3f<false> dir);
     // std::tuple<Vector3fC,Vector3fC,Vector3fC,Array<Array<float,20>,3>> sample_sub(const Scene &scene, Vector3f<false> pts, Vector3f<false> dir);
-    std::tuple<Vector3fC,Vector3fC,Vector3fC,Vector20fC> sample_sub(const Scene &scene, Vector3f<false> pts, Vector3f<false> dir);
+    std::tuple<Vector3fC,Vector3fC,Vector3fC,Vector20fC,Float<false>> sample_sub(const Scene &scene, Vector3f<false> pts, Vector3f<false> dir);
     // std::tuple<Vector3fC,Vector3fC,Vector3fC,Array<Array<float,20>,3>> sample_sub(const Scene &scene, Vector3f<false> pts, Vector3f<false> dir);
     // Vector3f<false> sample_sub(const Scene &scene, Vector3f<false> pts, Vector3f<false> dir);
 

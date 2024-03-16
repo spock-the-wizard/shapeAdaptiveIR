@@ -5,10 +5,7 @@ break src/bsdf/vaesub.cpp:310
 break VaeSub::sample
 break sample_sub
 break src/integrator/integrator.cpp:52 thread 1
-break src/scene/scene_optix.cpp:220
-break src/scene/scene.cpp:480
-break src/bsdf/hetersub.cpp:457
-break Scene::configure
+break src/integrator/direct.cpp:62
 
 run
 sbreak __sample_sub<true> thread 1

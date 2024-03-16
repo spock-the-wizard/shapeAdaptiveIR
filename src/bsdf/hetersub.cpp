@@ -242,9 +242,9 @@ Spectrum<ad> HeterSub::__eval_sub(const Intersection<ad> &its, const BSDFSample<
     Spectrum<ad> sp = sqrt(__Sp<ad>(bs.po, its)) * sqrt(__Sp<ad>(its, bs.po));
     Spectrum<ad> sw =  __Sw<ad>(bs.po, bs.wo, active);
     
-    std::cout << "[DEBUG] Active rate: " << 100*count(active)/slices(active) << std::endl;
+    // std::cout << "[DEBUG] Active rate: " << 100*count(active)/slices(active) << std::endl;
     Spectrum<ad> value = sp * sw * (1.0f - F) * cos_theta_o;
-    std::cout << "cos_theta_o " << cos_theta_o << std::endl;
+    // std::cout << "cos_theta_o " << cos_theta_o << std::endl;
     if constexpr ( ad ) {
         value = value * bs.po.J;    
     }
@@ -332,6 +332,7 @@ BSDFSample<ad> HeterSub::__sample_sub(const Scene *scene, const Intersection<ad>
     pdf_po = __pdf_sub<ad>(its, bs, active) * warp::square_to_cosine_hemisphere_pdf<ad>(bs.wo);
     bs.pdf = pdf_po;
     bs.rgb_rv = 1.0f;
+
     return bs;
 }
 
@@ -504,6 +505,7 @@ std::tuple<Intersection<ad>,Float<ad>,Vector3f<ad>,Vector3f<ad>> HeterSub::__sam
         auto outPos = its.p + r * (vx * cos(phi) + vy * sin(phi));
         auto projDir = vz;
         
+
         return std::tuple<Intersection<ad>,Float<ad>,Vector3f<ad>,Vector3f<ad>>(its2,sample[5],outPos,projDir);
     }
 

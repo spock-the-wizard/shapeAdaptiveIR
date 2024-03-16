@@ -1,5 +1,5 @@
 python3.8 ../learn_real_data.py \
-        --stats_folder "exp3/inv_deng" \
+        --stats_folder "exp1/forward_deng" \
         --d_type "custom" \
         --seed 2 \
         --scene "cone4" \
@@ -11,7 +11,7 @@ python3.8 ../learn_real_data.py \
         --rough_lr 0.05 \
         --eta_lr 0.005 \
         --n_reduce_step 1000 \
-        --n_iters 3000 \
+        --n_iters 1 \
         --laplacian 30 \
         --sigma_laplacian 0 \
         --albedo_laplacian 0 \
@@ -20,7 +20,7 @@ python3.8 ../learn_real_data.py \
         --spp 4 \
         --sppe 4 \
         --sppse 4 \
-        --ref_spp 128 \
+        --ref_spp 512 \
         --albedo_texture 0 \
         --rough_texture 0 \
         --sigma_texture 0 \

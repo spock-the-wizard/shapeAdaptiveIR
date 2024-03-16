@@ -231,13 +231,13 @@ void SceneLoader::load_scene(const pugi::xml_document &doc, Scene &scene) {
         load_bsdf(node, scene);
     }
 
-    //std::cout<<"Loading emitter"<<::std::endl;
+    // std::cout<<"Loading emitter"<<::std::endl;
     // Load (env) emitter
     for ( auto node = root.child("emitter"); node; node = node.next_sibling("emitter") ) {
         load_emitter(node, scene);
     }
 
-    //std::cout<<"Loading shape"<<::std::endl;
+    // std::cout<<"Loading shape"<<::std::endl;
     // Load shapes
     for ( auto node = root.child("shape"); node; node = node.next_sibling("shape") ) {
         load_shape(node, scene);

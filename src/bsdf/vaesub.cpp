@@ -277,17 +277,17 @@ Spectrum<ad> VaeSub::__eval_sub(const Intersection<ad> &its, const BSDFSample<ad
     Spectrum<ad> F = __FersnelDi<ad>(1.0f, m_eta.eval<ad>(its.uv), cos_theta_i);
 
     // Joon added: sample contribution for each channel
-    // Spectrum<ad> r = zero<Spectrum<ad>>();
-    // Spectrum<ad> g = zero<Spectrum<ad>>();
-    // Spectrum<ad> b = zero<Spectrum<ad>>();
-    // r[0] = 1.0f;
-    // g[1] = 1.0f;
-    // b[2] = 1.0f;
+    Spectrum<ad> r = zero<Spectrum<ad>>();
+    Spectrum<ad> g = zero<Spectrum<ad>>();
+    Spectrum<ad> b = zero<Spectrum<ad>>();
+    r[0] = 1.0f;
+    g[1] = 1.0f;
+    b[2] = 1.0f;
 
     // FIXME: testing monochromatic
-    Spectrum<ad> r = full<Spectrum<ad>>(1.0f);
-    Spectrum<ad> g = full<Spectrum<ad>>(1.0f);
-    Spectrum<ad> b = full<Spectrum<ad>>(1.0f);
+    // Spectrum<ad> r = full<Spectrum<ad>>(1.0f);
+    // Spectrum<ad> g = full<Spectrum<ad>>(1.0f);
+    // Spectrum<ad> b = full<Spectrum<ad>>(1.0f);
     
     // std::cout << "bs.its.prob" << bs.po.abs_prob << std::endl;
     // std::cout << "bs.rgb_rv" << bs.rgb_rv << std::endl;
@@ -301,14 +301,29 @@ Spectrum<ad> VaeSub::__eval_sub(const Intersection<ad> &its, const BSDFSample<ad
     Spectrum<ad> sw =  __Sw<ad>(bs.po, bs.wo, active);
     
     // FIXME : testing kernel idea
-    sp = __Sp<ad>(bs.po, its) * sp *0.1f;
+    // sp = __Sp<ad>(bs.po, its) * sp ; //*0.1f;
+    auto rnd = bs.rgb_rv;
+    auto shapeFeatures = select(rnd < (1.0f / 3.0f), its.poly_coeff.x(), its.poly_coeff.y());
+    shapeFeatures = select(rnd > (2.0f / 3.0f), its.poly_coeff.z(), shapeFeatures);
+
+    auto vz = its.sh_frame.n;
+    auto fitScaleFactor = 1.0f /sqrt(getKernelEps<ad>(its,rnd));
+    Float<ad> polyVal;
+    Vector<ad> projDir;
+    Spectrum<ad> outPos = bs.po.p; 
+
+    std::tie(polyVal,projDir) = evalGradient<ad>(outPos,shapeFeatures,its.p,3,detach(fitScaleFactor),true,vz);
+    // polyVal = abs(polyVal);
+    // active = active & (polyVal < 1.0f);
+    // sp = sp / polyVal;
+    // std::cout << "polyVal " << polyVal << std::endl;
     
     Spectrum<ad> value = sp* (1.0f - F) *sw * cos_theta_o;
     if constexpr ( ad ) {
         value = value * bs.po.J;    
     }
     
-    // std::cout << "value " << value << std::endl;
+    // std::cout << "value" << value << std::endl;
     // std::cout << "cos_theta_o" << cos_theta_o<< std::endl;
     // std::cout << "F" << F<< std::endl;
     return value & active;
@@ -493,6 +508,7 @@ Float<ad> VaeSub::__pdf_sub(const Intersection<ad> &its, const BSDFSample<ad> &b
         // pdf += __pdf_sr<ad>(miu_tr[i], rProj.x(), active) * 0.25f * abs(nLocal.x()) / 3.0f;
         // pdf += __pdf_sr<ad>(miu_tr[i], rProj.y(), active) * 0.25f * abs(nLocal.y()) / 3.0f;
         // pdf += __pdf_sr<ad>(miu_tr[i], rProj.z(), active) * 0.5f * abs(nLocal.z()) / 3.0f;
+        // pdf += __pdf_sr<ad>(miu_tr[i], rProj.z(), active) * abs(nLocal.z()) / 3.0f;
     }
     // FIXME: tmp setting
     pdf = abs(nLocal.z()) / 3.0f;
@@ -727,53 +743,6 @@ Float<ad> VaeSub::getKernelEps(const Intersection<ad>& its,Float<ad> rnd) const 
 
     return res;
 }
-void testRotatePolynomial() {
-    const bool ad = false;
-    std::cout << "#########################" << std::endl;
-    std::cout << "rotatePolynomial Test" << std::endl;
-    Vector<ad> s,t,n;
-    // n = -wi;
-    n = Vector<ad>(0.0f,1.0f,0.0f);
-    onb<ad>(n, s, t);
-    auto test_shapeFeatures = zero<Array<Float<ad>,20>>();
-    test_shapeFeatures[3] = 1.0f;
-    auto test1 = rotatePolynomial<3,ad>(test_shapeFeatures,s,t,n);
-    std::cout << "Test 1: X-rotation 90 -> y" << std::endl;
-    std::cout << "test1 " << test1 << std::endl;
-
-    n = Vector<ad>(1.0f,0.0f,0.0f);
-    onb<ad>(n, s, t);
-    test_shapeFeatures = zero<Array<Float<ad>,20>>();
-    test_shapeFeatures[3] = 1.0f;
-    auto test2= rotatePolynomial<3,ad>(test_shapeFeatures,s,t,n);
-    std::cout << "[Test 2]: Y-rotation 90 -> x" << std::endl;
-    std::cout << "test2 " << test2 << std::endl;
-    
-    std::cout << "[Test 3]: Transform back to original coords" << std::endl;
-    // Construct orthogonal frame
-    Spectrum<ad> tangent1, tangent2;
-    auto inNormal = Vector3f<ad>(0.2f,0.4f,0.5f);
-    normalize(inNormal);
-    onb<ad>(inNormal, tangent1, tangent2);
-    Vector3f<ad> outPos( 
-        Float<ad>(1.0f,0.5f,0.0f,0.2f),
-        Float<ad>(0.5f,0.5f,1.0f,0.6f),
-        Float<ad>(0.0f,0.0f,0.0f,0.0f)
-    ); 
-    
-    auto Xformed = outPos.x() * tangent1 + outPos.y() * tangent2 + outPos.z() * inNormal;
-    std::cout << "Xformed" << Xformed << std::endl;
-    
-    auto ortho = dot(inNormal,Xformed);
-    std::cout << "ortho " << ortho << std::endl;
-    inNormal = -inNormal;
-    onb<ad>(inNormal, tangent1, tangent2);
-    auto XformedBack = outPos.x() * tangent1 + outPos.y() * tangent2 + outPos.z() * inNormal;
-    std::cout << "XformedBack " << XformedBack << std::endl;
-    std::cout << "outPos " << outPos << std::endl;
-
-    // PSDR_ASSERT_MSG(any(Xformed.z() == 0.0f), "[TEST 3] Failed");
-}
 
 template <bool ad>
 std::tuple<Intersection<ad>,Float<ad>,Vector3f<ad>,Vector3f<ad>> VaeSub::__sample_sp(const Scene *scene, const Intersection<ad> &its, const Vector8f<ad> &sample, Float<ad> &pdf, Mask<ad> active) const {        
@@ -788,10 +757,7 @@ std::tuple<Intersection<ad>,Float<ad>,Vector3f<ad>,Vector3f<ad>> VaeSub::__sampl
         float is_plane = false; //false; 
         float is_light_space = false; //true; 
 
-        // its.wi = -its.sh_frame.n;
-
         auto x = _preprocessFeatures<ad>(its,rnd,is_plane,its.wi,is_light_space);
-        // auto x2 = _preprocessFeatures<ad>(its,rnd,is_plane,its.wi,true);
         auto kernelEps = getKernelEps<ad>(its,rnd);
         // std::cout << "kernelEps" << kernelEps << std::endl;
         auto fitScaleFactor = 1.0f / sqrt(kernelEps);
@@ -799,8 +765,8 @@ std::tuple<Intersection<ad>,Float<ad>,Vector3f<ad>,Vector3f<ad>> VaeSub::__sampl
         // Network Inference: computationally heavy from here...
         rnd = sample.y();
         Array<Float<ad>,4> latent(sample[2],sample[3],sample[6],sample[7]);
-        Spectrum<ad> outPos,outPos2;
-        Float<ad> absorption,absorption2;
+        Spectrum<ad> outPos;
+        Float<ad> absorption;;
         // std::tie(outPos,absorption)= _run<ad>(x,x2,latent);
         std::tie(outPos,absorption)= _run<ad>(x,latent);
         
@@ -816,159 +782,114 @@ std::tuple<Intersection<ad>,Float<ad>,Vector3f<ad>,Vector3f<ad>> VaeSub::__sampl
         auto inNormal = vz; // -its.wi;
         auto projDir = vz;
         Float<ad> polyVal;
-        // if(true) {
-        if(false) {
-        // if(is_plane){ // plane
-            vx = select(rnd > 0.5f, its.sh_frame.t, vx);
-            vy = select(rnd > 0.5f, its.sh_frame.n, vy);
-            vz = select(rnd > 0.5f, its.sh_frame.s, vz);
 
-            vx = select(rnd > 0.75f, its.sh_frame.n, vx);
-            vy = select(rnd > 0.75f, its.sh_frame.s, vy);
-            vz = select(rnd > 0.75f, its.sh_frame.t, vz);
+        rnd = sample[5];
+        Spectrum<ad> sigma_s = m_sigma_t.eval<ad>(its.uv) * m_albedo.eval<ad>(its.uv);
+        Spectrum<ad> sigma_a = m_sigma_t.eval<ad>(its.uv) - sigma_s;
+        Spectrum<ad> miu_s_p = (1.0f - m_g.eval<ad>(its.uv)) * sigma_s;
+        Spectrum<ad> D = 1.0f / (3.0f * (sigma_a + miu_s_p));
+        Spectrum<ad> miu_tr = sqrt(sigma_a / D);
+        Float<ad> miu_tr_0 = 0.5f;
+        miu_tr_0 = select(rnd < 1.0f / 3.0f, miu_tr.x(), miu_tr.y());
+        miu_tr_0 = select(rnd > 2.0f / 3.0f, miu_tr.z(), miu_tr_0);
+        // TODO: implementing polyVal regularization50// 
+        // Float<ad> r = __sample_sr<ad>(miu_tr_0, sample.z());
+        Vector3f<ad> dv = outPos - its.p;
+        Vector3f<ad> dLocal(dot(vx,dv),dot(vy,dv),dot(vz,dv));
 
-            rnd = sample[5];
-            Spectrum<ad> sigma_s = m_sigma_t.eval<ad>(its.uv) * m_albedo.eval<ad>(its.uv);
-            Spectrum<ad> sigma_a = m_sigma_t.eval<ad>(its.uv) - sigma_s;
-            Spectrum<ad> miu_s_p = (1.0f - m_g.eval<ad>(its.uv)) * sigma_s;
-            Spectrum<ad> D = 1.0f / (3.0f * (sigma_a + miu_s_p));
-            Spectrum<ad> miu_tr = sqrt(sigma_a / D);
-            Float<ad> miu_tr_0 = 0.5f;
-            miu_tr_0 = select(rnd < 1.0f / 3.0f, miu_tr.x(), miu_tr.y());
-            miu_tr_0 = select(rnd > 2.0f / 3.0f, miu_tr.z(), miu_tr_0);
-            // Float<ad> r = __sample_sr<ad>(miu_tr_0, sample.z());
-            Vector3f<ad> dv = outPos - its.p;
-            Vector3f<ad> dLocal(dot(vx,dv),dot(vy,dv),dot(vz,dv));
-            Float<ad> r = sqrt(dLocal.x()*dLocal.x() + dLocal.y()*dLocal.y());
-            Float<ad> rmax = __sample_sr<ad>(miu_tr_0, 0.999999f);
-            Float<ad> l = select(rmax > r,2.0f * sqrt(rmax * rmax - r * r),0.01f);
-
-            tmax = l;
-            inNormal = vz;
-            projDir = vz;
-            // Construct orthogonal frame
-            Spectrum<ad> tangent1, tangent2;
-            onb<ad>(inNormal, tangent1, tangent2);
-
-            // Local to World coordinates 
-            auto inPos = its.p;
-            outPos = inPos + outPos.x() * tangent1 + outPos.y() * tangent2 + outPos.z() * inNormal;
-            outPos = inPos + (outPos - inPos) / fitScaleFactor;
-
-            auto shapeFeatures = select(rnd < (1.0f / 3.0f), its.poly_coeff.x(), its.poly_coeff.y());
-            shapeFeatures = select(rnd > (2.0f / 3.0f), its.poly_coeff.z(), shapeFeatures);
-            
-            // projDir = -evalGradient<ad>(detach(outPos),shapeFeatures,its.p,3,detach(fitScaleFactor),true,vz);
-            // projDir = select(sample[2] <0.5f,projDir,vz);
+        // Float<ad> r = sqrt(dLocal.x()*dLocal.x() + dLocal.y()*dLocal.y());
+        Float<ad> r = __sample_sr<ad>(miu_tr_0, sample.z());
+        Float<ad> rmax = __sample_sr<ad>(miu_tr_0, 0.999999f);
+        Float<ad> l = select(rmax > r,2.0f * sqrt(rmax * rmax - r * r),0.01f);
+        // tmax = 2*kernelEps0;
+        // std::cout << "tmax" <<  tmax << std::endl;
+        tmax = l;
+        
+        if(is_light_space){
+            inNormal = -its.wi;
+            // inNormal = its.wi;
+            // inNormal = vz;
         }
         else {
-            rnd = sample[5];
-            Spectrum<ad> sigma_s = m_sigma_t.eval<ad>(its.uv) * m_albedo.eval<ad>(its.uv);
-            Spectrum<ad> sigma_a = m_sigma_t.eval<ad>(its.uv) - sigma_s;
-            Spectrum<ad> miu_s_p = (1.0f - m_g.eval<ad>(its.uv)) * sigma_s;
-            Spectrum<ad> D = 1.0f / (3.0f * (sigma_a + miu_s_p));
-            Spectrum<ad> miu_tr = sqrt(sigma_a / D);
-            Float<ad> miu_tr_0 = 0.5f;
-            miu_tr_0 = select(rnd < 1.0f / 3.0f, miu_tr.x(), miu_tr.y());
-            miu_tr_0 = select(rnd > 2.0f / 3.0f, miu_tr.z(), miu_tr_0);
-            // TODO: implementing polyVal regularization50// 
-            // Float<ad> r = __sample_sr<ad>(miu_tr_0, sample.z());
-            Vector3f<ad> dv = outPos - its.p;
-            Vector3f<ad> dLocal(dot(vx,dv),dot(vy,dv),dot(vz,dv));
-
-            Float<ad> r = sqrt(dLocal.x()*dLocal.x() + dLocal.y()*dLocal.y());
-            Float<ad> rmax = __sample_sr<ad>(miu_tr_0, 0.999999f);
-            Float<ad> l = select(rmax > r,2.0f * sqrt(rmax * rmax - r * r),0.01f);
-            // tmax = 2*kernelEps0;
-            // std::cout << "tmax" <<  tmax << std::endl;
-            tmax = l;
-            
-            if(is_light_space){
-                inNormal = -its.wi;
-                // inNormal = vz;
-            }
-            else {
-                inNormal = vz;
-            }
-            
-            auto shapeFeatures = select(rnd < (1.0f / 3.0f), its.poly_coeff.x(), its.poly_coeff.y());
-            shapeFeatures = select(rnd > (2.0f / 3.0f), its.poly_coeff.z(), shapeFeatures);
-            
-            // if (false) { //is_plane){
-            if (is_plane){
-                shapeFeatures = zero<Array<Float<ad>,20>>();
-                shapeFeatures[3] = 1.0;
-                // shapeFeatures[4] = -1.0;
-                // shapeFeatures[7] = -1.0;
-            }
-
-            // Construct orthogonal frame
-            Spectrum<ad> tangent1, tangent2;
-            onb<ad>(inNormal, tangent1, tangent2);
-
-            auto inPos = its.p;
-            outPos = inPos + outPos.x() * tangent1 + outPos.y() * tangent2 + outPos.z() * inNormal;
-            outPos = inPos + (outPos - inPos) / fitScaleFactor;
-
-            // NOTE: evalGradient accepts world space coordinates
-            std::tie(polyVal,projDir) = evalGradient<ad>(detach(outPos),shapeFeatures,its.p,3,detach(fitScaleFactor),true,vz);
-            projDir = -sign(polyVal) * projDir;
+            inNormal = vz;
         }
         
-        std::cout << "polyVal" << hmean(abs(detach(polyVal))) << std::endl;
-        tmax = 2*sqrt(kernelEps);
-        projDir = normalize(projDir);
-        // std::cout << "projDir " << projDir << std::endl;
-        Ray<ad> ray3(outPos - 0.5f*tmax*projDir,projDir, tmax);
-        // TODO: implementing polyVal regularization
-        // active = active*(abs(polyVal) < 50.0);
-        // Ray<ad> ray3(outPos - 0.5f*tmax*projDir, projDir, tmax);
-        // Ray<ad> ray2(outPos, vz, tmax);
+        auto shapeFeatures = select(rnd < (1.0f / 3.0f), its.poly_coeff.x(), its.poly_coeff.y());
+        shapeFeatures = select(rnd > (2.0f / 3.0f), its.poly_coeff.z(), shapeFeatures);
         
-        // Ray_all_intersect selects one of numIntersection samples uniformly.
-        // We'll just use ray_intesect
-        Intersection<ad> its3 = scene->ray_intersect<ad, ad>(ray3, active);
-        // std::cout << "its3.t" << its3.t << std::endl;
-        // Choose on of all intersections along ray with equal probability5
-        // Intersection<ad> its3 = scene->ray_all_intersect<ad, ad>(ray3, active,sample,5);
-        // std::cout << "active " << active << std::endl;
+        // if (false) { //is_plane){
+        if (is_plane){
+            shapeFeatures = zero<Array<Float<ad>,20>>();
+            shapeFeatures[3] = 1.0;
+        }
 
-        // Intersection<ad> its3 = scene->ray_intersect<ad, ad>(Ray<ad>(outPos,projDir), active); //,sample,5);
-        // Intersection<ad> its3 = scene->ray_intersect<ad, ad>(ray3, active); //,sample,5);
+        // Construct orthogonal frame
+        Spectrum<ad> tangent1, tangent2;
+        onb<ad>(inNormal, tangent1, tangent2);
+
+        auto inPos = its.p;
+        outPos = inPos + outPos.x() * tangent1 + outPos.y() * tangent2 + outPos.z() * inNormal;
+        outPos = inPos + (outPos - inPos) / fitScaleFactor;
+
+        // NOTE: evalGradient accepts world space coordinates
+        std::tie(polyVal,projDir) = evalGradient<ad>(detach(outPos),shapeFeatures,its.p,3,detach(fitScaleFactor),true,vz);
+        projDir = -sign(polyVal) * projDir;
+        
+        tmax = 2/fitScaleFactor;
+        projDir = normalize(projDir);
+        
+        Intersection<ad> its3;
+        float eps = 0.05f;
+        if(true){
+            // projDir = -projDir;
+
+            Ray<ad> ray3(outPos- eps*projDir, projDir); //- 0.5f*tmax*projDir,projDir, tmax);
+            Intersection<ad> its3_front = scene->ray_intersect<ad, ad>(ray3, active);
+
+            Ray<ad> ray_back(outPos- eps*projDir,-projDir);
+            Intersection<ad> its3_back = scene->ray_intersect<ad, ad>(ray_back,active);
+
+            // NOTE: don't judge an intersection's validity by is_valid()...
+            auto msk = !(its3_back.is_valid() && (its3_front.t > its3_back.t));
+            // Don't know why, but this works
+            // auto msk = !((its3_front.t > its3_back.t));
+
+            // auto msk = its2.is_valid() && (its2.t < its3.t);
+            // std::cout << "count(msk) " << count(msk) << std::endl;
+            // std::cout << "its3_front.shape" << its3_front.shape << std::endl;
+            // std::cout << "its3_back.shape" << its3_back.shape << std::endl;
+            // std::cout << "count(its3_front.is_valid())" << count(its3_front.is_valid()) << std::endl;
+            // std::cout << "count(its3_back.is_valid())" << count(its3_back.is_valid()) << std::endl;
+            
+
+            its3.n = select(msk,its3_front.n,its3_back.n);
+            // its3.sh_frame = msk ? its.sh_frame : its3_back.sh_frame; //select(msk,Frame<ad>(), Frame<ad>());
+            its3.sh_frame.s = select(msk,its3_front.sh_frame.s,its3_back.sh_frame.s);
+            its3.sh_frame.t = select(msk,its3_front.sh_frame.t,its3_back.sh_frame.t);
+            its3.sh_frame.n = select(msk,its3_front.sh_frame.n,its3_back.sh_frame.n);
+            its3.uv = select(msk,its3_front.uv,its3_back.uv);
+            its3.J = select(msk,its3_front.J,its3_back.J);
+            its3.num = select(msk,its3_front.num,its3_back.num);
+            its3.wi = select(msk,its3_front.wi,its3_back.wi);
+            its3.p = select(msk,its3_front.p,its3_back.p);
+            its3.t = select(msk,its3_front.t,its3_back.t);
+            its3.shape = select(msk,its3_front.shape,its3_back.shape);
+            // std::cout << "its3.shape" << its3.shape << std::endl;
+            // std::cout << "its3.is_valid()" << its3.is_valid() << std::endl;
+            // std::cout << "count(its3.is_valid())" << count(its3.is_valid()) << std::endl;
+    
+
+        }
+        else{
+            Ray<ad> ray3(outPos, projDir); //- 0.5f*tmax*projDir,projDir, tmax);
+            its3 = scene->ray_intersect<ad, ad>(ray3, active);
+        }
+
         its3.abs_prob = absorption;
-        // if(true) {
-        // // if(!is_plane){
-        //     projDir = -projDir;
-        //     Ray<ad> ray2(outPos - 0.5f*tmax*projDir, projDir, tmax);
-        //     // Intersection<ad> its2 = scene->ray_all_intersect<ad, ad>(ray2, active,sample,5);
-        //     Intersection<ad> its2 = scene->ray_intersect<ad, ad>(Ray<ad>(outPos,projDir),active);
-        //     // Intersection<ad> its2 = scene->ray_intersect<ad, ad>(Ray<ad>(outPos,projDir),active);
-        //     auto mask_ = its2.is_valid();
-        //     float validity = 100*count(detach(mask_)) / slices(detach(mask_));
-        //     std::cout << "validity " << validity << std::endl;
-
-        //     auto msk = its2.is_valid() && (its2.t < its3.t);
-        //     // std::cout << "count(msk) " << count(msk) << std::endl;
             
-        //     std::cout << its2.t<< std::endl;
-        //     std::cout << its3.t<<std::endl;
-
-        //     its3.n = select(!((its2.t<its3.t) && its2.is_valid()),its3.n,its2.n);
-        //     // its3.sh_frame = select(its2.is_valid(),its3.sh_frame,its2.sh_frame);
-        //     its3.uv = select(!((its2.t<its3.t) && its2.is_valid()),its3.uv,its2.uv);
-        //     its3.J = select(!((its2.t<its3.t) && its2.is_valid()),its3.J,its2.J);
-        //     its3.num = select(!((its2.t<its3.t) && its2.is_valid()),its3.num,its2.num);
-        //     its3.wi = select(!((its2.t<its3.t) && its2.is_valid()),its3.wi,its2.wi);
-        //     its3.p = select(!((its2.t<its3.t) && its2.is_valid()),its3.p,its2.p);
-        //     its3.t = select(!((its2.t<its3.t) && its2.is_valid()),its3.t,its2.t);
-        //     its3.shape = select(!((its2.t<its3.t) && its2.is_valid()),its3.shape,its2.shape);
-        // }
-            
-        // std::cout << "tmax " << tmax << std::endl;
         auto mask = its3.is_valid();
         float validity = 100*count(detach(mask)) / slices(detach(mask));
         std::cout << "validity " << validity << std::endl;
-        // std::cout << "its3.t" << its3.t << std::endl;
 
         rnd = sample[5];
         // rnd = full<Float<ad>>(0.00f);

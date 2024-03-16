@@ -19,8 +19,8 @@
         <float name="eta" value="1.2029" />
         <rgb name="specular_reflectance" value="0, 0, 0" />
         <rgb name="alpha" value="0.0, 0.0, 0.0" />
-        <!-- <rgb name="sigma_t" value="75.00 75.00 75.00" />
-        <rgb name="albedo" value="0.5, 0.5, 0.5" /> -->
+        <!-- <rgb name="sigma_t" value="100.00 100.00 60.00" />
+        <rgb name="albedo" value="0.85, 0.75, 0.95" /> -->
         <rgb name="sigma_t" value="109.00, 109.00, 52.00" />
         <rgb name="albedo" value="0.90, 0.90, 0.90" />
         

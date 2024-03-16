@@ -21,6 +21,8 @@ import datetime
 from matplotlib import colormaps
 import wandb
 
+import pytorch_ssim
+
 
 # from largesteps.optimize import AdamUnifom
 from largesteps.geometry import compute_matrix, laplacian_uniform
@@ -88,6 +90,13 @@ def loadArgument(ars, file):
         ars.__dict__ = json.load(f)
     return ars
 
+def rmse(predictions, targets):
+    # Computes error map for each pixel
+    return np.sqrt(((predictions - targets) ** 2).mean(axis=-1))
+
+def rmse_total(predictions, targets):
+    # Computes error map for each pixel
+    return np.sqrt(((predictions - targets) ** 2).mean())
 
 def opt_task(args):
     # write intermedia results to ... 
@@ -98,13 +107,17 @@ def opt_task(args):
 
     argsdir = destdir + "/{}_{}/settings_{}.txt".format(args.stats_folder, args.seed, datetime.datetime.now())
     saveArgument(args, argsdir)
-    
+
     params_gt = {
         'duck': {
             'albedo': [0.88305,0.183,0.011],
             'sigmat': [25.00, 25.00, 25.00],
         },
         'head': {
+            'albedo': [0.9, 0.9, 0.9],
+            'sigmat': [109.00, 109.00, 52.00],
+        },
+        'head1': {
             'albedo': [0.9, 0.9, 0.9],
             'sigmat': [109.00, 109.00, 52.00],
         },
@@ -436,15 +449,12 @@ def opt_task(args):
             cv2.imwrite(statsdir + "/{}_resize_{}.exr".format(textstr, i+1), TextureMap)
         return texturesize
 
-    def rmse(predictions, targets):
-        # Computes error map for each pixel
-        return np.sqrt(((predictions - targets) ** 2).mean(axis=-1))
-
     def renderPreview(i, sidxs):
         cmap = colormaps.get('inferno')
         images = []
         error_map = []
         rmse_list = []
+        ssim_list = []
         
         # print(sidxs)
         for idx in sidxs:
@@ -454,6 +464,10 @@ def opt_task(args):
             img2 = np.clip(img2,a_min=0.0, a_max=1.0)
             target2 = tars[idx].numpy().reshape((ro.cropheight, ro.cropwidth, 3))
             target2 = cv2.cvtColor(target2, cv2.COLOR_RGB2BGR)
+            target2 = np.clip(target2,a_min=0.0, a_max=1.0)
+            # breakpoint()
+            cv2.imwrite(statsdir + "/iter_{}_{}_out.png".format(i+1,idx), img2*255.0)
+            cv2.imwrite(statsdir + "/iter_{}_{}_gt.png".format(i+1,idx), target2*255.0)
             absdiff2 = np.abs(img2 - target2)
                                 
             import matplotlib.pyplot as plt
@@ -476,15 +490,25 @@ def opt_task(args):
             output2 = np.concatenate((img2, target2, absdiff2))
             # output2 = np.concatenate((img2, target2, absdiff2,rmse2))
             images.append(output2)
-            # error_map.append(rmse2)
+            # error_map.append(rmse2) 
+            
+            from pytorch_msssim import ssim, ms_ssim, SSIM, MS_SSIM
+            # X: (N,3,H,W`) a batch of non-negative RGB images (0~255)
+            # Y: (N,3,H,W)  
+            X = torch.from_numpy(img2.transpose(2,0,1)[None]) #torch.zeros((1,3,256,256))
+            Y = torch.from_numpy(target2.transpose(2,0,1)[None]) #torch.zeros((1,3,256,256))
+            # calculate ssim & ms-ssim for each image
+            ssim_val = ssim( X, Y, data_range=255, size_average=False) # return (N,)
             wandb.log({
                 "images/gt": wandb.Image(cv2.cvtColor(target2,cv2.COLOR_BGR2RGB)),
                 "images/out" : wandb.Image(cv2.cvtColor(img2,cv2.COLOR_BGR2RGB)),
                 "images/error": wandb.Image(cv2.cvtColor(cv2.imread(outfile_error),cv2.COLOR_BGR2RGB)),              
                 "loss/rmse_image": rmse(img2,target2).mean(),
+                "loss/ssim_image": ssim_val,
             })
             
             rmse_list.append(rmse(img2,target2).mean())
+            ssim_list.append(ssim_val)
 
         # rmse2 = cmap(rmse(img2,target2)).astype(np.float32)[...,:3] * 255.0
         output = np.concatenate((images), axis=1)                
@@ -493,6 +517,7 @@ def opt_task(args):
         # cv2.imwrite(statsdir + "/error_{}.png".format(i+1), error)
         wandb.log({
             "loss/rmse_avg_image": sum(rmse_list) / len(rmse_list), #rmse(img2,target2).mean(),
+            "loss/ssim_avg_image": sum(ssim_list) / len(rmse_list), #rmse(img2,target2).mean(),
         })
 
 
@@ -771,4 +796,16 @@ def opt_task(args):
 
     optTask(args)
 
-opt_task(args)
+if __name__ == "__main__":
+
+    opt_task(args)
+    
+    # img1 = cv2.imread("../../../data_kiwi_soap/results/head1/exp1/for_deng_clip_2/iter_1_0_out.png")
+    # img2 = cv2.imread("../../../data_kiwi_soap/results/head1/exp1/for_deng_clip_2/iter_1_0_gt.png")
+    
+    # tmp1 = img1 / 255.0
+    # tmp2 = img2 / 255.0
+    # error2 = rmse_total(tmp1,tmp2)
+    # print(error2)
+
+    # breakpoint()

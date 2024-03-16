@@ -44,7 +44,7 @@ SpectrumC Integrator::renderC(const Scene &scene, int sensor_id) const {
     return result;
 }
 
-std::tuple<Vector3fC, Vector3fC, Vector3fC, Vector20fC> Integrator::sample_sub(const Scene &scene, Vector3f<false> pts, Vector3f<false> dir) {
+std::tuple<Vector3fC, Vector3fC, Vector3fC, Vector20fC, FloatC> Integrator::sample_sub(const Scene &scene, Vector3f<false> pts, Vector3f<false> dir) {
 // std::tuple<Vector3fC, Vector3fC, Vector3fC, Array<Array<Float<false>,20>,3>> Integrator::sample_sub(const Scene &scene, Vector3f<false> pts, Vector3f<false> dir) {
     
     // std::cout << "testing" << std::endl;
@@ -84,6 +84,9 @@ std::tuple<Vector3fC, Vector3fC, Vector3fC, Vector20fC> Integrator::sample_sub(c
 
     // Type<HeterSub*,ad> vaesub_array = its.shape->bsdf(true);
     Type<VaeSub*,ad> vaesub_array = its.shape->bsdf(true);
+    // if(true) {
+    //     vaesub_array = static_cast<Type<HeterSub*, ad>>(vaesub_array);
+    // }
     // BSDFArray<ad> bsdf_array = its.shape->bsdf(true);
     // std::cout << "bsdf_array " << bsdf_array << std::endl;
     // std::cout << "vaesub_array " << vaesub_array << std::endl;
@@ -98,12 +101,23 @@ std::tuple<Vector3fC, Vector3fC, Vector3fC, Vector20fC> Integrator::sample_sub(c
     // std::cout << "its.p" << its.p << std::endl;
     
     auto res = vaesub_array[0] -> __sample_sp<ad>(&scene, its, (sampler.next_nd<8, false>()),pdf, active);
+    auto res1 = vaesub_array[0] -> __sample_sub<ad>(&scene, its, (sampler.next_nd<8, false>()), active);
+    auto res2 = vaesub_array[0] -> __eval_sub<ad>(its, res1, active);
+    // std::cout << "res1 " << res1 << std::endl;
+    std::cout << "res1.pdf " << res1.pdf << std::endl;
+    // std::cout << "res2 " << res2.x() << std::endl;
+    auto weight = res2.x() / res1.pdf;
+    // auto weight = res2.x();
+    std::cout << "weight " << weight << std::endl;
     // poly_coeffs = its.poly_coeffs
     Intersection<ad> its_sub;
     Float<ad> second;
     Vector3f<ad> outPos;
     Vector3f<ad> projDir;
     std::tie(its_sub,second,outPos,projDir) = res;
+    its_sub = res1.po;
+
+
     Vector20f<ad> poly_coeffs = its.poly_coeff.x();
     // Array<Array<Float<ad>,20>,3> poly_coeffs = its.poly_coeff;
     // std::cout << "its_sub.p " << its_sub.p << std::endl;
@@ -114,7 +128,9 @@ std::tuple<Vector3fC, Vector3fC, Vector3fC, Vector20fC> Integrator::sample_sub(c
     // std::cout << "outPos" << outPos << std::endl;
     // std::cout << "projDir" << projDir << std::endl;
 
-    return std::make_tuple(its_sub.p,outPos,projDir,poly_coeffs);
+    Float<ad> color = weight; 
+
+    return std::make_tuple(its_sub.p,outPos,projDir,poly_coeffs,color);
 }
 
 SpectrumD Integrator::renderD(const Scene &scene, int sensor_id) const {

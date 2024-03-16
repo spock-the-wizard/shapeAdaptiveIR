@@ -31,45 +31,8 @@ from enoki.cuda import Float32 as FloatD, Vector3f, Vector20f
 # import vae.config_scatter
 # import vae.datapipeline
 
-class Polynomial(pygalmesh.DomainBase):
-    def __init__(self,coeffs=None):
-        super().__init__()
-        
-
-        if coeffs is None:
-            print("Using Plane poly coeffs")
-            coeffs = [0,]*20
-            coeffs[3] = 1.0
-
-        self.coeffs = np.array(coeffs)
-        self.degree = 3
-
-    def eval(self, xyz):
-        x,y,z = xyz
-        
-        value = np.array([1,x,y,z,x*x,
-                 x*y,x*z,y*y,y*z,z*z,
-                 x*x*x,x*x*y,x*x*z,x*y*y,x*y*z,
-                 x*z*z,y*y*y,y*y*z,y*z*z,z*z*z,])
-        # breakpoint()
-        return sum(self.coeffs * value)
-        # for d in range(2,self.degree):
-        #     for i in range(d):
-        #         dx = d-i
-        #         for j in range(i):
-        #             dy = d - dx - j
-        #             dz = d - dx - dy
-        #             value += self.coeffs[termIdx] * xPowers[dx] * yPowers[dy] * zPowers[dz]
-        #             termIdx += 1
-        # return (
-        #     (x[0] ** 2 + 9.0 / 4.0 * x[1] ** 2 + x[2] ** 2 - 1) ** 3
-        #     - x[0] ** 2 * x[2] ** 3
-        #     - 9.0 / 80.0 * x[1] ** 2 * x[2] ** 3
-        # )
-
-    def get_bounding_sphere_squared_radius(self):
-        return 4.0
-
+from matplotlib import colormaps
+cmap = colormaps.get('inferno')
 from viewer.utils import setup_mesh_for_viewer,intersect_mesh,tangent_components_to_world
 import vae.utils 
 
@@ -250,7 +213,7 @@ class Scatter3DViewer(ViewerApp):
 
         self.sigma_t, self.albedo, self.g, self.eta = 1.0, 0.98, 0.0, 1.0
         self.sigma_t, self.albedo, self.g, self.eta = 5.0, 0.75, 0.0, 1.0
-        self.sigma_t, self.albedo, self.g, self.eta = 20.0, 0.75, 0.0, 1.0
+        # self.sigma_t, self.albedo, self.g, self.eta = 20.0, 0.75, 0.0, 1.0
         self.sigma_t, self.albedo, self.g, self.eta = 50.0, 0.98, 0.0, 1.0
         # self.sigma_t, self.albedo, self.g, self.eta = 100.0, 0.98, 0.0, 1.0
 
@@ -333,6 +296,7 @@ class Scatter3DViewer(ViewerApp):
         LabeledSlider(self, tools, 'n_scatter_samples', 32, 2 ** 19, int, self.update_displayed_scattering, slider_width=160,
                       warp_fun=np.log2, inv_warp_fun=lambda x: 2 ** x)
 
+        add_checkbox(self, tools, 'show_samples', True, label='Show Samples')
         add_checkbox(self, tools, 'project_samples', True, label='Project Points')
         self.show_rec_mesh_checkbox = add_checkbox(self, tools, 'show_rec_mesh', False, label='Show Reconstructed Mesh')
         self.show_rec_mesh2_checkbox = add_checkbox(self, tools, 'show_rec_mesh2', False, label='Show Reconstructed Mesh')
@@ -526,7 +490,7 @@ class Scatter3DViewer(ViewerApp):
         scene_file = "/sss/InverseTranslucent/examples/scenes/duck_test.xml"
         scene_file = "/sss/InverseTranslucent/examples/scenes/cone1_out.xml"
         scene_file = "/sss/InverseTranslucent/examples/scenes/cone2_out.xml"
-        scene_file = "/sss/InverseTranslucent/examples/scenes/cone3_out.xml"
+        # scene_file = "/sss/InverseTranslucent/examples/scenes/cone3_out.xml"
         scene_file = "/sss/InverseTranslucent/examples/scenes/cone4_out.xml"
         # scene_file = "/sss/InverseTranslucent/examples/scenes/cone5_out.xml"
         # scene_file = "/sss/InverseTranslucent/examples/scenes/cone2_out.xml"
@@ -672,11 +636,12 @@ class Scatter3DViewer(ViewerApp):
 
             its_loc = Vector3f((self.its_loc-self.inDirection).reshape(-1,3).repeat(n,0))
             its_dir = Vector3f(self.inDirection.reshape(-1,3).repeat(n,0))
-            p_proj, p_sampled, p_projdir, poly_coeffs = self.sampler.sample_sub(self.scene,its_loc,its_dir)
+            p_proj, p_sampled, p_projdir, poly_coeffs, p_weight = self.sampler.sample_sub(self.scene,its_loc,its_dir)
             print(f"Number of Invalid points: {(np.array(p_proj)[:,0]==0).sum()}/{self.n_scatter_samples}")
             self.sampled_p = np.array(p_sampled)
             self.sampled_p_proj = np.array(p_proj)
             self.sampled_dir = np.array(p_projdir)
+            self.sampled_p_weight = np.array(p_weight)
             
             self.viewer_data = ViewerState(self, need_projection=True,
                                            poly_order=3, #self.scatter_config.poly_order(),
@@ -834,19 +799,19 @@ class Scatter3DViewer(ViewerApp):
             n = self.n_scatter_samples
             its_loc = Vector3f((self.its_loc-self.inDirection).reshape(-1,3).repeat(n,0))
             its_dir = Vector3f(self.inDirection.reshape(-1,3).repeat(n,0))
-            p_proj, p_sampled, p_projdir, poly_coeffs = self.sampler.sample_sub(self.scene,its_loc,its_dir)
-            # breakpoint()
-            reconstructed_samples = p_proj
+            p_proj, p_sampled, p_projdir, poly_coeffs, p_weight = self.sampler.sample_sub(self.scene,its_loc,its_dir)
             print(f"Number of Invalid points: {(np.array(p_proj)[:,0]==0).sum()}/{self.n_scatter_samples}")
             self.sampled_pts = np.array(p_sampled)
             self.sampled_p_proj = np.array(p_proj)
             self.sampled_dir = np.array(p_projdir)
+            self.sampled_p_weight = np.array(p_weight)
+            reconstructed_samples = p_proj
             # reconstructed_samples = vae.model.vae_reconstruct_samples(self.session, outPos, coeffs_ls, self.its_loc, self.inDirection, self.face_normal,
             #                                                           self.scatter_config, self.scatter_pred, self.feature_statistics,
             #                                                           self.albedo, self.sigma_t, self.g, self.eta, self.disable_shape_features)
 
             self.viewer_data = ViewerState(self, need_projection=False, poly_order=self.scatter_config.poly_order(), prediction_space=self.scatter_config.prediction_space)
-            print("ls coeffs L816",coeffs_ls)
+            # print("ls coeffs L816",coeffs_ls)
             # self.viewer_data.coeffs = coeffs_ls
             poly_coeffs = poly_coeffs.numpy()
             self.viewer_data.coeffs = poly_coeffs[0] #coeffs_ls
@@ -1142,12 +1107,22 @@ class Scatter3DViewer(ViewerApp):
 
     def drawContentsPost(self):
         if self.sampled_p_proj is not None and self.project_samples:
+            color = cmap(self.sampled_p_weight)  # / max(self.sampled_p_weight))
+            # print(color)
+            # color = (self.sampled_p_weight / max(self.sampled_p_weight))
+            # color = np.array(color).reshape(-1,1).repeat(3,axis=-1)
+            # color = color * [[1,1,1],]
+            # breakpoint()
+            # print(color.max(),color.min())
             test = PointCloud(self.sampled_p_proj) #[[0,1.5,0]])
             test.draw_contents(self.camera, self.render_context, None,
-                                             [0, 1, 0], disable_ztest=True, use_depth=True, depth_map=self.fb.depth())
-        if self.sampled_pts is not None:
-            test = PointCloud(self.sampled_pts) #[[0,1.5,0]])
-            test.draw_contents(self.camera, self.render_context, None,
+                                            #  color, disable_ztest=True, use_depth=True, depth_map=self.fb.depth())
+                                             [0.0,1.0,0.0], disable_ztest=True, use_depth=True, depth_map=self.fb.depth())
+                                            #  color, disable_ztest=True, use_depth=True, depth_map=self.fb.depth())
+        if self.sampled_pts is not None and self.show_samples:
+            test1 = PointCloud(self.sampled_pts) #[[0,1.5,0]])
+            # breakpoint()
+            test1.draw_contents(self.camera, self.render_context, None,
                                              [1, 0, 0], disable_ztest=True, use_depth=True, depth_map=self.fb.depth())
         if self.sampled_dir is not None and self.show_outgoing_dir:
             test_dir = VectorCloud(self.sampled_pts,self.sampled_dir,) #color=[0,0,1]) #[0,1.5,0],[0,-1,0])
@@ -1155,36 +1130,35 @@ class Scatter3DViewer(ViewerApp):
             test_dir.draw_contents(self.camera, self.render_context)
         # test.draw_contents(self.camera, self.render_context, None,
         #                                  [0, 1, 0], disable_ztest=True, use_depth=True, depth_map=self.fb.depth())
-        if self.viewer_data is not None and not self.show_histograms and self.show_scatter_points:
-            if self.project_samples or not self.viewer_data.need_projection:
-                pts = self.viewer_data.points_pc
-            else:
-                pts = self.viewer_data.unproj_points_pc
-            if pts is not None:
-                if self.its_loc2 is not None:
-                    pts.draw_contents(self.camera, self.render_context, None,
-                                      disable_ztest=True, use_depth=True, depth_map=self.fb.depth(),
-                                      use_ref_point=self.visualize_histogram_radius,
-                                      ref_point=np.array(self.its_loc2), ref_radius=self.angular_histogram_radius,
-                                      cull_occlusions=self.occlusion_culling)
-                else:
-                    pts.draw_contents(self.camera, self.render_context, None,
-                                      disable_ztest=True, use_depth=True, depth_map=self.fb.depth(),
-                                      cull_occlusions=self.occlusion_culling)
+        # if self.viewer_data is not None and not self.show_histograms and self.show_scatter_points:
+        #     if self.project_samples or not self.viewer_data.need_projection:
+        #         pts = self.viewer_data.points_pc
+        #     else:
+        #         pts = self.viewer_data.unproj_points_pc
+        #     if pts is not None:
+        #         if self.its_loc2 is not None:
+        #             pts.draw_contents(self.camera, self.render_context, None,
+        #                               disable_ztest=True, use_depth=True, depth_map=self.fb.depth(),
+        #                               use_ref_point=self.visualize_histogram_radius,
+        #                               ref_point=np.array(self.its_loc2), ref_radius=self.angular_histogram_radius,
+        #                               cull_occlusions=self.occlusion_culling)
+        #         else:
+        #             pts.draw_contents(self.camera, self.render_context, None,
+        #                               disable_ztest=True, use_depth=True, depth_map=self.fb.depth(),
+        #                               cull_occlusions=self.occlusion_culling)
 
-        if self.pos_constraints_pc is not None and self.show_used_constraints:
-            self.pos_constraints_pc.draw_contents(self.camera, self.render_context, None, [
-                                                  0, 1, 0], disable_ztest=True, use_depth=True, depth_map=self.fb.depth())
+        # if self.pos_constraints_pc is not None and self.show_used_constraints:
+        #     self.pos_constraints_pc.draw_contents(self.camera, self.render_context, None, [
+        #                                           0, 1, 0], disable_ztest=True, use_depth=True, depth_map=self.fb.depth())
 
-        if self.show_sampled_points:
-
-            self.sampled_p.draw_contents(self.camera, self.render_context, None,
-                                         [0, 1, 1], disable_ztest=True, use_depth=True, depth_map=self.fb.depth())
-            self.sampled_n.draw_contents(self.camera, self.render_context)
-        if self.show_projection_debug_info and self.viewer_data is not None and self.viewer_data.need_projection:
-            self.viewer_data.unproj_points_pc.draw_contents(self.camera, self.render_context, None,
-                                                            [0, 1, 0], disable_ztest=True, use_depth=True, depth_map=self.fb.depth())
-            self.viewer_data.projection_vectors.draw_contents(self.camera, self.render_context)
+        # if self.show_sampled_points:
+        #     self.sampled_p.draw_contents(self.camera, self.render_context, None,
+        #                                  [0, 1, 1], disable_ztest=True, use_depth=True, depth_map=self.fb.depth())
+        #     self.sampled_n.draw_contents(self.camera, self.render_context)
+        # if self.show_projection_debug_info and self.viewer_data is not None and self.viewer_data.need_projection:
+        #     self.viewer_data.unproj_points_pc.draw_contents(self.camera, self.render_context, None,
+        #                                                     [0, 1, 0], disable_ztest=True, use_depth=True, depth_map=self.fb.depth())
+        #     self.viewer_data.projection_vectors.draw_contents(self.camera, self.render_context)
 
         # if self.show_outgoing_dir and self.viewer_data and self.viewer_data.out_dir_vectors:
         #     self.viewer_data.out_dir_vectors.draw_contents(self.camera, self.render_context)

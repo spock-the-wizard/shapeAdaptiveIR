@@ -1,5 +1,5 @@
 python3.8 ../learn_real_data.py \
-        --stats_folder "test/var3" \
+        --stats_folder "test/var4" \
         --d_type "custom" \
         --seed 2 \
         --scene "cylinder4" \

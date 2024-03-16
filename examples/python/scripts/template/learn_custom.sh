@@ -1,13 +1,13 @@
 python3.8 ../learn_real_data.py \
-        --stats_folder "exp1/for_ours" \
+        --stats_folder $1 \
         --d_type "custom" \
         --seed 2 \
         --scene "head" \
-        --n_dump 25 \
+        --n_dump 50 \
         --ref_folder "exr_ref" \
         --mesh_lr 0.00 \
-        --sigma_lr 0.025 \
-        --albedo_lr 0.025 \
+        --sigma_lr 0.1 \
+        --albedo_lr 0.05 \
         --rough_lr 0.05 \
         --eta_lr 0.005 \
         --n_reduce_step 1000 \
