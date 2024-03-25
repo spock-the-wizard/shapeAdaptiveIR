@@ -2,12 +2,12 @@ python3.8 ../learn_real_data.py \
         --stats_folder $1 \
         --d_type "custom" \
         --seed 2 \
-        --scene "cylinder4" \
+        --scene "kettle1" \
         --n_dump 25 \
         --ref_folder "exr_ref" \
         --mesh_lr 0.00 \
-        --sigma_lr 0.1 \
-        --albedo_lr 0.05 \
+        --sigma_lr 0.025 \
+        --albedo_lr 0.025 \
         --rough_lr 0.05 \
         --eta_lr 0.005 \
         --n_reduce_step 1000 \

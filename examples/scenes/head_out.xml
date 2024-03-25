@@ -6,7 +6,7 @@
 
      <emitter type="point" id="point-light">
         
-        <rgb name="power" value="500, 500, 500" />
+        <rgb name="power" value="251" />
         <transform name="to_world" id="light-transform">
             
 		</transform>
@@ -21,7 +21,8 @@
         <rgb name="alpha" value="0.0, 0.0, 0.0" />
         <!-- <rgb name="sigma_t" value="100.00 100.00 60.00" />
         <rgb name="albedo" value="0.85, 0.75, 0.95" /> -->
-        <rgb name="sigma_t" value="109.00, 109.00, 52.00" />
+        <rgb name="sigma_t" value="109.00, 109.00, 109.00" />
+        <!-- <rgb name="sigma_t" value="109.00, 109.00, 52.00" /> -->
         <rgb name="albedo" value="0.90, 0.90, 0.90" />
         
     </bsdf>

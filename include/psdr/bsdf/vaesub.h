@@ -101,6 +101,9 @@ public:
     template <bool ad>
     Spectrum<ad> __eval_sub(const Intersection<ad> &its, const BSDFSample<ad> &bs, Mask<ad> active) const;
    
+    void setMonochrome(bool isMonochrome){
+        m_monochrome = isMonochrome;
+    }
 
     bool anisotropic() const override { return m_anisotropic; }
     bool hasbssdf() const override { return true; }
@@ -111,7 +114,6 @@ public:
     Bitmap1fD m_eta, m_g;
     Bitmap3fD m_albedo, m_sigma_t; // medium features
     Bitmap3fD m_specular_reflectance; // reflectance
-                                      // 
 
                                     
 
@@ -136,20 +138,8 @@ public:
     Vector32f m_absorption_mlp_fcn_0_biases = zero<Vector32f>();
     Matrix1_32 m_absorption_dense_kernel = zero<Matrix1_32>();
     Vector1f m_absorption_dense_bias = zero<Vector1f>();
-
-    // Matrix64f absorption_mlp_fcn_0_weights = zero<Matrix64f>(); // Eigen::Matrix<float,32,64>
-    // Vector64f absorption_mlp_fcn_0_biases = zero<Vector64f>();
-    // Matrix64f absorption_dense_kernel = zero<Matrix64f>();
-    // Vector1f absorption_dense_bias = zero<Vector1f>();
-
-    // Vector64f m_scatter_decoder_fcn_fcn_0_biases = zero<Vector64f>();
-    // Vector64f m_scatter_decoder_fcn_fcn_1_biases = zero<Vector64f>();
-    // Vector64f m_scatter_decoder_fcn_fcn_2_biases = zero<Vector64f>();
-    // using Vector20f = Array<float,20>;
-    // using Vector32f = Array<float,32>;
     using Matrix64_68 = Array<Array<float,64>,68>;
     using Matrix3_64 = Array<Array<float,3>,64>;
-    // using Matrix23_64 = Array<Array<float,23>,64>;
 
     Matrix64_68 m_scatter_decoder_fcn_fcn_0_weights = zero<Matrix64_68>(); // [64,68]
     Matrix64_64 m_scatter_decoder_fcn_fcn_1_weights = zero<Matrix64_64>();
@@ -159,19 +149,6 @@ public:
     Vector64f m_scatter_decoder_fcn_fcn_2_biases = zero<Vector64f>();
     Matrix3_64 m_scatter_dense_2_kernel = zero<Matrix3_64>();
     Array<float,3> m_scatter_dense_2_bias = zero<Array<float,3>>();
-
-    // Matrix68f scatter_decoder_fcn_fcn_0_weights = zero<Matrix68f>();
-    // Matrix64f scatter_decoder_fcn_fcn_1_weights = zero<Matrix64f>();
-    // Matrix64f scatter_decoder_fcn_fcn_2_weights = zero<Matrix64f>();
-    // Vector64f scatter_decoder_fcn_fcn_0_biases = zero<Vector64f>();
-    // Vector64f scatter_decoder_fcn_fcn_1_biases = zero<Vector64f>();
-    // Vector64f scatter_decoder_fcn_fcn_2_biases = zero<Vector64f>();
-    // Matrix64f scatter_dense_2_kernel = zero<Matrix64f>();
-    // Array<float,3> scatter_dense_2_bias = zero<Array<float,3>>();
-
-    // Matrix64f shared_preproc_mlp_2_shapemlp_fcn_0_weights = zero<Matrix64f>(); // [64,23]
-    // Matrix64f shared_preproc_mlp_2_shapemlp_fcn_1_weights = zero<Matrix64f>();  // [64,64]
-    // Matrix64f shared_preproc_mlp_2_shapemlp_fcn_2_weights = zero<Matrix64f>(); // [64,64]
 
     Vector64f shared_preproc_mlp_2_shapemlp_fcn_0_biases = zero<Vector64f>();
     Vector64f shared_preproc_mlp_2_shapemlp_fcn_1_biases = zero<Vector64f>();
@@ -187,6 +164,7 @@ public:
     float m_albedoMean, m_albedoStdInv, m_gMean, m_gStdInv;
 
     bool m_anisotropic;
+    bool m_monochrome = false;
 
 protected:
     template <bool ad>

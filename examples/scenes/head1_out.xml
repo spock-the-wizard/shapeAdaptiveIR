@@ -6,23 +6,24 @@
 
      <emitter type="point" id="point-light">
         
-        <!-- <rgb name="power" value="500" />  -->
-        <rgb name="power" value="500, 500, 500" /> 
+        <rgb name="power" value="251" />
         <transform name="to_world" id="light-transform">
             
 		</transform>
     </emitter>
 
 
-    <!-- <bsdf type="hetersub" id="opt"> -->
     <bsdf type="vaesub" id="opt">
+    
         
         <float name="eta" value="1.2029" />
         <rgb name="specular_reflectance" value="0, 0, 0" />
         <rgb name="alpha" value="0.0, 0.0, 0.0" />
+        
         <rgb name="sigma_t" value="109.00, 109.00, 52.00" />
+        
         <rgb name="albedo" value="0.90, 0.90, 0.90" />
-
+        
     </bsdf>
 
 

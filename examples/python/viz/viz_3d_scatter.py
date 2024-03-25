@@ -59,6 +59,8 @@ from viewer.viewer import GLTexture, ViewerApp
 from utils.printing import printr, printg
 import utils.mtswrapper
 
+from utils.math import onb_duff #,coodinate_frame
+
 
 class Mode(Enum):
     REF = 0
@@ -101,14 +103,22 @@ class Scatter3DViewer(ViewerApp):
             cfg.polynomial_space = 'LS'
             # TODO: tmp set to TS
             cfg.polynomial_space = 'TS'
+            # cfg.polynomial_space = 'WS'
 
             import vae.model
             features = vae.model.extract_shape_features(cfg, pos, self.scene, self.constraint_kd_tree, -normal,
                                                         self.g, self.sigma_t, self.albedo, True, self.mesh,
                                                         normal, False, self.kdtree_threshold, self.fit_regularization, self.use_hard_surface_constraint)
+            # breakpoint()
+                
 
             poly_coeffs = features['coeffs']
             coeffs_to_show = np.copy(poly_coeffs)
+            
+            if i < 3:
+                print("Position",pos)
+                print("Normal", normal)
+                print(coeffs_to_show)
 
             thickness = None
             nor_hist = None
@@ -215,6 +225,7 @@ class Scatter3DViewer(ViewerApp):
         self.sigma_t, self.albedo, self.g, self.eta = 5.0, 0.75, 0.0, 1.0
         # self.sigma_t, self.albedo, self.g, self.eta = 20.0, 0.75, 0.0, 1.0
         self.sigma_t, self.albedo, self.g, self.eta = 50.0, 0.98, 0.0, 1.0
+        # self.sigma_t, self.albedo, self.g, self.eta = 109.0, 0.9, 0.0, 1.0
         # self.sigma_t, self.albedo, self.g, self.eta = 100.0, 0.98, 0.0, 1.0
 
         # self.datasets = os.listdir(DATADIR3D)
@@ -487,7 +498,6 @@ class Scatter3DViewer(ViewerApp):
         sc = psdr_cuda.Scene()
         # TODO
         # scene_file = "/sss/InverseTranslucent/examples/scenes/cube_test.xml"
-        scene_file = "/sss/InverseTranslucent/examples/scenes/duck_test.xml"
         scene_file = "/sss/InverseTranslucent/examples/scenes/cone1_out.xml"
         scene_file = "/sss/InverseTranslucent/examples/scenes/cone2_out.xml"
         # scene_file = "/sss/InverseTranslucent/examples/scenes/cone3_out.xml"
@@ -501,6 +511,16 @@ class Scatter3DViewer(ViewerApp):
 
         if "head" in mesh_name:
             scene_file = "/sss/InverseTranslucent/examples/scenes/head_test.xml"
+        elif "duck" in mesh_name:
+            scene_file = "/sss/InverseTranslucent/examples/scenes/duck_test.xml"
+        elif "kettle" in mesh_name:
+            scene_file = "/sss/InverseTranslucent/examples/scenes/kettle1_out.xml"
+        elif "buddha" in mesh_name:
+            scene_file = "/sss/InverseTranslucent/examples/scenes/buddha1_out.xml"
+        else: #if "cube_subdiv" in self.mesh_file:
+            scene_file = "/sss/InverseTranslucent/examples/scenes/plane4_out.xml"
+        
+        
             
         scene_file = scene_file.replace('cone',mesh_name)
         sc.load_file(scene_file)
@@ -592,7 +612,7 @@ class Scatter3DViewer(ViewerApp):
         printg(f"sigma_tp: {sigma_tp}")
 
         scale_factor = vae.utils.get_poly_scale_factor(vae.utils.kernel_epsilon(self.g, self.sigma_t, self.albedo))
-        print(scale_factor)
+        # print(scale_factor)
 
         self.inDirection = tangent_components_to_world(self.tangent_x, self.tangent_y, self.face_normal)
         self.inDirectionViz = VectorCloud(self.its_loc, -self.inDirection)
@@ -771,6 +791,8 @@ class Scatter3DViewer(ViewerApp):
             t0 = time.time()
             self.viewer_data = ViewerState(self)
             seed = int(np.random.randint(10000))
+            
+            # self.extract_mesh_polys()
 
             # 1. Sample points using polynomial VPT
             ref_pos_mts = vae.utils.mts_p(self.its_loc)
@@ -784,6 +806,19 @@ class Scatter3DViewer(ViewerApp):
             fit_opts['useLightspace'] = True
             coeffs_ls, _, _ = utils.mtswrapper.fitPolynomial(self.constraint_kd_tree, self.its_loc, -self.inDirection, self.sigma_t,
                                                              self.g, self.albedo, fit_opts, normal=self.face_normal)
+            
+            # NOTE: debugging to see if rotation is the issue
+            pos = self.its_loc
+            normal = self.inDirection
+            cfg = copy.deepcopy(self.scatter_config)
+            cfg.polynomial_space = 'LS'
+            # cfg.polynomial_space = 'WS'
+            import vae.model
+            features = vae.model.extract_shape_features(cfg, pos, self.scene, self.constraint_kd_tree, -normal,
+                                                        self.g, self.sigma_t, self.albedo, True, self.mesh,
+                                                        normal, False, self.kdtree_threshold, self.fit_regularization, self.use_hard_surface_constraint)
+            poly_coeffs_extract = features['coeffs']
+
             t0 = time.time()
             tmp_result = mitsuba.render.Volpath3D.samplePolyFixedStart([float(c) for c in coeffs], ref_pos_mts, ref_dir_mts,
                                                                        False, scale_factor, medium, self.n_scatter_samples, 1, 1,
@@ -795,11 +830,23 @@ class Scatter3DViewer(ViewerApp):
             print('absorption: {}'.format(gt_absorption))
 
             # 2. Try to reconstruct them using the VAE: Are they far from the surface?
-            
+           
             n = self.n_scatter_samples
-            its_loc = Vector3f((self.its_loc-self.inDirection).reshape(-1,3).repeat(n,0))
-            its_dir = Vector3f(self.inDirection.reshape(-1,3).repeat(n,0))
+            light_pos = np.ones_like(self.its_loc)
+            # incident direction in world coordinate system
+            its_dir = (self.its_loc-light_pos)
+            its_dir /= np.linalg.norm(its_dir)
+
+            its_dir = Vector3f(its_dir.reshape(-1,3).repeat(n,0))
+            print("self.inDirection",self.inDirection)
+            print("its_dir",its_dir)
+            # starting point of intersecting ray
+            its_loc = Vector3f((self.its_loc-its_dir).reshape(-1,3))
+            # its_loc = Vector3f((self.its_loc-its_dir).reshape(-1,3).repeat(n,0))
+            # its_dir = Vector3f(self.inDirection.reshape(-1,3).repeat(n,0))
+            # its_dir = Vector3f((its_loc-light_pos).reshape(-1,3).repeat(n,0))
             p_proj, p_sampled, p_projdir, poly_coeffs, p_weight = self.sampler.sample_sub(self.scene,its_loc,its_dir)
+            # breakpoint()
             print(f"Number of Invalid points: {(np.array(p_proj)[:,0]==0).sum()}/{self.n_scatter_samples}")
             self.sampled_pts = np.array(p_sampled)
             self.sampled_p_proj = np.array(p_proj)
@@ -810,11 +857,28 @@ class Scatter3DViewer(ViewerApp):
             #                                                           self.scatter_config, self.scatter_pred, self.feature_statistics,
             #                                                           self.albedo, self.sigma_t, self.g, self.eta, self.disable_shape_features)
 
-            self.viewer_data = ViewerState(self, need_projection=False, poly_order=self.scatter_config.poly_order(), prediction_space=self.scatter_config.prediction_space)
-            # print("ls coeffs L816",coeffs_ls)
+            self.viewer_data = ViewerState(self, need_projection=False, poly_order=self.scatter_config.poly_order(), prediction_space="LS")
+            # self.viewer_data = ViewerState(self, need_projection=False, poly_order=self.scatter_config.poly_order(), prediction_space="WS")
+            poly_coeffs = poly_coeffs.numpy()[0]
+            # print(-self.inDirection)
+            # Prediciton in light space
+            # poly_coeffs = np.zeros_like(poly_coeffs)
+            # poly_coeffs[3] = 1.0
+            # breakpoint()
+            # poly_coeffs = utils.mtswrapper.rotate_polynomial(poly_coeffs,self.inDirection,3)
+            # poly_coeffs = utils.mtswrapper.rotate_polynomial(poly_coeffs,-np.array([0,1.0,0]),3)
+            # poly_coeffs = utils.mtswrapper.rotate_polynomial(poly_coeffs,np.array([0,0.0,1.0]),3)
+            # poly_coeffs = utils.mtswrapper.rotate_polynomial(poly_coeffs,-self.inDirection,3)
+            print(self.inDirection)
+            print("I rotation: ",poly_coeffs)
+            self.viewer_data.coeffs = poly_coeffs 
+            # print(onb_duff(-self.inDirection))
+            # poly_coeffs_extract = utils.mtswrapper.rotate_polynomial(poly_coeffs_extract,-self.inDirection,3)
+            # self.viewer_data.coeffs = poly_coeffs_extract
+            # self.extract_mesh_polys()
             # self.viewer_data.coeffs = coeffs_ls
-            poly_coeffs = poly_coeffs.numpy()
-            self.viewer_data.coeffs = poly_coeffs[0] #coeffs_ls
+            # self.viewer_data.coeffs = coeffs
+            
             import vae.utils 
             def mts_to_np(data):
                 if type(data) is list:

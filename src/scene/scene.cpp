@@ -70,7 +70,7 @@ void Scene::configure() {
     auto start_time = high_resolution_clock::now();
 
     // Seed samplers
-    // std::cout<<"configure sampler"<<std::endl;
+    std::cout<<"configure sampler"<<std::endl;
     if ( m_opts.spp  > 0 ) {
         int64_t sample_count = static_cast<int64_t>(m_opts.cropheight)*m_opts.cropwidth*m_opts.spp;
         std::cout << sample_count << std::endl;
@@ -93,7 +93,7 @@ void Scene::configure() {
         //     m_samplers[3].seed(arange<UInt64C>(sample_count_2));
     }
 
-    // std::cout<<"configure meshes"<<std::endl;
+    std::cout<<"configure meshes"<<std::endl;
     // Preprocess meshes
     PSDR_ASSERT_MSG(!m_meshes.empty(), "Missing meshes!");
     // std::cout<<"---------------number_of_meshes--------------------"<<(m_num_meshes)<<std::endl;
@@ -121,7 +121,7 @@ void Scene::configure() {
         }
     }
 
-    // std::cout<<"configure sensor"<<std::endl;
+    std::cout<<"configure sensor"<<std::endl;
     // Preprocess sensors
     PSDR_ASSERT_MSG(!m_sensors.empty(), "Missing sensor!");
     std::vector<size_t> num_edges;
@@ -211,7 +211,6 @@ void Scene::configure() {
         }
     }
 
-    std::cout << "here " <<  std::endl;
     // Preprocess emitters
     if ( !m_emitters.empty() ) {
         std::vector<float> weights;

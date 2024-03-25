@@ -127,7 +127,7 @@ void Mesh::load_poly(const char *fname, int index, bool verbose) {
     std::vector<size_t> shape = arr.shape;
 
     std::cout << "SHAPE " << shape[0] << " " << shape[1] << std::endl;
-    std::cout << slices(m_poly_coeff) << std::endl;
+    // std::cout << slices(m_poly_coeff) << std::endl;
     std::cout << m_num_vertices << std::endl;
 
 
@@ -180,6 +180,7 @@ void Mesh::load(const char *fname, bool verbose) {
     std::vector<tinyobj::material_t> materials;
     std::string warn, err;
 
+    std::cout << fname << std::endl;
     PSDR_ASSERT_MSG(
         tinyobj::LoadObj(&attrib, &shapes, &materials, &warn, &err, fname),
         std::string("Failed to load OBJ from: ") + fname

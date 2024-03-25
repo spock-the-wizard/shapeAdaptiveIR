@@ -128,7 +128,10 @@ if __name__ == "__main__":
     name = "botijo4"
     name = "botijo5"
     name = "head1"
+    name = "buddha1"
+    name = "kettle1"
     
+    # Step 1. Copy scene file
     datasetIRON2PSDR(
         # src_dir="./data/cone_240307_201131",
         # src_dir="./data/cone_240308_002127",
@@ -138,13 +141,19 @@ if __name__ == "__main__":
         # src_dir="./data/cylinder_240310_224957",
         # src_dir="./data/botijo_240312_015009",
         # src_dir="./data/botijo_240311_234447",
-        src_dir="./data/head/head",
+        # src_dir="./data/head/head",
+        # src_dir="./data/buddha_240322_154512",
+        src_dir = "./data/kettle_240322_163040",
          dst_dir=f"./data_kiwi_soap/realdata/{name}",
          light_out=f"./examples/scenes/light/lights-{name}",
          xml_file="./examples/scenes/head_out.xml",
-        #  xml_file="./examples/scenes/head_out.xml",
          xml_out=f"./examples/scenes/{name}_out.xml",
          n_lights=1)
+    
+    # Step 2. Copy Script file
+    script_pth = "./examples/python/scripts/learn_custom.sh"
+    dst_pth = script_pth.replace("custom",name)
+    shutil.copy(script_pth,dst_pth)
     
 # if __name__ == "__main__":
 #     src_dir = "data/duck/light00/test/image"

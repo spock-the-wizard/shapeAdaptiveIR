@@ -1,17 +1,17 @@
 python3.8 ../learn_real_data.py \
-        --stats_folder "test/scene" \
+        --stats_folder "exp1/var38" \
         --d_type "custom" \
         --seed 2 \
-        --scene "pyramid5" \
+        --scene "kettle1" \
         --n_dump 25 \
         --ref_folder "exr_ref" \
         --mesh_lr 0.00 \
-        --sigma_lr 0.1 \
-        --albedo_lr 0.05 \
+        --sigma_lr 0.025 \
+        --albedo_lr 0.025 \
         --rough_lr 0.05 \
         --eta_lr 0.005 \
         --n_reduce_step 1000 \
-        --n_iters 3000 \
+        --n_iters 1 \
         --laplacian 30 \
         --sigma_laplacian 0 \
         --albedo_laplacian 0 \

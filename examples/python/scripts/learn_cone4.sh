@@ -1,5 +1,5 @@
 python3.8 ../learn_real_data.py \
-        --stats_folder "exp1/forward_deng" \
+        --stats_folder "test/debug" \
         --d_type "custom" \
         --seed 2 \
         --scene "cone4" \
@@ -20,7 +20,7 @@ python3.8 ../learn_real_data.py \
         --spp 4 \
         --sppe 4 \
         --sppse 4 \
-        --ref_spp 512 \
+        --ref_spp 128 \
         --albedo_texture 0 \
         --rough_texture 0 \
         --sigma_texture 0 \

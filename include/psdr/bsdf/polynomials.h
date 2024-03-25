@@ -18,7 +18,6 @@
 #include <psdr/types.h>
 
 
-
 const static int PERMX2[10] = {1,  4,  5,  6, -1, -1, -1, -1, -1, -1};
 const static int PERMY2[10] = {2,  5,  7,  8, -1, -1, -1, -1, -1, -1};
 const static int PERMZ2[10] =  {3,  6,  8,  9, -1, -1, -1, -1, -1, -1};
@@ -104,7 +103,7 @@ namespace psdr{
 
 template <bool ad>
 void onb(const Spectrum<ad> &n, Spectrum<ad> &b1, Spectrum<ad> &b2) {
-    auto sign = select(n[2] > 0, full<Float<ad>>(1.0f), full<Float<ad>>(-1.0f));
+    auto sign = enoki::sign(n.z()); //select(n[2] > 0, full<Float<ad>>(1.0f), full<Float<ad>>(-1.0f));
     auto a = -1.0f / (sign + n[2]);
     auto b = n[0] * n[1] * a;
 
@@ -118,14 +117,10 @@ std::pair<Float<ad>, Vector<ad>> evalPolyGrad(const Point<ad> &pos,
     const int *permX, const int *permY, const int *permZ,
     Float<ad> scaleFactor, bool useLocalDir, const Vector<ad> &refDir,
     const VectorShape<ad> &coeffs) {
-
+    
     Vector<ad> relPos;
-    // TODO: tmp 
     if (useLocalDir) {
-        Vector<ad> s, t;
-        onb<ad>(refDir, s, t);
-        // TODO: check frame impl of psdr-cuda
-        Frame<ad> local(s, t, refDir);
+        Frame<ad> local(refDir); //s, t, refDir);
         relPos = local.to_local(evalP - pos) * scaleFactor;
     } else {
         relPos = (evalP - pos) * scaleFactor;
@@ -175,15 +170,17 @@ std::pair<Float<ad>,Vector<ad>> evalGradient(const Point<ad> &pos,
     Float<ad> polyValue;
     Vector<ad> gradient;
     std::tie(polyValue, gradient) = evalPolyGrad<ad>(pos, p, degree, permX, permY, permZ, scaleFactor, useLocalDir, refDir, coeffs);
-    // std::cout << "gradient " << gradient << std::endl;
+    // std::cout << "gradient " << gradient<< std::endl;
 
-    // TODO: impl
     if (useLocalDir) {
-        Vector<ad> s, t;
-        onb<ad>(refDir, s, t);
-        Frame<ad> local(s, t, refDir);
+        // Vector<ad> s, t;
+        // onb<ad>(refDir, s, t);
+        // Frame<ad> local(s, t, refDir);
+        Frame<ad> local(refDir); //s, t, refDir);
         gradient = local.to_world(gradient);
+        // std::cout << "gradient after " << gradient<< std::endl;
     }
+
     return std::make_pair(polyValue,gradient);
 }
 

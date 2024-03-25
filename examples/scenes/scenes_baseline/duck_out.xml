@@ -13,8 +13,8 @@
     </emitter>
 
 
-    <!-- <bsdf type="hetersub" id="opt"> -->
-    <bsdf type="vaesub" id="opt">
+    <bsdf type="hetersub" id="opt">
+    <!-- <bsdf type="vaesub" id="opt"> -->
         <!-- <texture name="alpha" type="bitmap">
             <string name="filename" value="../../textures/rough_init.exr" />
         </texture> -->

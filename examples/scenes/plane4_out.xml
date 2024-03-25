@@ -6,38 +6,70 @@
 
      <emitter type="point" id="point-light">
         
-        <rgb name="power" value="500, 500, 500" />
+        <rgb name="power" value="251"/>
         <transform name="to_world" id="light-transform">
             
 		</transform>
     </emitter>
 
 
-    <bsdf type="vaesub" id="opt">
-    <!-- <bsdf type="hetersub" id="opt"> -->
-        
-        <float name="eta" value="1.2029" />
+    
+    
+    <!-- <bsdf type="hetersub" id="opt">  -->
+     <bsdf type="vaesub" id="opt">
+    
+        <float name="eta" value="1.00" />
         <rgb name="specular_reflectance" value="0, 0, 0" />
         <rgb name="alpha" value="0.0, 0.0, 0.0" />
-        <!-- <rgb name="sigma_t" value="75.00 75.00 75.00" />
-        <rgb name="albedo" value="0.5, 0.5, 0.5" /> -->
-        <rgb name="sigma_t" value="109.00, 109.00, 109.00" />
-        <rgb name="albedo" value="0.90, 0.90, 0.90" />
+        <!-- <rgb name="sigma_t" value="35.00 35.00 35.00" />
+        <rgb name="albedo" value="0.85, 0.85, 0.85" /> -->
+        <!-- <rgb name="sigma_t" value="50.00 50.00 50.00" />
+        <rgb name="albedo" value="0.98, 0.98, 0.98" /> -->
+        <rgb name="sigma_t" value="50.00" />
+        <rgb name="albedo" value="0.98" />
+        <!-- <rgb name="sigma_t" value="1.00 1.00 1.00" />
+        <rgb name="albedo" value="0.9, 0.9, 0.9" /> -->
         
     </bsdf>
 
 
     <shape type="obj" id="init">
-        <string name="filename" value="../../smoothshape/head_v2.obj" />
+        <!-- <string name="filename" value="../../smoothshape/cube_subdiv25.obj" /> -->
+        <!-- <string name="filename" value="../../smoothshape/cylinder_subdiv.obj" /> -->
+        <!-- <string name="filename" value="../../smoothshape/vicini/cylinder_.obj" /> -->
+        <!-- <string name="filename" value="../../smoothshape/cylinder_v5.obj" /> -->
+        <string name="filename" value="../../smoothshape/vicini/cube_.obj" />
+        <!-- <string name="filename" value="../../smoothshape/pillow.obj" /> -->
+        <!-- <string name="filename" value="../../smoothshape/plane.obj" /> -->
+        <!-- <string name="filename" value="../../smoothshape/vicini/cone_.obj" /> -->
         <int name="layer_count" value="0" />
         <float name="layer_depth" value="0.15" />
-        <string name="poly_coeff_b" value="../../polycoeffs/head_gt_r.npy" />
-        <string name="poly_coeff_g" value="../../polycoeffs/head_gt_r.npy" />
-        <string name="poly_coeff_r" value="../../polycoeffs/head_gt_b.npy" />
-        <!-- <string name="poly_coeff_b" value="../../polycoeffs/head_learnedsss.npy" />
-        <string name="poly_coeff_g" value="../../polycoeffs/head_learnedsss.npy" />
-        <string name="poly_coeff_r" value="../../polycoeffs/head_learnedsss.npy" /> -->
-                     
+
+        <string name="poly_coeff_b" value="../../polycoeffs/cube_test.npy" />
+        <string name="poly_coeff_g" value="../../polycoeffs/cube_test.npy" />
+        <string name="poly_coeff_r" value="../../polycoeffs/cube_test.npy" />
+        <!-- <string name="poly_coeff_b" value="../../polycoeffs/cylinder_subdiv.npy" />
+        <string name="poly_coeff_g" value="../../polycoeffs/cylinder_subdiv.npy" />
+        <string name="poly_coeff_r" value="../../polycoeffs/cylinder_subdiv.npy" /> -->
+        <!-- "examples/polycoeffs/cube_subdiv25_gt_r.npy -->
+        <!-- <string name="poly_coeff_b" value="../../polycoeffs/cube_subdiv25_gt_r.npy" />
+        <string name="poly_coeff_g" value="../../polycoeffs/cube_subdiv25_gt_r.npy" />
+        <string name="poly_coeff_r" value="../../polycoeffs/cube_subdiv25_gt_r.npy" /> -->
+        <!-- <string name="poly_coeff_b" value="../../polycoeffs/cone_LS.npy" />
+        <string name="poly_coeff_g" value="../../polycoeffs/cone_LS.npy" />
+        <string name="poly_coeff_r" value="../../polycoeffs/cone_LS.npy" /> -->
+        <!-- <string name="poly_coeff_b" value="../../polycoeffs/cone_WS.npy" />
+        <string name="poly_coeff_g" value="../../polycoeffs/cone_WS.npy" />
+        <string name="poly_coeff_r" value="../../polycoeffs/cone_WS.npy" /> -->
+        <!-- <string name="poly_coeff_b" value="../../polycoeffs/cone_WS_2.npy" />
+        <string name="poly_coeff_g" value="../../polycoeffs/cone_WS_2.npy" />
+        <string name="poly_coeff_r" value="../../polycoeffs/cone_WS_2.npy" /> -->
+        <!-- <string name="poly_coeff_b" value="../../polycoeffs/cone_learnedsss.npy" />
+        <string name="poly_coeff_g" value="../../polycoeffs/cone_learnedsss.npy" />
+        <string name="poly_coeff_r" value="../../polycoeffs/cone_learnedsss.npy" /> -->
+        <!-- <string name="poly_coeff_b" value="../../polycoeffs/cone_learnedsss_v2.npy" />
+        <string name="poly_coeff_g" value="../../polycoeffs/cone_learnedsss_v2.npy" />
+        <string name="poly_coeff_r" value="../../polycoeffs/cone_learnedsss_v2.npy" /> -->
         <ref id="opt" />
     </shape>
 

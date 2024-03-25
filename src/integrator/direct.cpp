@@ -87,19 +87,8 @@ Spectrum<ad> DirectIntegrator::__Li(const Scene &scene, Sampler &sampler, const 
     Float<ad> pdfpoint = bsdf_array->pdfpoint(its, bs, active1);
     // std::cout<< detach(pdfpoint) << " " << active1 <<std::endl;
     Spectrum<ad> Le = scene.m_emitters[0]->eval(bs.po, active1);
-    // Le = Le * 100;
-    // std::cout << "scene.m_emitters[0] " << scene.m_emitters[0] << std::endl;
-
-    // std::cout<<" common bsdf_val "<<hsum(hsum(bsdf_val))<<std::endl;
 
     masked(result, active1) +=  bsdf_val * Le / detach(pdfpoint); //Spectrum<ad>(detach(dd));  //bsdf_val;//detach(Intensity) / 
-    // std::cout<< "Le" << Le <<std::endl;
-    // std::cout << "bsdf_val " << count(bsdf_val != 0) << std::endl;
-    // std::cout << "pdfpoint " << count(pdfpoint != 0) << std::endl;
-    // std::cout << "active1 " << count(active1 != 0) << std::endl;
-    // std::cout<< detach(pdfpoint) <<std::endl;
-
-    // std::cout << "result " << result << std::endl;
     return result;
 }
 

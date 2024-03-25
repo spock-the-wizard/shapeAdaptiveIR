@@ -231,13 +231,13 @@ void SceneLoader::load_scene(const pugi::xml_document &doc, Scene &scene) {
         load_bsdf(node, scene);
     }
 
-    // std::cout<<"Loading emitter"<<::std::endl;
+    //std::cout<<"Loading emitter"<<::std::endl;
     // Load (env) emitter
     for ( auto node = root.child("emitter"); node; node = node.next_sibling("emitter") ) {
         load_emitter(node, scene);
     }
 
-    // std::cout<<"Loading shape"<<::std::endl;
+    //std::cout<<"Loading shape"<<::std::endl;
     // Load shapes
     for ( auto node = root.child("shape"); node; node = node.next_sibling("shape") ) {
         load_shape(node, scene);
@@ -419,6 +419,11 @@ void SceneLoader::load_bsdf(const pugi::xml_node &node, Scene &scene) {
         load_texture(sigma_tr, b->m_sigma_t);
         load_texture(albedo, b->m_albedo);
         bsdf = b;
+        
+        // Set monochromaticity
+        auto mono_sig = strcmp(sigma_tr.name(),"float") == 0;
+        auto mono_alb = strcmp(albedo.name(),"float") == 0;
+        b->setMonochrome(mono_sig & mono_alb);
     } else if(strcmp(bsdf_type, "microfacet") == 0){
         pugi::xml_node alpha = find_child_by_name(node, {"alpha"});
         pugi::xml_node reflectance = find_child_by_name(node, {"reflectance"});
@@ -494,6 +499,7 @@ void SceneLoader::load_shape(const pugi::xml_node &node, Scene &scene) {
         const char *file_name = name_node.attribute("value").value();
         mesh = new Mesh();
         mesh->load(file_name);
+        std::cout << "mesh->m_num_coeffs" << mesh->m_num_vertices << std::endl;
 
 
         pugi::xml_node poly_coeff_node;

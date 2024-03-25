@@ -20,7 +20,7 @@ python3.8 ../learn_real_data.py \
         --spp 4 \
         --sppe 4 \
         --sppse 4 \
-        --ref_spp 128 \
+        --ref_spp $2 \
         --albedo_texture 0 \
         --rough_texture 0 \
         --sigma_texture 0 \

@@ -1,5 +1,5 @@
 python3.8 ../learn_real_data.py \
-        --stats_folder "exp1/for_ours" \
+        --stats_folder "test/scene" \
         --d_type "custom" \
         --seed 2 \
         --scene "head" \
