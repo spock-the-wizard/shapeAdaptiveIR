@@ -1,12 +1,14 @@
 import os
+import sys
 import shutil
+
 import json
 from glob import glob
 import numpy as np
 import xml.etree.ElementTree as ET
 
 
-def datasetIRON2PSDR(src_dir,dst_dir,light_out,xml_file,xml_out,n_lights = -1):
+def datasetIRON2PSDR(src_dir,dst_dir,light_out,xml_file,xml_out,mesh_name,n_lights = -1,):
     """
     Transform IRON dataset structure to PSDR-CUDA dataset
     """
@@ -25,17 +27,57 @@ def datasetIRON2PSDR(src_dir,dst_dir,light_out,xml_file,xml_out,n_lights = -1):
     list_lightidx = np.random.choice(len(lightdir),size=len(list_imgfile))
     cam_dict = json.load(open(os.path.join(src_dir,lightdir[0],"train/cam_dict_norm.json"),"r"))
     
+    # Record Light position and save to file
     files_light = glob(os.path.join(src_dir,"*/light.txt"))
     light_pos = []
     for light_file in files_light:
         lines = open(light_file,'r').readlines()
         light_pos.append([float(i) for i in lines[1][:-2].split(' ')])
     
-    # Record Light position and save to file
-    # Save medium info
+    breakpoint()
+    # Update medium info
+    file_medium = os.path.join(src_dir,"medium.txt")
+    if not os.path.exists(file_medium):
+        raise FileNotFoundError()
+    f = open(file_medium,'r')
+    lines = [l.split('\n')[0] for l in f.readlines()]
+    albedo,sigma_t,_,_ = lines
+    isRGB = "\\" in albedo
+ 
+    def replace_element(xml_prev,root,new_tag="float"):
+        element_to_change = xml_med
+        new_element = ET.Element(new_tag)
+        new_element.text = element_to_change.text
+        for attrib_name, attrib_value in element_to_change.attrib.items():
+            new_element.set(attrib_name, attrib_value)
+        for child in list(element_to_change):
+            new_element.append(child)
+        
+        # Find the index of the old element in the parent's list of children
+        index = list(root).index(element_to_change)
+        root.remove(element_to_change)
+        root.insert(index, new_element)
+        
+    list_xml_med = root.findall("bsdf")[0].findall("rgb")
+    for xml_med in list_xml_med:
+        if xml_med.get("name") == "albedo":
+            xml_med.set("value",albedo)
+            if not isRGB:
+                replace_element(xml_med, root.findall("bsdf")[0])
+        elif xml_med.get("name") == "sigma_t":
+            xml_med.set("value",sigma_t)
+            if not isRGB:
+                replace_element(xml_med, root.findall("bsdf")[0])
+
+    # Update obj info
+    list_xml_shape = root.findall("shape")[0].findall("string")
+    for xml_shape in list_xml_shape:
+        if xml_shape.get("name") == "filename":
+            xml_shape.set("value",f"../../smoothshape/{mesh_name}.obj")
 
     os.makedirs(dst_dir,exist_ok = True)
     os.makedirs(os.path.join(dst_dir,"exr_ref"),exist_ok = True)
+    
 
     # Move images
     # img_files = sorted(os.listdir(src_dir))
@@ -130,24 +172,16 @@ if __name__ == "__main__":
     name = "head1"
     name = "buddha1"
     name = "kettle1"
+    name = sys.argv[1]
     
     # Step 1. Copy scene file
     datasetIRON2PSDR(
-        # src_dir="./data/cone_240307_201131",
-        # src_dir="./data/cone_240308_002127",
-        # src_dir="./data/cone_240309_142041",
-        # src_dir="./data/cone_240309_151714",
-        # src_dir="./data/cylinder_240310_201540",
-        # src_dir="./data/cylinder_240310_224957",
-        # src_dir="./data/botijo_240312_015009",
-        # src_dir="./data/botijo_240311_234447",
-        # src_dir="./data/head/head",
-        # src_dir="./data/buddha_240322_154512",
-        src_dir = "./data/kettle_240322_163040",
+        src_dir=f"./data/{sys.argv[2]}",
          dst_dir=f"./data_kiwi_soap/realdata/{name}",
          light_out=f"./examples/scenes/light/lights-{name}",
          xml_file="./examples/scenes/head_out.xml",
          xml_out=f"./examples/scenes/{name}_out.xml",
+         mesh_name=f"{sys.argv[3]}",
          n_lights=1)
     
     # Step 2. Copy Script file

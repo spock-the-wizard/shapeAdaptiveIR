@@ -15,7 +15,8 @@
 
 
     
-    <bsdf type="vaesub" id="opt">
+    
+    <bsdf type="hetersub" id="opt">
     
     
         <float name="eta" value="1.00" />

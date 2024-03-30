@@ -40,6 +40,7 @@ parser.add_argument('--scene',              type=str,      default='soap')
 parser.add_argument('--stats_folder',       type=str,      default="joint_sss_temp")
 parser.add_argument('--light_file',         type=str,      default="seal")
 parser.add_argument('--ref_folder',         type=str,      default="exr_ref")
+parser.add_argument('--scene_file',         type=str,    default=None)
 
 parser.add_argument('--sigma_lr',           type=float,    default=0.04)
 parser.add_argument('--eta_lr',             type=float,    default=0.01)
@@ -76,6 +77,9 @@ parser.add_argument('--ref_spp',            type=int,      default=50)
 parser.add_argument('--no_init',            type=str,     default="yes")
 parser.add_argument('--d_type',             type=str,     default="real")
 parser.add_argument('--silhouette',         type=str,     default="yes")
+
+parser.add_argument('--render_gradient', action="store_true")
+parser.add_argument('--render_FD', action="store_true")
 
 os.environ["OPENCV_IO_ENABLE_OPENEXR"]="1"
 
@@ -157,6 +161,10 @@ def opt_task(args):
             'albedo': [0.98, 0.98, 0.98],
             'sigmat': [50.00, 50.00,50.00],
         },
+        'botijo': {
+            'albedo': [0.98, 0.98, 0.98],
+            'sigmat': [50.00, 50.00,50.00],
+        },
         'cylinder5': {
             'albedo': [0.98, 0.98, 0.98],
             'sigmat': [100.00, 100.00,100.00],
@@ -173,7 +181,9 @@ def opt_task(args):
 
     # load scene
     sc = psdr_cuda.Scene()
-    if args.d_type == "syn":
+    if os.path.exists(args.scene_file): #args.scene_file is not None:
+        sc.load_file(args.scene_file)
+    elif args.d_type == "syn":
         sc.load_file(SCENES_DIR + "/{}.xml".format(args.scene))
     elif args.d_type == "custom":
         sc.load_file(SCENES_DIR + "/{}_out.xml".format(args.scene))
@@ -322,6 +332,38 @@ def opt_task(args):
         return loss
 
 
+    def compute_forward_derivative(A,S,sensor_id,idx_param=0):
+
+        seed = 2
+        # Create single differentiable variable
+        if A is not None:
+            albedo     = Vector3fD(A)
+            a = albedo
+            ek.set_requires_gradient(a)
+        elif S is not None:
+            sigma_t    = Vector3fD(S)
+            a = sigma_t
+            ek.set_requires_gradient(a)
+        else:
+            raise NotImplementedError
+
+        sc.param_map[material_key].albedo.data   = a
+
+        # Render image
+        npixels = ro.cropheight * ro.cropwidth
+        sc.opts.spp = args.spp
+        sc.setseed(seed*npixels)
+        sc.configure()
+        sc.setlightposition(Vector3fD(lights[sensor_id][0], lights[sensor_id][1], lights[sensor_id][2]))
+        # tar_img = Vector3fD(tars[sensor_id].cuda())
+        img = myIntegrator.renderD(sc, sensor_id)
+
+        # Forward-propagate gradients from single input to multi-outputs
+        ek.forward(a[idx_param])
+        
+        grad_for = ek.gradient(img)
+        return grad_for
+        
     class Renderer(torch.autograd.Function):
         @staticmethod
         def forward(ctx, V, A, S, R, G, batch_size, seed):
@@ -374,9 +416,10 @@ def opt_task(args):
                 tar_img = Vector3fD(tars[sensor_id].cuda())
                 # weight_img = Vector3fD(tmeans[sensor_id].cuda()f)
                 our_imgA = myIntegrator.renderD(sc, sensor_id)
-                render_loss += compute_render_loss(our_imgA, our_imgA, tar_img, args.img_weight) / batch_size
                 # FIXME: tmp disabled for debugging
-                # our_imgB = myIntegrator.renderD(sc, sensor_id)
+                our_imgB = myIntegrator.renderD(sc, sensor_id)
+                render_loss += compute_render_loss(our_imgA, our_imgB, tar_img, args.img_weight) / batch_size
+                # render_loss += compute_render_loss(our_imgA, our_imgA, tar_img, args.img_weight) / batch_size
                 
                 # Save RMSE loss for logging
                 # render_loss += compute_render_loss(our_imgA, our_imgB, tar_img, args.img_weight) / batch_size
@@ -391,13 +434,12 @@ def opt_task(args):
 
             ctx.output = render_loss
             out_torch = ctx.output.torch()
-            # TODO: check if valid grammar
-            # rmse_torch = rmse_loss.torch().detach()
 
-            return out_torch #, rmse_torch
+            return out_torch 
 
         @staticmethod
         def backward(ctx, grad_out):
+            breakpoint()
             ek.set_gradient(ctx.output, FloatC(grad_out))
             # print("--------------------------------------------------------")
             FloatD.backward()
@@ -425,6 +467,11 @@ def opt_task(args):
 
             result = (gradV, gradA, gradS, gradR, gradG, None, None)
             del ctx.output, ctx.input1, ctx.input2, ctx.input3, ctx.input4, ctx.input5
+            print("==========================")
+            print("Estimated gradients")
+            print("gradA ",gradA,"gradS ",gradS)
+            # assert(torch.all(gradA==0.0))
+            # assert(torch.all(gradS == 0.0))
             return result
 
     
@@ -530,6 +577,7 @@ def opt_task(args):
 
 
     def optTask(args):
+
         run = wandb.init(
                 # Set the project where this run will be logged
                 project="inverse-learned-sss",
@@ -631,6 +679,7 @@ def opt_task(args):
         for i in range(args.n_iters):
             optimizer.zero_grad()
             # image_loss = render(V, A, S, R, G, render_batch, i)
+            # breakpoint()
             image_loss = render(V, A, torch.exp(S), R, G, render_batch, i)
             range_loss = texture_range_loss(A, S, R, G, args.range_weight)
             loss = image_loss + range_loss
@@ -700,7 +749,7 @@ def opt_task(args):
 
                 optimizer.setLearningRate(lrs)
 
-            # if ((i+1) %  args.n_dump) == 0:
+            # if (i==0 and args.n_iters == 1) or ((i+1) %  args.n_dump) == 0:
             if i == 0 or ((i+1) %  args.n_dump) == 0:
                 # sensor_indices = active_sensors(1, num_sensors)
                 # renderPreview(i, np.array([0], dtype=np.int32))
@@ -712,6 +761,7 @@ def opt_task(args):
                 wandb.log({
                     "loss/rmse_param_alb": rmse(log_alb,params_gt[args.scene]['albedo']),
                     "loss/rmse_param_sig": rmse(np.exp(log_sig), params_gt[args.scene]['sigmat']),
+                    "loss/rmse_param_sigT": rmse(log_sig, np.log(params_gt[args.scene]['sigmat'])),
 
                     "param/eta": G.detach().cpu().numpy(),
                     "param/rough": R.detach().cpu().numpy(),
@@ -802,7 +852,37 @@ def opt_task(args):
                         
                     optimizer = UAdam(params)
 
-    optTask(args)
+    if args.render_gradient:
+        GRAD_DIR = "../../grad"
+
+        sensor_id = 0
+        idx_param = 0
+        
+        if True:
+            A = Variable(sc.param_map[material_key].albedo.data.torch(), requires_grad=True)
+            filename = os.path.join(GRAD_DIR,f"deriv_scene{args.scene}_sigmat_param{idx_param}_sensor{sensor_id}.png")
+            result = compute_forward_derivative(A,S=None, sensor_id=sensor_id,idx_param=idx_param)
+        else:
+            S = Variable(sc.param_map[material_key].sigma_t.data.torch(), requires_grad=True)
+            filename = os.path.join(GRAD_DIR,f"deriv_scene{args.scene}_albedo_param{idx_param}_sensor{sensor_id}.png")
+            result = compute_forward_derivative(A=None,S=S, sensor_id=sensor_id,idx_param=idx_param)
+        img = result.numpy().reshape(512,512,-1)[...,idx_param]
+
+        import matplotlib.pyplot as plt
+        plt.imshow(img, cmap='inferno')
+        plt.tight_layout()
+        plt.colorbar()
+        plt.axis('off')
+        # plt.show()
+
+        print(f"Write gradient image to {filename}")
+        plt.savefig(filename,bbox_inches='tight')
+        plt.close()
+
+    elif args.render_FD:
+        raise NotImplementedError
+    else:
+        optTask(args)
 
 if __name__ == "__main__":
 

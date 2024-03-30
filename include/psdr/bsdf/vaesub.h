@@ -61,6 +61,8 @@ public:
         m_alpha_v.load_openexr(filename.c_str());
     }
 
+    
+
     void setAlbedo(ScalarVector3f &albedo){
         m_albedo.fill(albedo);
     }

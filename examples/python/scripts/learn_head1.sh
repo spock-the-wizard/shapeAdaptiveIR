@@ -1,17 +1,17 @@
 python3.8 ../learn_real_data.py \
-        --stats_folder "exp1/var39" \
+        --stats_folder "exp3/var14" \
         --d_type "custom" \
         --seed 2 \
         --scene "head1" \
         --n_dump 25 \
         --ref_folder "exr_ref" \
         --mesh_lr 0.00 \
-        --sigma_lr 0.025 \
-        --albedo_lr 0.025 \
+        --sigma_lr 0.003 \
+        --albedo_lr 0.003 \
         --rough_lr 0.05 \
-        --eta_lr 0.005 \
-        --n_reduce_step 1000 \
-        --n_iters 1 \
+        --eta_lr 0.001 \
+        --n_reduce_step 400 \
+        --n_iters 500 \
         --laplacian 30 \
         --sigma_laplacian 0 \
         --albedo_laplacian 0 \
@@ -24,3 +24,4 @@ python3.8 ../learn_real_data.py \
         --albedo_texture 0 \
         --rough_texture 0 \
         --sigma_texture 0 \
+        --scene_file $1 \

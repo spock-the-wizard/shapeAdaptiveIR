@@ -94,49 +94,51 @@ class Scatter3DViewer(ViewerApp):
     def extract_mesh_polys(self):
         all_coeffs = []
         t0 = time.time()
-        # feat_name = self.absorption_config.shape_features_name
+        feat_name = self.absorption_config.shape_features_name
         for i in tqdm.tqdm(range(self.mesh.mesh_positions.shape[1])):
+            # breakpoint()
             pos = self.mesh.mesh_positions[:, i].ravel()
             normal = self.mesh.mesh_normal[:, i].ravel()
 
-            cfg = copy.deepcopy(self.scatter_config)
-            cfg.polynomial_space = 'LS'
-            # TODO: tmp set to TS
+            # cfg = copy.deepcopy(self.scatter_config)
+            cfg = self.scatter_config
             cfg.polynomial_space = 'TS'
-            # cfg.polynomial_space = 'WS'
 
             import vae.model
+            # self.sigma_t = 10
+            # self.albedo = 0.8
             features = vae.model.extract_shape_features(cfg, pos, self.scene, self.constraint_kd_tree, -normal,
                                                         self.g, self.sigma_t, self.albedo, True, self.mesh,
                                                         normal, False, self.kdtree_threshold, self.fit_regularization, self.use_hard_surface_constraint)
-            # breakpoint()
-                
-
             poly_coeffs = features['coeffs']
+            # features = vae.model.extract_shape_features(cfg, pos, self.scene, self.constraint_kd_tree, -normal,
+            #                                             self.g, self.sigma_t, self.albedo, False, self.mesh,
+            #                                             # self.g, self.sigma_t, self.albedo, True, self.mesh,
+            #                                             normal, False, self.kdtree_threshold, self.fit_regularization, self.use_hard_surface_constraint)
+            # poly_coeffs = features['coeffs']
             coeffs_to_show = np.copy(poly_coeffs)
-            
-            if i < 3:
-                print("Position",pos)
-                print("Normal", normal)
-                print(coeffs_to_show)
 
             thickness = None
             nor_hist = None
+            # NOTE: tmp
+            # if not self.visualize_gt_absorption:
             if not self.visualize_gt_absorption:
-                # absorption = vae.model.estimate_absorption(self.session, pos, -normal, normal,
-                #                                            self.absorption_config, self.absorption_pred, self.feature_statistics, self.albedo,
-                #                                            self.sigma_t, self.g, self.eta, features)
-                absorption = np.array([1.0])
+
+                absorption = vae.model.estimate_absorption(self.session, pos, -normal, normal,
+                                                           self.absorption_config, self.absorption_pred, self.feature_statistics, self.albedo,
+                                                           self.sigma_t, self.g, self.eta, features)
+
                 t0 = time.time()
                 ref_pos_mts = vae.utils.mts_p(pos)
                 ref_dir_mts = vae.utils.mts_v(-normal)
                 kernel_eps = vae.utils.kernel_epsilon(self.g, self.sigma_t, self.albedo)
                 scale_fac = float(vae.utils.get_poly_scale_factor(kernel_eps))
+                # TODO: tmp
+                thickness = 0.0
                 # thickness = mitsuba.render.Volpath3D.samplePolyThickness([float(c) for c in features['coeffs'].ravel()], ref_pos_mts, ref_dir_mts, False,
                 #                                                          scale_fac, 8,
                 #                                                          ref_pos_mts, ref_dir_mts, 123, 0.0, 3.0 * float(np.sqrt(kernel_eps)))
-                # thickness = 1.0
-                # thickness = np.array([[thickness]])
+                thickness = np.array([[thickness]])
 
                 if 'nor_constraints' in features:
                     nors = vae.utils.mts_to_np(features['nor_constraints'])
@@ -152,7 +154,6 @@ class Scatter3DViewer(ViewerApp):
                 in_dir_mts = vae.utils.mts_v(normal / np.sqrt(np.sum(normal ** 2)))
                 kernel_eps = vae.utils.kernel_epsilon(self.g, self.sigma_t, self.albedo)
                 t0 = time.time()
-
                 coeffs, _, _ = mitsuba.render.Volpath3D.fitPolynomials(ref_pos_mts, in_dir_mts, vae.utils.mts_v(normal),
                                                                        vae.utils.kernel_epsilon(
                     self.g, self.sigma_t, self.albedo),
@@ -171,24 +172,121 @@ class Scatter3DViewer(ViewerApp):
                 absorption = np.array([[absorption]])
 
                 t0 = time.time()
-                # thickness = mitsuba.render.Volpath3D.samplePolyThickness([float(c) for c in coeffs], ref_pos_mts, ref_dir_mts, False,
-                #                                                          scale_fac, 8,
-                #                                                          ref_pos_mts, ref_dir_mts, seed, 0.0, 3.0 * float(kernel_eps))
-                # thickness = np.array([[thickness]])
-            absorption = np.array([0.0])
+                thickness = mitsuba.render.Volpath3D.samplePolyThickness([float(c) for c in coeffs], ref_pos_mts, ref_dir_mts, False,
+                                                                         scale_fac, 8,
+                                                                         ref_pos_mts, ref_dir_mts, seed, 0.0, 3.0 * float(kernel_eps))
+                thickness = np.array([[thickness]])
+
             feat_to_show = [1.0 - absorption]
             if False:  # For now, do not visualize any of these extra features
                 if nor_hist is not None:
                     feat_to_show.append(nor_hist)
                 if thickness is not None:
                     feat_to_show.append(thickness)
-            feat_to_show.append(coeffs_to_show)
-            all_coeffs.append(np.concatenate(feat_to_show))
+            feat_to_show.append(coeffs_to_show[None])
+            all_coeffs.append(np.concatenate(feat_to_show, 1))
 
         print(f'Took {time.time() - t0} s')
-        # self.mesh_polys = np.concatenate(all_coeffs, 0)
-        self.mesh_polys = np.stack(all_coeffs) #np.concatenate(all_coeffs, 0)
+        self.mesh_polys = np.concatenate(all_coeffs, 0)
         print(f"self.mesh_polys.shape: {self.mesh_polys.shape}")
+
+        # all_coeffs = []
+        # t0 = time.time()
+        # # feat_name = self.absorption_config.shape_features_name
+        # for i in tqdm.tqdm(range(self.mesh.mesh_positions.shape[1])):
+        #     pos = self.mesh.mesh_positions[:, i].ravel()
+        #     normal = self.mesh.mesh_normal[:, i].ravel()
+
+        #     cfg = copy.deepcopy(self.scatter_config)
+        #     cfg.polynomial_space = 'LS'
+        #     # TODO: tmp set to TS
+        #     cfg.polynomial_space = 'TS'
+        #     # cfg.polynomial_space = 'WS'
+
+        #     import vae.model
+        #     features = vae.model.extract_shape_features(cfg, pos, self.scene, self.constraint_kd_tree, -normal,
+        #                                                 self.g, self.sigma_t, self.albedo, True, self.mesh,
+        #                                                 normal, False, self.kdtree_threshold, self.fit_regularization, self.use_hard_surface_constraint)
+        #     # breakpoint()
+                
+
+        #     poly_coeffs = features['coeffs']
+        #     coeffs_to_show = np.copy(poly_coeffs)
+            
+        #     if i < 3:
+        #         print("Position",pos)
+        #         print("Normal", normal)
+        #         print(coeffs_to_show)
+
+        #     thickness = None
+        #     nor_hist = None
+        #     if not self.visualize_gt_absorption:
+        #         # absorption = vae.model.estimate_absorption(self.session, pos, -normal, normal,
+        #         #                                            self.absorption_config, self.absorption_pred, self.feature_statistics, self.albedo,
+        #         #                                            self.sigma_t, self.g, self.eta, features)
+        #         absorption = np.array([1.0])
+        #         t0 = time.time()
+        #         ref_pos_mts = vae.utils.mts_p(pos)
+        #         ref_dir_mts = vae.utils.mts_v(-normal)
+        #         kernel_eps = vae.utils.kernel_epsilon(self.g, self.sigma_t, self.albedo)
+        #         scale_fac = float(vae.utils.get_poly_scale_factor(kernel_eps))
+        #         # thickness = mitsuba.render.Volpath3D.samplePolyThickness([float(c) for c in features['coeffs'].ravel()], ref_pos_mts, ref_dir_mts, False,
+        #         #                                                          scale_fac, 8,
+        #         #                                                          ref_pos_mts, ref_dir_mts, 123, 0.0, 3.0 * float(np.sqrt(kernel_eps)))
+        #         # thickness = 1.0
+        #         # thickness = np.array([[thickness]])
+
+        #         if 'nor_constraints' in features:
+        #             nors = vae.utils.mts_to_np(features['nor_constraints'])
+        #             cos_theta = np.sum(normal * nors, axis=1)
+        #             nor_hist, _ = np.histogram(cos_theta, 4, [-1.01, 1.01])
+        #             nor_hist = nor_hist[None, :]
+        #     else:
+        #         medium = vae.utils.medium_params_list([mitsuba.core.Spectrum(self.albedo)],
+        #                                               [mitsuba.core.Spectrum(self.sigma_t)], [self.g], [self.eta])
+
+        #         ref_pos_mts = vae.utils.mts_p(pos)
+        #         ref_dir_mts = vae.utils.mts_v(-normal)
+        #         in_dir_mts = vae.utils.mts_v(normal / np.sqrt(np.sum(normal ** 2)))
+        #         kernel_eps = vae.utils.kernel_epsilon(self.g, self.sigma_t, self.albedo)
+        #         t0 = time.time()
+
+        #         coeffs, _, _ = mitsuba.render.Volpath3D.fitPolynomials(ref_pos_mts, in_dir_mts, vae.utils.mts_v(normal),
+        #                                                                vae.utils.kernel_epsilon(
+        #             self.g, self.sigma_t, self.albedo),
+        #             self.fit_regularization, self.scatter_config.poly_order(), 'gaussian',
+        #             self.kdtree_threshold, self.constraint_kd_tree, False, self.sigma_t, self.use_hard_surface_constraint)
+
+        #         coeffs = np.array(coeffs)
+        #         # coeffs[0] = 0.0  # Polygon should really be zero on the current position
+        #         seed = int(np.random.randint(10000))
+        #         scale_fac = float(vae.utils.get_poly_scale_factor(kernel_eps))
+        #         tmp_result = mitsuba.render.Volpath3D.samplePolyFixedStart([float(c) for c in coeffs], ref_pos_mts, ref_dir_mts,
+        #                                                                    False, scale_fac, medium, 128, 128, 256,
+        #                                                                    ref_pos_mts, ref_dir_mts, self.ignore_zero_scatter,
+        #                                                                    self.disable_rr, seed)
+        #         absorption = np.mean(tmp_result['absorptionProb'])
+        #         absorption = np.array([[absorption]])
+
+        #         t0 = time.time()
+        #         # thickness = mitsuba.render.Volpath3D.samplePolyThickness([float(c) for c in coeffs], ref_pos_mts, ref_dir_mts, False,
+        #         #                                                          scale_fac, 8,
+        #         #                                                          ref_pos_mts, ref_dir_mts, seed, 0.0, 3.0 * float(kernel_eps))
+        #         # thickness = np.array([[thickness]])
+        #     absorption = np.array([0.0])
+        #     feat_to_show = [1.0 - absorption]
+        #     if False:  # For now, do not visualize any of these extra features
+        #         if nor_hist is not None:
+        #             feat_to_show.append(nor_hist)
+        #         if thickness is not None:
+        #             feat_to_show.append(thickness)
+        #     feat_to_show.append(coeffs_to_show)
+        #     all_coeffs.append(np.concatenate(feat_to_show))
+
+        # print(f'Took {time.time() - t0} s')
+        # # self.mesh_polys = np.concatenate(all_coeffs, 0)
+        # self.mesh_polys = np.stack(all_coeffs) #np.concatenate(all_coeffs, 0)
+        # print(f"self.mesh_polys.shape: {self.mesh_polys.shape}")
 
     def set_dataset(self, dataset):
         self.dataset = vae.datapipeline.get_config_from_metadata(dataset, OUTPUT3D)
@@ -209,13 +307,21 @@ class Scatter3DViewer(ViewerApp):
         super(Scatter3DViewer, self).__init__()
 
         parser = argparse.ArgumentParser(description='''SSS Viewer''')
-        parser.add_argument('--mesh', default=None)
+        parser.add_argument('--mesh', )
         parser.add_argument('--net', default=None)
         parser.add_argument('--absnet', default=None)
+        parser.add_argument('--out_file', default=None)
+        parser.add_argument('--albedo', type=float, default=None)
+        parser.add_argument('--sigma_t', type=float, default=None)
+        parser.add_argument('--g', type=float, default=None)
+        parser.add_argument('--eta',  type=float,default=None)
         parser.add_argument('-n', default=100000, type=int)
+        parser.add_argument('--normalize', action="store_true",default=False,)
+        parser.add_argument('--scene_file',         type=str,    default=None)
         args = parser.parse_args(args)
 
         self.pos_constraints_pc = None
+        self.scene_file = args.scene_file
 
         self.absorption_config, self.scatter_config, self.angular_scatter_config = None, None, None
         self.viewer_output_dir = os.path.join(OUTPUT3D, 'viewer')
@@ -307,8 +413,8 @@ class Scatter3DViewer(ViewerApp):
         LabeledSlider(self, tools, 'n_scatter_samples', 32, 2 ** 19, int, self.update_displayed_scattering, slider_width=160,
                       warp_fun=np.log2, inv_warp_fun=lambda x: 2 ** x)
 
-        add_checkbox(self, tools, 'show_samples', True, label='Show Samples')
-        add_checkbox(self, tools, 'project_samples', True, label='Project Points')
+        add_checkbox(self, tools, 'show_samples', False, label='Show Samples')
+        add_checkbox(self, tools, 'project_samples', False, label='Project Points')
         self.show_rec_mesh_checkbox = add_checkbox(self, tools, 'show_rec_mesh', False, label='Show Reconstructed Mesh')
         self.show_rec_mesh2_checkbox = add_checkbox(self, tools, 'show_rec_mesh2', False, label='Show Reconstructed Mesh')
         add_checkbox(self, tools, 'show_histograms', False, label='Show Histograms')
@@ -497,32 +603,26 @@ class Scatter3DViewer(ViewerApp):
     def load_networks(self):
         sc = psdr_cuda.Scene()
         # TODO
-        # scene_file = "/sss/InverseTranslucent/examples/scenes/cube_test.xml"
-        scene_file = "/sss/InverseTranslucent/examples/scenes/cone1_out.xml"
-        scene_file = "/sss/InverseTranslucent/examples/scenes/cone2_out.xml"
-        # scene_file = "/sss/InverseTranslucent/examples/scenes/cone3_out.xml"
         scene_file = "/sss/InverseTranslucent/examples/scenes/cone4_out.xml"
-        # scene_file = "/sss/InverseTranslucent/examples/scenes/cone5_out.xml"
-        # scene_file = "/sss/InverseTranslucent/examples/scenes/cone2_out.xml"
-        # scene_file = "/sss/InverseTranslucent/examples/scenes/head_test.xml"
-        # scene_file = "/sss/InverseTranslucent/examples/scenes/sphere1_out.xml"
         
-        mesh_name = self.mesh_file.split('/')[-1].split('.')[0].split("_")[0]
+        mesh_name = self.mesh_file.split('/')[-1][:-4]
+        if mesh_name.endswith('_'):
+            mesh_name = mesh_name[:-1]
 
-        if "head" in mesh_name:
-            scene_file = "/sss/InverseTranslucent/examples/scenes/head_test.xml"
-        elif "duck" in mesh_name:
-            scene_file = "/sss/InverseTranslucent/examples/scenes/duck_test.xml"
-        elif "kettle" in mesh_name:
-            scene_file = "/sss/InverseTranslucent/examples/scenes/kettle1_out.xml"
-        elif "buddha" in mesh_name:
-            scene_file = "/sss/InverseTranslucent/examples/scenes/buddha1_out.xml"
-        else: #if "cube_subdiv" in self.mesh_file:
-            scene_file = "/sss/InverseTranslucent/examples/scenes/plane4_out.xml"
-        
-        
-            
-        scene_file = scene_file.replace('cone',mesh_name)
+        if self.scene_file is not None and os.path.exists(self.scene_file):
+            scene_file = self.scene_file
+        else:
+            if "head" in mesh_name:
+                scene_file = "/sss/InverseTranslucent/examples/scenes/head_test.xml"
+            elif "duck" in mesh_name:
+                scene_file = "/sss/InverseTranslucent/examples/scenes/duck_test.xml"
+            elif "kettle" in mesh_name:
+                scene_file = "/sss/InverseTranslucent/examples/scenes/kettle1_out.xml"
+            elif "buddha" in mesh_name:
+                scene_file = "/sss/InverseTranslucent/examples/scenes/buddha1_out.xml"
+            else: #if "cube_subdiv" in self.mesh_file:
+                scene_file = "/sss/InverseTranslucent/examples/scenes/cone4_out.xml"
+                scene_file = scene_file.replace('cone',mesh_name)
         sc.load_file(scene_file)
 
         ro = sc.opts
@@ -858,25 +958,23 @@ class Scatter3DViewer(ViewerApp):
             #                                                           self.albedo, self.sigma_t, self.g, self.eta, self.disable_shape_features)
 
             self.viewer_data = ViewerState(self, need_projection=False, poly_order=self.scatter_config.poly_order(), prediction_space="LS")
-            # self.viewer_data = ViewerState(self, need_projection=False, poly_order=self.scatter_config.poly_order(), prediction_space="WS")
-            poly_coeffs = poly_coeffs.numpy()[0]
-            # print(-self.inDirection)
-            # Prediciton in light space
-            # poly_coeffs = np.zeros_like(poly_coeffs)
-            # poly_coeffs[3] = 1.0
             # breakpoint()
-            # poly_coeffs = utils.mtswrapper.rotate_polynomial(poly_coeffs,self.inDirection,3)
-            # poly_coeffs = utils.mtswrapper.rotate_polynomial(poly_coeffs,-np.array([0,1.0,0]),3)
-            # poly_coeffs = utils.mtswrapper.rotate_polynomial(poly_coeffs,np.array([0,0.0,1.0]),3)
             # poly_coeffs = utils.mtswrapper.rotate_polynomial(poly_coeffs,-self.inDirection,3)
-            print(self.inDirection)
-            print("I rotation: ",poly_coeffs)
+            poly_coeffs = poly_coeffs.numpy()[0]
             self.viewer_data.coeffs = poly_coeffs 
             # print(onb_duff(-self.inDirection))
             # poly_coeffs_extract = utils.mtswrapper.rotate_polynomial(poly_coeffs_extract,-self.inDirection,3)
             # self.viewer_data.coeffs = poly_coeffs_extract
             # self.extract_mesh_polys()
+            coeffs_plane = np.zeros(20)
+            coeffs_plane[3] = 1.0
+
+            # coeffs_plane[7:9] = 1.0
+            # coeffs_plane[0] = -2.0
             # self.viewer_data.coeffs = coeffs_ls
+            # self.viewer_data.coeffs = coeffs_plane
+            print("[Coeffs - Viewer] ",coeffs_ls)
+            print("[Coeffs - OURS] ",poly_coeffs)
             # self.viewer_data.coeffs = coeffs
             
             import vae.utils 

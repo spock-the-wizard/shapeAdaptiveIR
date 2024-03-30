@@ -12,6 +12,17 @@
 #include <psdr/integrator/direct.h>
 #include <psdr/sensor/sensor.h>
 
+#include<psdr/bsdf/vaesub.h>
+
+#include <type_traits>
+#include <typeinfo>
+#ifndef _MSC_VER
+#   include <cxxabi.h>
+#endif
+#include <memory>
+#include <string>
+#include <cstdlib>
+
 namespace psdr
 {
 
@@ -21,6 +32,18 @@ static inline Float<ad> mis_weight(const Float<ad> &pdf1, const Float<ad> &pdf2)
     return w1/(w1 + w2);
 }
 
+template <typename T,bool ad>
+void print_masked_view(Array<T> array, Mask<ad> mask,int count = 5){
+    std::cout << "Print Masked view " << std::endl;
+    for(int i=0;i<slices(array);i++){
+        if(mask[i]){
+            std::cout << array[i] << std::endl;
+            count--;
+        }
+        if(count==0)
+            break;
+    }
+}
 
 DirectIntegrator::~DirectIntegrator() {
     for ( auto *item : m_warpper ) {
@@ -46,12 +69,15 @@ SpectrumD DirectIntegrator::Li(const Scene &scene, Sampler &sampler, const RayD 
 
 template <bool ad>
 Spectrum<ad> DirectIntegrator::__Li(const Scene &scene, Sampler &sampler, const Ray<ad> &ray, Mask<ad> active) const {
+    std::cout << "ad " << ad << std::endl;
     std::cout<<"rendering ... "<<std::endl;
 
+    // std::cout << "[1] active " << active << std::endl;
+    // std::cout << "valid rate" << float(count(active)) / slices(active) * 100 << std::endl;
+    auto active_tmp1 = active;
     Intersection<ad> its = scene.ray_intersect<ad>(ray, active);
 
     std::cout<<"intersection ... "<<std::endl;
-    // std::cout<<its<<std::endl;
 
     active &= its.is_valid();
 
@@ -61,9 +87,16 @@ Spectrum<ad> DirectIntegrator::__Li(const Scene &scene, Sampler &sampler, const 
     Mask<ad> maskl = Mask<ad>(active);
     Vector3f<ad> lightpoint = (scene.m_emitters[0]->sample_position(Vector3f<ad>(1.0f), Vector2f<ad>(1.0f), maskl)).p;
 
+
     BSDFSample<ad> bs;
+    // std::cout << "[2] active " << active << std::endl;
+    // std::cout << "valid rate" << float(count(active)) / slices(active) * 100 << std::endl;
     bs = bsdf_array->sample(&scene, its, sampler.next_nd<8, ad>(), active);
+
     Mask<ad> active1 = active && bs.is_valid;
+    // std::cout << "[3] active1 " << active1 << std::endl;
+    // std::cout << "valid rate" << float(count(active1)) / slices(active1) * 100 << std::endl;
+
 
     Vector3f<ad> wo = lightpoint - bs.po.p;
     Float<ad> dist_sqr = squared_norm(wo);
@@ -74,19 +107,89 @@ Spectrum<ad> DirectIntegrator::__Li(const Scene &scene, Sampler &sampler, const 
     bs.po.wi = bs.wo;
     Ray<ad> ray1(bs.po.p, wo, dist);
     Intersection<ad> its1 = scene.ray_intersect<ad, ad>(ray1, active1);
-    active1 &= !its1.is_valid();
+
+    // Note the negation as we are casting rays TO the light source.
+    // Occlusion indicates Invisibility
+    active1 &= !its1.is_valid(); 
+
+    // std::cout << "[4] active1 " << active1 << std::endl;
+    // std::cout << "valid rate" << float(count(active1)) / slices(active1) * 100 << std::endl;
 
     Spectrum<ad> bsdf_val;
     if constexpr ( ad ) {
+        // set_requires_gradient(bs.po.p);
         bsdf_val = bsdf_array->eval(its, bs, active1);
+        // std::cout << "bsdf_array " << bsdf_array << std::endl;
+
+        // backward(bsdf_val[0]);
+        // auto gradient_ = gradient(bs.po.p);
+        // int count = 0;
+        // int i = 0;
+        // while(count < 5){
+        //     auto array_value = bsdf_val;
+        //     if(array_value[0][i] != 0){
+        //         auto array_value = bsdf_val;
+        //         std::cout << "slice(array_value,i) " << slice(array_value,i) << std::endl;
+        //         std::cout << "slice(gradient_,i) " << slice(gradient_,i) << std::endl;
+        //         count ++;
+        //     }
+        //     i++;
+        // }
+
+        // FIXME: grad
+        // This works as expected
+        // bsdf_val = hsum(bs.po.p.x()); 
+        // backward(bsdf_val[0]);
+        // std::cout << "gradient(bs.po.p) " << gradient(bs.po.p) << std::endl;
     } else {
         bsdf_val = bsdf_array->eval(its, bs, active1);
+        // IntC cameraIdx = arange<IntC>(slices(its));
+        // IntC validRayIdx= cameraIdx.compress_(active);
+        // Spectrum<ad> masked_val = gather<Spectrum<ad>>(bs.po.p,validRayIdx);
+        // std::cout << "bsdf_val " << masked_val << std::endl;
     }
-    // std::cout<< bsdf_val <<std::endl;
     
+    // std::cout << "bs.po.p[active] " << bs.po.p[active] << std::endl;
     Float<ad> pdfpoint = bsdf_array->pdfpoint(its, bs, active1);
-    // std::cout<< detach(pdfpoint) << " " << active1 <<std::endl;
-    Spectrum<ad> Le = scene.m_emitters[0]->eval(bs.po, active1);
+    Spectrum<ad> Le;
+
+    if constexpr ( ad ) {
+        // IntC cameraIdx = arange<IntC>(slices(its));
+        // IntC validRayIdx= cameraIdx.compress_(active);
+        // Spectrum<ad> masked_val = gather<Spectrum<ad>>(bs.po.p,IntD(validRayIdx));
+        // std::cout << "bs.po.p " << masked_val << std::endl;
+        // auto masked_poly = gather<Vectorf<20,ad>>(bs.po.poly_coeff[0],IntD(validRayIdx));
+        // std::cout << "masked_poly " << masked_poly << std::endl;
+        // set_requires_gradient(bs.po.p);
+        // set_requires_gradient((((VaeSub*&)bsdf_array)->m_albedo(bs.po.uv)).m_data);
+        // set_requires_gradient(bs.po.poly_coeff);
+        
+        // set_requires_gradient(bs.po.abs_prob);
+        Le = scene.m_emitters[0]->eval(bs.po, active1);
+
+        // // FIXME
+        // backward(Le[0]);
+        // std::cout << "bs.po.abs_prob " << bs.po.abs_prob << std::endl;
+        // auto grad_Le = gradient(bs.po.abs_prob);
+        // std::cout << "[GRAD] grad_Le_abs" << grad_Le << std::endl;
+
+
+        // auto grad_Le = gradient(bs.po.p);
+        // auto grad_Le = gradient(bs.po.poly_coeff);
+        // auto grad_Le = gradient((((VaeSub*&)bsdf_array[0])->m_albedo(bs.po.uv)).m_data);
+        // bsdf_array[0]->sample()
+
+        // Spectrum<ad> masked_grad_Le = gather<Spectrum<ad>>(grad_Le,IntD(validRayIdx));
+        // std::cout << "[Grad] Le " << masked_grad_Le << std::endl;
+        // Array<Vectorf<20,ad>,3> masked_grad_Le = gather<Array<Vectorf<20,ad>,3>>(grad_Le,IntD(validRayIdx));
+        // std::cout << "[Grad] Le " << masked_grad_Le << std::endl;
+
+    }
+    else{
+        Le = scene.m_emitters[0]->eval(bs.po, active1);
+    }
+    
+    
 
     masked(result, active1) +=  bsdf_val * Le / detach(pdfpoint); //Spectrum<ad>(detach(dd));  //bsdf_val;//detach(Intensity) / 
     return result;
@@ -135,6 +238,7 @@ void DirectIntegrator::preprocess_secondary_edges(const Scene &scene, int sensor
 
 void DirectIntegrator::render_secondary_edges(const Scene &scene, int sensor_id, SpectrumD &result) const {
     
+    std::cout << "render_secondary_edges " << std::endl;
     const RenderOption &opts = scene.m_opts;
 
     Vector3fC sample3 = scene.m_samplers[2].next_nd<3, false>();
@@ -186,27 +290,11 @@ IntC DirectIntegrator::_compress(IntC input, MaskC mask) const {
     // output.set_slices(count);
     // std::cout<<"slices "<<slices(output)<<" before: "<<slices(input)<<std::endl;
     return output;
-    
-    // int64_t origin_size = slices(its);
-    // int64_t final_size = 0;
-
-    // IntC idx = arange<IntC>(origin_size);
-    // its.pixelIdx = idx;
-
-    // IntersectionC compressed;
-    // set_slices(compressed, origin_size);
-    // Intersection_<float*> *ptr = slice_ptr(compressed, 0);
-
-    // for (int64_t i = 0 ; i < packets(its) ; ++i){
-    //     auto input_p = packet(its, i);
-    //     final_size += compress(ptr, input_p, input_p.is_valid());
-    // }
-    // set_slices(compressed, final_size);
-    // return compressed;    
 }
 
 template <bool ad>
 void DirectIntegrator::eval_secondary_edge_bssrdf(const Scene &scene, const IntersectionC &its, const Sensor &sensor, const Vector3fC &sample3, SpectrumD &result) const {
+    std::cout << "eval_secondary_edge_bssrdf "<< std::endl;
     // sample p0 on edge    
     IntersectionC camera_its = its;
     BoundarySegSampleDirect bss = scene.sample_boundary_segment_direct(sample3);
@@ -356,7 +444,7 @@ void DirectIntegrator::eval_secondary_edge_bssrdf(const Scene &scene, const Inte
 
 template <bool ad>
 std::pair<IntC, Spectrum<ad>> DirectIntegrator::eval_secondary_edge(const Scene &scene, const Sensor &sensor, const Vector3fC &sample3) const {
-    // std::cout << "eval_secondary_edge" << std::endl;
+    std::cout << "eval_secondary_edge" << std::endl;
     BoundarySegSampleDirect bss = scene.sample_boundary_segment_direct(sample3);
     MaskC valid = bss.is_valid;
 

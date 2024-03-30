@@ -288,6 +288,11 @@ BSDFSample<ad> HeterSub::__sample(const Scene *scene, const Intersection<ad> &it
     bs.po.sh_frame.n = select(sample.x() > prob, bs.po.sh_frame.n, bsdf_bs.po.sh_frame.n);
     bs.po.abs_prob = select(sample.x() > prob, bs.po.abs_prob, bsdf_bs.po.abs_prob);
     bs.rgb_rv = select(sample.x() > prob, bs.rgb_rv, bsdf_bs.rgb_rv);
+    if constexpr (ad){
+        std::cout << "[sample after selection] bs.po.p " << bs.po.p << std::endl;
+        // active &= false;
+        std::cout << "active " << active << std::endl;
+    }
     return bs;
 }
 

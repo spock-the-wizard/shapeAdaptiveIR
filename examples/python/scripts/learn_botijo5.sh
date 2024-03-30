@@ -24,3 +24,4 @@ python3.8 ../learn_real_data.py \
         --albedo_texture 0 \
         --rough_texture 0 \
         --sigma_texture 0 \
+        --xml_file $3

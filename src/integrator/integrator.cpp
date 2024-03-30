@@ -26,53 +26,6 @@
 
 namespace psdr
 {
-template <bool ad>
-void onb(const Spectrum<ad> &n, Spectrum<ad> &b1, Spectrum<ad> &b2) {
-    auto sign = select(n[2] > 0, full<Float<ad>>(1.0f), full<Float<ad>>(-1.0f));
-    auto a = -1.0f / (sign + n[2]);
-    auto b = n[0] * n[1] * a;
-
-    b1 = Spectrum<ad>(1.0f + sign * n[0] * n[0] * a, sign * b, -sign * n[0]);
-    b2 = Spectrum<ad>(b, sign + n[1]*n[1]*a, -n[1]);
-}
-    template<int order,bool ad>
-    static Array<Float<ad>,20> rotatePolynomial(Array<Float<ad>,20> &c,
-                                    const Array<Float<ad>,3> &s,
-                                    const Array<Float<ad>,3> &t,
-                                    const Array<Float<ad>,3> &n) {
-
-        auto c2 = zero<Array<Float<ad>,20>>();
-
-        c2[0] = c[0];
-        c2[1] = c[1]*s[0] + c[2]*s[1] + c[3]*s[2];
-        c2[2] = c[1]*t[0] + c[2]*t[1] + c[3]*t[2];
-        c2[3] = c[1]*n[0] + c[2]*n[1] + c[3]*n[2];
-        
-        c2[4] = c[4]*pow(s[0], 2) + c[5]*s[0]*s[1] + c[6]*s[0]*s[2] + c[7]*pow(s[1], 2) + c[8]*s[1]*s[2] + c[9]*pow(s[2], 2);
-        c2[5] = 2*c[4]*s[0]*t[0] + c[5]*(s[0]*t[1] + s[1]*t[0]) + c[6]*(s[0]*t[2] + s[2]*t[0]) + 2*c[7]*s[1]*t[1] + c[8]*(s[1]*t[2] + s[2]*t[1]) + 2*c[9]*s[2]*t[2];
-        c2[6] = 2*c[4]*n[0]*s[0] + c[5]*(n[0]*s[1] + n[1]*s[0]) + c[6]*(n[0]*s[2] + n[2]*s[0]) + 2*c[7]*n[1]*s[1] + c[8]*(n[1]*s[2] + n[2]*s[1]) + 2*c[9]*n[2]*s[2];
-        c2[7] = c[4]*pow(t[0], 2) + c[5]*t[0]*t[1] + c[6]*t[0]*t[2] + c[7]*pow(t[1], 2) + c[8]*t[1]*t[2] + c[9]*pow(t[2], 2);
-        c2[8] = 2*c[4]*n[0]*t[0] + c[5]*(n[0]*t[1] + n[1]*t[0]) + c[6]*(n[0]*t[2] + n[2]*t[0]) + 2*c[7]*n[1]*t[1] + c[8]*(n[1]*t[2] + n[2]*t[1]) + 2*c[9]*n[2]*t[2];
-        c2[9] = c[4]*pow(n[0], 2) + c[5]*n[0]*n[1] + c[6]*n[0]*n[2] + c[7]*pow(n[1], 2) + c[8]*n[1]*n[2] + c[9]*pow(n[2], 2);
-        if (order > 2) {
-            c2[10] = c[10]*pow(s[0], 3) + c[11]*pow(s[0], 2)*s[1] + c[12]*pow(s[0], 2)*s[2] + c[13]*s[0]*pow(s[1], 2) + c[14]*s[0]*s[1]*s[2] + c[15]*s[0]*pow(s[2], 2) + c[16]*pow(s[1], 3) + c[17]*pow(s[1], 2)*s[2] + c[18]*s[1]*pow(s[2], 2) + c[19]*pow(s[2], 3);
-            c2[11] = 3*c[10]*pow(s[0], 2)*t[0] + c[11]*(pow(s[0], 2)*t[1] + 2*s[0]*s[1]*t[0]) + c[12]*(pow(s[0], 2)*t[2] + 2*s[0]*s[2]*t[0]) + c[13]*(2*s[0]*s[1]*t[1] + pow(s[1], 2)*t[0]) + c[14]*(s[0]*s[1]*t[2] + s[0]*s[2]*t[1] + s[1]*s[2]*t[0]) + c[15]*(2*s[0]*s[2]*t[2] + pow(s[2], 2)*t[0]) + 3*c[16]*pow(s[1], 2)*t[1] + c[17]*(pow(s[1], 2)*t[2] + 2*s[1]*s[2]*t[1]) + c[18]*(2*s[1]*s[2]*t[2] + pow(s[2], 2)*t[1]) + 3*c[19]*pow(s[2], 2)*t[2];
-            c2[12] = 3*c[10]*n[0]*pow(s[0], 2) + c[11]*(2*n[0]*s[0]*s[1] + n[1]*pow(s[0], 2)) + c[12]*(2*n[0]*s[0]*s[2] + n[2]*pow(s[0], 2)) + c[13]*(n[0]*pow(s[1], 2) + 2*n[1]*s[0]*s[1]) + c[14]*(n[0]*s[1]*s[2] + n[1]*s[0]*s[2] + n[2]*s[0]*s[1]) + c[15]*(n[0]*pow(s[2], 2) + 2*n[2]*s[0]*s[2]) + 3*c[16]*n[1]*pow(s[1], 2) + c[17]*(2*n[1]*s[1]*s[2] + n[2]*pow(s[1], 2)) + c[18]*(n[1]*pow(s[2], 2) + 2*n[2]*s[1]*s[2]) + 3*c[19]*n[2]*pow(s[2], 2);
-            c2[13] = 3*c[10]*s[0]*pow(t[0], 2) + c[11]*(2*s[0]*t[0]*t[1] + s[1]*pow(t[0], 2)) + c[12]*(2*s[0]*t[0]*t[2] + s[2]*pow(t[0], 2)) + c[13]*(s[0]*pow(t[1], 2) + 2*s[1]*t[0]*t[1]) + c[14]*(s[0]*t[1]*t[2] + s[1]*t[0]*t[2] + s[2]*t[0]*t[1]) + c[15]*(s[0]*pow(t[2], 2) + 2*s[2]*t[0]*t[2]) + 3*c[16]*s[1]*pow(t[1], 2) + c[17]*(2*s[1]*t[1]*t[2] + s[2]*pow(t[1], 2)) + c[18]*(s[1]*pow(t[2], 2) + 2*s[2]*t[1]*t[2]) + 3*c[19]*s[2]*pow(t[2], 2);
-            c2[14] = 6*c[10]*n[0]*s[0]*t[0] + c[11]*(2*n[0]*s[0]*t[1] + 2*n[0]*s[1]*t[0] + 2*n[1]*s[0]*t[0]) + c[12]*(2*n[0]*s[0]*t[2] + 2*n[0]*s[2]*t[0] + 2*n[2]*s[0]*t[0]) + c[13]*(2*n[0]*s[1]*t[1] + 2*n[1]*s[0]*t[1] + 2*n[1]*s[1]*t[0]) + c[14]*(n[0]*s[1]*t[2] + n[0]*s[2]*t[1] + n[1]*s[0]*t[2] + n[1]*s[2]*t[0] + n[2]*s[0]*t[1] + n[2]*s[1]*t[0]) + c[15]*(2*n[0]*s[2]*t[2] + 2*n[2]*s[0]*t[2] + 2*n[2]*s[2]*t[0]) + 6*c[16]*n[1]*s[1]*t[1] + c[17]*(2*n[1]*s[1]*t[2] + 2*n[1]*s[2]*t[1] + 2*n[2]*s[1]*t[1]) + c[18]*(2*n[1]*s[2]*t[2] + 2*n[2]*s[1]*t[2] + 2*n[2]*s[2]*t[1]) + 6*c[19]*n[2]*s[2]*t[2];
-            c2[15] = 3*c[10]*pow(n[0], 2)*s[0] + c[11]*(pow(n[0], 2)*s[1] + 2*n[0]*n[1]*s[0]) + c[12]*(pow(n[0], 2)*s[2] + 2*n[0]*n[2]*s[0]) + c[13]*(2*n[0]*n[1]*s[1] + pow(n[1], 2)*s[0]) + c[14]*(n[0]*n[1]*s[2] + n[0]*n[2]*s[1] + n[1]*n[2]*s[0]) + c[15]*(2*n[0]*n[2]*s[2] + pow(n[2], 2)*s[0]) + 3*c[16]*pow(n[1], 2)*s[1] + c[17]*(pow(n[1], 2)*s[2] + 2*n[1]*n[2]*s[1]) + c[18]*(2*n[1]*n[2]*s[2] + pow(n[2], 2)*s[1]) + 3*c[19]*pow(n[2], 2)*s[2];
-            c2[16] = c[10]*pow(t[0], 3) + c[11]*pow(t[0], 2)*t[1] + c[12]*pow(t[0], 2)*t[2] + c[13]*t[0]*pow(t[1], 2) + c[14]*t[0]*t[1]*t[2] + c[15]*t[0]*pow(t[2], 2) + c[16]*pow(t[1], 3) + c[17]*pow(t[1], 2)*t[2] + c[18]*t[1]*pow(t[2], 2) + c[19]*pow(t[2], 3);
-            c2[17] = 3*c[10]*n[0]*pow(t[0], 2) + c[11]*(2*n[0]*t[0]*t[1] + n[1]*pow(t[0], 2)) + c[12]*(2*n[0]*t[0]*t[2] + n[2]*pow(t[0], 2)) + c[13]*(n[0]*pow(t[1], 2) + 2*n[1]*t[0]*t[1]) + c[14]*(n[0]*t[1]*t[2] + n[1]*t[0]*t[2] + n[2]*t[0]*t[1]) + c[15]*(n[0]*pow(t[2], 2) + 2*n[2]*t[0]*t[2]) + 3*c[16]*n[1]*pow(t[1], 2) + c[17]*(2*n[1]*t[1]*t[2] + n[2]*pow(t[1], 2)) + c[18]*(n[1]*pow(t[2], 2) + 2*n[2]*t[1]*t[2]) + 3*c[19]*n[2]*pow(t[2], 2);
-            c2[18] = 3*c[10]*pow(n[0], 2)*t[0] + c[11]*(pow(n[0], 2)*t[1] + 2*n[0]*n[1]*t[0]) + c[12]*(pow(n[0], 2)*t[2] + 2*n[0]*n[2]*t[0]) + c[13]*(2*n[0]*n[1]*t[1] + pow(n[1], 2)*t[0]) + c[14]*(n[0]*n[1]*t[2] + n[0]*n[2]*t[1] + n[1]*n[2]*t[0]) + c[15]*(2*n[0]*n[2]*t[2] + pow(n[2], 2)*t[0]) + 3*c[16]*pow(n[1], 2)*t[1] + c[17]*(pow(n[1], 2)*t[2] + 2*n[1]*n[2]*t[1]) + c[18]*(2*n[1]*n[2]*t[2] + pow(n[2], 2)*t[1]) + 3*c[19]*pow(n[2], 2)*t[2];
-            c2[19] = c[10]*pow(n[0], 3) + c[11]*pow(n[0], 2)*n[1] + c[12]*pow(n[0], 2)*n[2] + c[13]*n[0]*pow(n[1], 2) + c[14]*n[0]*n[1]*n[2] + c[15]*n[0]*pow(n[2], 2) + c[16]*pow(n[1], 3) + c[17]*pow(n[1], 2)*n[2] + c[18]*n[1]*pow(n[2], 2) + c[19]*pow(n[2], 3);
-        }
-        for (size_t i = 0; i < c2.size(); ++i) {
-            c[i] = c2[i];
-        }
-        return c2;
-    }
-
-
 SpectrumC Integrator::renderC(const Scene &scene, int sensor_id) const {
     using namespace std::chrono;
     auto start_time = high_resolution_clock::now();
@@ -91,20 +44,7 @@ SpectrumC Integrator::renderC(const Scene &scene, int sensor_id) const {
     return result;
 }
 
-template <bool ad>
-Vector3f<ad> L2I(const Vector3f<ad> vLearned){
-    // Perform coordinate transform between learnedsss -> invt
-    return Vector3f<ad>(vLearned.x(),vLearned.z(),-vLearned.y());
-    // return Vector3f<ad>(vLearned.x(),vLearned.z(),vLearned.y());
-}
 std::tuple<Vector3fC, Vector3fC, Vector3fC, Vector20fC, FloatC> Integrator::sample_sub(const Scene &scene, Vector3f<false> pts, Vector3f<false> dir) {
-// std::tuple<Vector3fC, Vector3fC, Vector3fC, Array<Array<Float<false>,20>,3>> Integrator::sample_sub(const Scene &scene, Vector3f<false> pts, Vector3f<false> dir) {
-    
-    // std::cout << "testing" << std::endl;
-    // std::cout << "pts[0]" << pts[0] << std::endl;
-    // std::cout << dir << std::endl;
-
-// std::cout << "pts.slices " << shape(pts)[0]<< shape(pts)[1] << std::endl;
     constexpr bool ad = false;
     auto active = full<Mask<ad>>(true); //~isnan(pts[0]);
 
@@ -115,7 +55,6 @@ std::tuple<Vector3fC, Vector3fC, Vector3fC, Vector20fC, FloatC> Integrator::samp
     // its.poly_coeff = zero<decltype(its.poly_coeff)>();
     for (int i=0;i<3;i++){
     //     // Case 1. Plane f = z
-        // its.poly_coeff = zero<decltype(its.poly_coeff)>();
         // its.poly_coeff[i][3] = 1.0;
 
         // Case 2. f = -z + x^2 + y^2
@@ -123,14 +62,6 @@ std::tuple<Vector3fC, Vector3fC, Vector3fC, Vector20fC, FloatC> Integrator::samp
         // its.poly_coeff[i][4] = -1.0f;
         // its.poly_coeff[i][7] = -1.0f;
     }
-    // std::cout << "its.poly_coeff " << its.poly_coeff << std::endl;
-    // its.poly_coeff[3] = 1.0;
-    
-    // std::cout << "Surface its " << its.p << std::endl;
-    // std::cout << its.p << std::endl;
-    // std::cout << its.is_valid() << std::endl;
-    // auto active = its.is_valid();
-
     
     Float<ad> pdf;
     Sampler sampler;
@@ -138,22 +69,6 @@ std::tuple<Vector3fC, Vector3fC, Vector3fC, Vector20fC, FloatC> Integrator::samp
 
     // Type<HeterSub*,ad> vaesub_array = its.shape->bsdf(true);
     Type<VaeSub*,ad> vaesub_array = its.shape->bsdf(true);
-    // if(true) {
-    //     vaesub_array = static_cast<Type<HeterSub*, ad>>(vaesub_array);
-    // }
-    // BSDFArray<ad> bsdf_array = its.shape->bsdf(true);
-    // std::cout << "bsdf_array " << bsdf_array << std::endl;
-    // std::cout << "vaesub_array " << vaesub_array << std::endl;
-    
-    // Mask<ad> active = full<Mask<ad>>(true);
-    // auto sampler_ = scene.m_samplers[0]
-    // Vector3fC res1, res2;
-    // Intersection<ad> first;
-    // Float<ad> second;
-    // std::tie(first,second) = vaesub_array[0] -> __sample_sp<ad>(&scene, its, (scene.m_samplers[0].next_nd<8, false>()),pdf, active);
-    // std::cout << "active" << active << std::endl;
-    // std::cout << "its.p" << its.p << std::endl;
-    
     auto res = vaesub_array[0] -> __sample_sp<ad>(&scene, its, (sampler.next_nd<8, false>()),pdf, active);
     auto res1 = vaesub_array[0] -> __sample_sub<ad>(&scene, its, (sampler.next_nd<8, false>()), active);
     auto res2 = vaesub_array[0] -> __eval_sub<ad>(its, res1, active);
@@ -189,20 +104,7 @@ std::tuple<Vector3fC, Vector3fC, Vector3fC, Vector20fC, FloatC> Integrator::samp
     up.y() = 1.0f;
     right.z() = 1.0f;
     
-    // Rotate polynomials in TS -> WS
-    // poly_coeffs = rotatePolynomial<3,ad>(poly_coeffs,forward,up,right); //right,up);
-    // WS polynomials
-    // poly_coeffs = rotatePolynomial<3,ad>(poly_coeffs,-forward,-right,up); //right,up);
-    // poly_coeffs = rotatePolynomial<3,ad>(poly_coeffs,right,-forward,up); //right,up);
-    // poly_coeffs = rotatePolynomial<3,ad>(poly_coeffs,forward,-right,up); //right,up);
-    // std::cout << "poly_coeffs" << poly_coeffs << std::endl;
     auto active_sub = its_sub.is_valid();
-    // std::cout << "active_sub " << active_sub << std::endl;
-    // std::cout << "hsum(active_sub) " << hsum(active_sub) << std::endl;
-    // std::cout << "second" << second << std::endl;
-    // std::cout << "outPos" << outPos << std::endl;
-    // std::cout << "projDir" << projDir << std::endl;
-
     Float<ad> color = weight; 
 
     return std::make_tuple(its_sub.p,outPos,projDir,poly_coeffs,color);

@@ -21,6 +21,9 @@ SpectrumC PointLight::eval(const IntersectionC &its, MaskC active) const {
 
 SpectrumD PointLight::eval(const IntersectionD &its, MaskD active) const {
     FloatD distance = norm(its.p - m_position);
+    // std::cout << "m_power " << m_power << std::endl;
+    // std::cout << "its.p " << its.p << std::endl;
+    // std::cout << "m_position " << m_position << std::endl;
     return m_power / (4.0f * Pi * distance * distance);
 }
 

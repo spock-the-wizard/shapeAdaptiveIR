@@ -93,7 +93,7 @@ void Scene::configure() {
         //     m_samplers[3].seed(arange<UInt64C>(sample_count_2));
     }
 
-    std::cout<<"configure meshes"<<std::endl;
+    // std::cout<<"configure meshes"<<std::endl;
     // Preprocess meshes
     PSDR_ASSERT_MSG(!m_meshes.empty(), "Missing meshes!");
     // std::cout<<"---------------number_of_meshes--------------------"<<(m_num_meshes)<<std::endl;
@@ -121,7 +121,7 @@ void Scene::configure() {
         }
     }
 
-    std::cout<<"configure sensor"<<std::endl;
+    // std::cout<<"configure sensor"<<std::endl;
     // Preprocess sensors
     PSDR_ASSERT_MSG(!m_sensors.empty(), "Missing sensor!");
     std::vector<size_t> num_edges;
@@ -158,7 +158,7 @@ void Scene::configure() {
         }
     }
 
-    std::cout<<"configure lighting"<<std::endl;
+    // std::cout<<"configure lighting"<<std::endl;
     // Handling env. lighting
     if ( m_emitter_env != nullptr && !m_has_bound_mesh ) {
         FloatC margin = hmin((m_upper - m_lower)*0.05f);
@@ -167,7 +167,7 @@ void Scene::configure() {
         m_emitter_env->m_lower = m_lower;
         m_emitter_env->m_upper = m_upper;
 
-    std::cout << "here " <<  std::endl;
+    // std::cout << "here " <<  std::endl;
         // Adding a bounding mesh
         std::array<std::vector<float>, 3> lower_, upper_;
         copy_cuda_array<float, 3>(m_lower, lower_);
@@ -184,7 +184,7 @@ void Scene::configure() {
             3, 2, 7, 3, 7, 6, 1, 5, 6, 4, 5, 7
         };
 
-        std::cout << "here " <<  std::endl;
+        // std::cout << "here " <<  std::endl;
         Mesh *bound_mesh = new Mesh();
         bound_mesh->m_num_vertices = 8;
         bound_mesh->m_num_faces = 12;
@@ -203,7 +203,7 @@ void Scene::configure() {
         face_offset.push_back(face_offset.back() + 12);
         edge_offset.push_back(edge_offset.back());
 
-    std::cout << "here " <<  std::endl;
+    // std::cout << "here " <<  std::endl;
         ++m_num_meshes;
         m_has_bound_mesh = true;
         if ( m_opts.log_level > 0 ) {
