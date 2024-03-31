@@ -17,7 +17,7 @@ python3.8 ../learn_real_data.py \
         --albedo_laplacian 0 \
         --rough_laplacian 0 \
         --no_init "no" \
-        --spp 4 \
+        --spp 16 \
         --sppe 4 \
         --sppse 4 \
         --ref_spp $3 \

@@ -1,11 +1,12 @@
 
 exp_name="exp1/var48"
-exp_name="exp3/var18"
+exp_name="exp3/var25"
+# exp_name="test/gpu"
 spp=64
 
 
-for name in head1 #buddha1 kettle1 duck # cone4 sphere1 pyramid4 cylinder4 
-# for name in botijo cone4 pyramid4 cube4 cylinder4
+# for name in head1 #buddha1 kettle1 duck # cone4 sphere1 pyramid4 cylinder4 
+for name in duck kettle1 head1 # head1 # botijo cone4 pyramid4 cube4 cylinder4
 do
     echo Running $name
 
@@ -29,20 +30,6 @@ do
     # bash ./template/learn_$name.sh $exp_name $spp ../../scenes/scenes_baseline/${name}_out.xml
 
     # Exp 4. Inverse Rendering experiment
-    # echo $exp_name
-    # xml_file=../../scenes/inverse/${name}_out.xml
-    # out_file=../../scenes/inverse/${name}_out_tmp.xml
-    # sigma_t="80.0, 80.0, 80.0"
-    # albedo="0.8, 0.8, 0.8"
-    # python ./replace_xml.py --sigma_t "$sigma_t" \
-    # --albedo "$albedo" \
-    # --in_xml "$xml_file" \
-    # --out_xml "$out_file" \
-    # # --is_baseline
-    
-    # bash ./inverse/learn_inverse.sh $exp_name $name $spp $out_file
-
-    # Exp 5. Render Gradient Image
     echo $exp_name
     xml_file=../../scenes/inverse/${name}_out.xml
     out_file=../../scenes/inverse/${name}_out_tmp.xml
@@ -52,8 +39,29 @@ do
     --albedo "$albedo" \
     --in_xml "$xml_file" \
     --out_xml "$out_file" \
-    --is_baseline
-    
-    bash ./grad/render_grad.sh $exp_name $name $spp $out_file
+    # --is_baseline
+    bash ./inverse/learn_inverse.sh $exp_name $name $spp $out_file
+
+    # # Exp 5. Render Gradient Image
+    # echo $exp_name
+    # xml_file=../../scenes/inverse/${name}_out.xml
+    # out_file=../../scenes/inverse/${name}_out_tmp.xml
+    # sigma_t="80.0, 80.0, 80.0"
+    # albedo="0.8, 0.8, 0.8"
+    # # sigma_t="109.0, 109.0, 52.0"
+    # # albedo="0.9, 0.9, 0.9"
+
+    # # sigma_t="50.0, 50.0, 70.0"
+    # # albedo="0.9, 0.9, 0.9"
+
+    # # sigma_t="30.0, 50.0, 70.0"
+    # # albedo="0.9, 0.9, 0.9"
+    # python ./replace_xml.py --sigma_t "$sigma_t" \
+    # --albedo "$albedo" \
+    # --in_xml "$xml_file" \
+    # --out_xml "$out_file" \
+    # # --is_baseline
+
+    # bash ./grad/render_grad.sh $exp_name $name $spp $out_file
     
 done

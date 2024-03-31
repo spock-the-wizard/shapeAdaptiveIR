@@ -60,6 +60,7 @@ parser.add_argument('--n_iters',            type=int,      default=30000)
 parser.add_argument('--n_resize',           type=int,      default=10000)
 parser.add_argument('--n_reduce_step',      type=int,      default=200)
 parser.add_argument('--n_dump',             type=int,      default=100)
+parser.add_argument('--n_crops',             type=int,      default=1)
 
 parser.add_argument('--seed',               type=int,      default=4)
 
@@ -79,12 +80,26 @@ parser.add_argument('--d_type',             type=str,     default="real")
 parser.add_argument('--silhouette',         type=str,     default="yes")
 
 parser.add_argument('--render_gradient', action="store_true")
-parser.add_argument('--render_FD', action="store_true")
 
 os.environ["OPENCV_IO_ENABLE_OPENEXR"]="1"
 
 args = parser.parse_args()
 
+import matplotlib as mpl
+import matplotlib.pyplot as plt
+class MidpointNormalize(mpl.colors.Normalize):
+    """
+    class to help renormalize the color scale
+    """
+    def __init__(self, vmin=None, vmax=None, midpoint=None, clip=False):
+        self.midpoint = midpoint
+        mpl.colors.Normalize.__init__(self, vmin, vmax, clip)
+
+    def __call__(self, value, clip=None):
+        # I'm ignoring masked values and all kinds of edge cases to make a
+        # simple example...
+        x, y = [self.vmin, self.midpoint, self.vmax], [0, 0.5, 1]
+        return np.ma.masked_array(np.interp(value, x, y))
 def saveArgument(ars, file):
     with open(file, 'w') as f:
         json.dump(ars.__dict__, f, indent=2)
@@ -189,9 +204,17 @@ def opt_task(args):
         sc.load_file(SCENES_DIR + "/{}_out.xml".format(args.scene))
     else: 
         sc.load_file(SCENES_DIR + "/{}_real.xml".format(args.scene))
+    
+    # sc.opts.cropheight = 256
+    # sc.opts.cropwidth = 256
+    # sc.opts.cropheight = 64
+    # sc.opts.cropwidth = 64
+    sc.opts.cropheight = sc.opts.height // args.n_crops
+    sc.opts.cropwidth = sc.opts.width // args.n_crops
+    
     ro = sc.opts
+    
 
-    # breakpoint()
     ro.sppse = args.sppse
     ro.spp = args.spp
     ro.sppe = args.sppe
@@ -332,41 +355,54 @@ def opt_task(args):
         return loss
 
 
-    def compute_forward_derivative(A,S,sensor_id,idx_param=0):
+    def compute_forward_derivative(A,S,sensor_id,idx_param=0,FD=False,):
 
         seed = 2
         # Create single differentiable variable
         if A is not None:
             albedo     = Vector3fD(A)
             a = albedo
-            ek.set_requires_gradient(a)
+            ek.set_requires_gradient(a,True)
+            sc.param_map[material_key].albedo.data   = a
         elif S is not None:
             sigma_t    = Vector3fD(S)
             a = sigma_t
-            ek.set_requires_gradient(a)
+            ek.set_requires_gradient(a,True)
+            sc.param_map[material_key].sigma_t.data   = a
         else:
             raise NotImplementedError
 
-        sc.param_map[material_key].albedo.data   = a
-
         # Render image
         npixels = ro.cropheight * ro.cropwidth
-        sc.opts.spp = args.spp
+        sc.opts.spp = args.spp if not FD else 1
         sc.setseed(seed*npixels)
         sc.configure()
         sc.setlightposition(Vector3fD(lights[sensor_id][0], lights[sensor_id][1], lights[sensor_id][2]))
-        # tar_img = Vector3fD(tars[sensor_id].cuda())
-        img = myIntegrator.renderD(sc, sensor_id)
 
         # Forward-propagate gradients from single input to multi-outputs
-        ek.forward(a[idx_param])
-        
-        grad_for = ek.gradient(img)
-        return grad_for
+        # ek.set_label(a,"sigma_t")
+        # ek.set_label(a,"albedo")
+        # ek.set_label(img,"img")
+        # print(ek.graphviz(img))
+        # with open("test_graph.dot", "w") as f:
+        #     f.write(ek.graphviz(img))
+    
+        if not FD:
+            img = myIntegrator.renderD(sc, sensor_id)
+            ek.forward(a[idx_param])
+            grad_for = ek.gradient(img)
+            return grad_for
+        else:
+            img = renderNtimes(sc, myIntegrator, args.ref_spp, sensor_id)
+            # img = myIntegrator.renderC(sc, sensor_id)
+            # img_np = img.numpy().reshape(512,512,-1)
+            # del img
+            return img 
+            # return img_np
         
     class Renderer(torch.autograd.Function):
         @staticmethod
-        def forward(ctx, V, A, S, R, G, batch_size, seed):
+        def forward(ctx, V, A, S, R, G, batch_size, seed,crop_idx=0):
             # Roughness = R
             _vertex     = Vector3fD(V)
             _albedo     = Vector3fD(A)
@@ -413,11 +449,15 @@ def opt_task(args):
             # print("sensor indices: ", sensor_indices)
             for sensor_id in sensor_indices:
                 sc.setlightposition(Vector3fD(lights[sensor_id][0], lights[sensor_id][1], lights[sensor_id][2]))
-                tar_img = Vector3fD(tars[sensor_id].cuda())
+
+                cox,coy,coh,cow = ro.crop_offset_x,ro.crop_offset_y,ro.cropheight,ro.cropwidth
+                tar_img = Vector3fD(tars[sensor_id].reshape((ro.height,ro.width,-1))[coy:coy+coh,cox:cox+cow,:].reshape(-1,3).cuda())
+                # tar_img = Vector3fD(tars[sensor_id].cuda())
                 # weight_img = Vector3fD(tmeans[sensor_id].cuda()f)
                 our_imgA = myIntegrator.renderD(sc, sensor_id)
                 # FIXME: tmp disabled for debugging
-                our_imgB = myIntegrator.renderD(sc, sensor_id)
+                our_imgB = our_imgA
+                # our_imgB = myIntegrator.renderD(sc, sensor_id)
                 render_loss += compute_render_loss(our_imgA, our_imgB, tar_img, args.img_weight) / batch_size
                 # render_loss += compute_render_loss(our_imgA, our_imgA, tar_img, args.img_weight) / batch_size
                 
@@ -439,8 +479,11 @@ def opt_task(args):
 
         @staticmethod
         def backward(ctx, grad_out):
-            breakpoint()
-            ek.set_gradient(ctx.output, FloatC(grad_out))
+            try:
+                ek.set_gradient(ctx.output, FloatC(grad_out))
+            except:
+                result = (None, None, None, None, None, None, None)
+        
             # print("--------------------------------------------------------")
             FloatD.backward()
             # print("-------------------------V-----------------------------")
@@ -478,23 +521,6 @@ def opt_task(args):
     render = Renderer.apply
     render_batch = 1
 
-    # def remesh(verts, faces):
-    #     " copy right belongs to Baptiste Nicolet"
-    #     v_cpu = verts.detach().cpu().numpy()
-    #     f_cpu = faces.detach().cpu().numpy()
-
-    #     # Target edge length
-    #     h = (average_edge_length(verts.detach(), faces.detach())).cpu().numpy()*0.5
-
-    #     v_new, f_new = remesh_botsch(v_cpu.astype(np.double),f_cpu.astype(np.int32), 5, h, True)
-
-    #     v_src = torch.from_numpy(v_new).cuda().float().contiguous()
-    #     f_src = torch.from_numpy(f_new).cuda().contiguous()
-
-    #     v_unique, f_unique, duplicate_idx = remove_duplicates(v_src, f_src)
-
-    #     return v_unique, f_unique
-
     def resize(MyTexture, texturesize, textstr, i, channel=3):
         TextureMap = MyTexture.detach().cpu().numpy().reshape((texturesize, texturesize, channel))
         if texturesize < 512:
@@ -517,7 +543,8 @@ def opt_task(args):
             sc.setlightposition(Vector3fD(lights[idx][0], lights[idx][1], lights[idx][2]))
             img2 = renderNtimes(sc, myIntegrator, args.ref_spp, idx)
             img2 = np.clip(img2,a_min=0.0, a_max=1.0)
-            target2 = tars[idx].numpy().reshape((ro.cropheight, ro.cropwidth, 3))
+            # target2 = tars[idx].numpy().reshape((ro.height,ro.width,-1))[coy:coy+coh,cox:cox+cow]
+            target2 = tars[idx].numpy().reshape((ro.height,ro.width,-1)) #[coy:coy+coh,cox:cox+cow]
             target2 = cv2.cvtColor(target2, cv2.COLOR_RGB2BGR)
             target2 = np.clip(target2,a_min=0.0, a_max=1.0)
             # breakpoint()
@@ -538,14 +565,9 @@ def opt_task(args):
             plt.close()
             
 
-            # target2 = cv2.cvtColor(target2, cv2.COLOR_RGB2BGR)
-            # rmse2 = cv2.cvtColor(rmse2, cv2.COLOR_BGR2RGB)
-
             # print(rmse2[0,0])
             output2 = np.concatenate((img2, target2, absdiff2))
-            # output2 = np.concatenate((img2, target2, absdiff2,rmse2))
             images.append(output2)
-            # error_map.append(rmse2) 
             
             from pytorch_msssim import ssim, ms_ssim, SSIM, MS_SSIM
             # X: (N,3,H,W`) a batch of non-negative RGB images (0~255)
@@ -677,28 +699,48 @@ def opt_task(args):
         optimizer = UAdam(params)                        
 
         for i in range(args.n_iters):
-            optimizer.zero_grad()
-            # image_loss = render(V, A, S, R, G, render_batch, i)
-            # breakpoint()
-            image_loss = render(V, A, torch.exp(S), R, G, render_batch, i)
-            range_loss = texture_range_loss(A, S, R, G, args.range_weight)
-            loss = image_loss + range_loss
+            # NOTE: added chunk training
+            loss = 0
+            image_loss = 0
+            range_loss = 0
+            sc.opts.cropheight = sc.opts.height // args.n_crops
+            sc.opts.cropwidth = sc.opts.width // args.n_crops
+            for ix in range(args.n_crops):
+                for iy in range(args.n_crops):
+                
+                    optimizer.zero_grad()
+                    # image_loss = renderV, A, S, R, G, render_batch, i)
+                    # breakpoint()
+                    sc.opts.crop_offset_x = ix * sc.opts.cropwidth
+                    sc.opts.crop_offset_y = iy * sc.opts.cropheight
 
-            # total variation loss
-            if args.albedo_texture > 0:
-                loss += total_variation_loss(A, args.tot_weight, args.albedo_texture, 3)
-            if args.sigma_texture > 0:
-                print(S.shape)
-                loss += total_variation_loss(S, args.tot_weight,  args.sigma_texture, 3)
-            if args.rough_texture > 0:
-                print(R.shape)
-                loss += total_variation_loss(R, args.tot_weight, args.rough_texture, 1)
+                    image_loss_ = render(V, A, torch.exp(S), R, G, render_batch, i,)
+                    range_loss_ = texture_range_loss(A, S, R, G, args.range_weight)
+                    loss_ = image_loss_ + range_loss_
 
-            
-            loss.backward()
-            optimizer.step()
+                    # total variation loss_
+                    if args.albedo_texture > 0:
+                        loss_ += total_variation_loss(A, args.tot_weight, args.albedo_texture, 3)
+                    if args.sigma_texture > 0:
+                        print(S.shape)
+                        loss_ += total_variation_loss(S, args.tot_weight,  args.sigma_texture, 3)
+                    if args.rough_texture > 0:
+                        print(R.shape)
+                        loss_ += total_variation_loss(R, args.tot_weight, args.rough_texture, 1)
+
+                    loss_.backward()
+                    optimizer.step()
+                    loss += loss_.item()
+                    image_loss += image_loss_.item()
+                    range_loss += range_loss_.item()
+
+                    del loss_, range_loss_, image_loss_
+
+            loss /= args.n_crops
+
         
-            print("------ Iteration ---- ", i, ' image loss: ', loss.item(), ' eta: ', G.detach().cpu().numpy())   
+            # print("------ Iteration ---- ", i, ' image loss: ', loss.item(), ' eta: ', G.detach().cpu().numpy())   
+            print("------ Iteration ---- ", i, ' image loss: ', loss, ' eta: ', G.detach().cpu().numpy())   
             
             if args.albedo_texture == 0:
                 print("\n albedo: ", A.detach().cpu().numpy()) 
@@ -718,10 +760,29 @@ def opt_task(args):
             #     "sigmaT" : S.detach().cpu().numpy(),
             #     "rough": R.detach().cpu().numpy(),
             # })
+            log_alb = A.detach().cpu().numpy()[0]
+            log_sig = S.detach().cpu().numpy()[0]
+
+            wandb.log({
+                "loss/rmse_param_alb": rmse(log_alb,params_gt[args.scene]['albedo']),
+                "loss/rmse_param_sig": rmse(np.exp(log_sig), params_gt[args.scene]['sigmat']),
+                "loss/rmse_param_sigT": rmse(log_sig, np.log(params_gt[args.scene]['sigmat'])),
+
+                "param/eta": G.detach().cpu().numpy(),
+                "param/rough": R.detach().cpu().numpy(),
+                "param/albedo_r" : log_alb[0],
+                "param/albedo_g" : log_alb[1],
+                "param/albedo_b" : log_alb[2],
+                "param/sigmaT_r" : log_sig[0],
+                "param/sigmaT_g" : log_sig[1],
+                "param/sigmaT_b" : log_sig[2],
+            })
+
 
             etahistory.append([G.detach().cpu().numpy()])
             
-            losshistory.append([loss.detach().cpu().numpy()]) 
+            # losshistory.append([loss.detach().cpu().numpy()]) 
+            losshistory.append([loss])
             
             torch.cuda.empty_cache()
             ek.cuda_malloc_trim()
@@ -729,10 +790,12 @@ def opt_task(args):
         
             if i == 0 or ((i+1) %  args.n_dump) == 0:
                 wandb.log({
-                        "loss/total": loss.item(),
-                        "loss/image": image_loss.item(),
+                        # "loss/total": loss.item(),
+                        # "loss/image": image_loss.item(),
+                        "loss/total": loss,
+                        "loss/image": image_loss,
                 })
-            del loss, range_loss, image_loss
+            # del loss, range_loss, image_loss
             
             if ((i+1) % args.n_reduce_step) == 0:
                 lrs = []
@@ -753,26 +816,14 @@ def opt_task(args):
             if i == 0 or ((i+1) %  args.n_dump) == 0:
                 # sensor_indices = active_sensors(1, num_sensors)
                 # renderPreview(i, np.array([0], dtype=np.int32))
-                renderPreview(i, np.array([0, 1, 4, 10, 19], dtype=np.int32))
+                sc.opts.cropheight = sc.opts.height
+                sc.opts.cropwidth = sc.opts.width
+                sc.opts.crop_offset_x = 0 
+                sc.opts.crop_offset_y = 0 
+                sc.configure()
+                renderPreview(i, np.array([0, 1, 3, 6, 20], dtype=np.int32))
+                # renderPreview(i, np.array([0, 1, 4, 10, 19], dtype=np.int32))
                 # renderPreview(i, np.array([0, 1, 25, 3, 35], dtype=np.int32))
-                log_alb = A.detach().cpu().numpy()[0]
-                log_sig = S.detach().cpu().numpy()[0]
-
-                wandb.log({
-                    "loss/rmse_param_alb": rmse(log_alb,params_gt[args.scene]['albedo']),
-                    "loss/rmse_param_sig": rmse(np.exp(log_sig), params_gt[args.scene]['sigmat']),
-                    "loss/rmse_param_sigT": rmse(log_sig, np.log(params_gt[args.scene]['sigmat'])),
-
-                    "param/eta": G.detach().cpu().numpy(),
-                    "param/rough": R.detach().cpu().numpy(),
-                    "param/albedo_r" : log_alb[0],
-                    "param/albedo_g" : log_alb[1],
-                    "param/albedo_b" : log_alb[2],
-                    "param/sigmaT_r" : log_sig[0],
-                    "param/sigmaT_g" : log_sig[1],
-                    "param/sigmaT_b" : log_sig[2],
-                })
-
                 if args.albedo_texture > 0:
                     albedomap = A.detach().cpu().numpy().reshape((alb_texture_width, alb_texture_width, 3))
                     albedomap = cv2.cvtColor(albedomap, cv2.COLOR_RGB2BGR)
@@ -851,36 +902,133 @@ def opt_task(args):
                     params.append({'params': G, 'lr': args.eta_lr})
                         
                     optimizer = UAdam(params)
+            torch.cuda.empty_cache()
+            ek.cuda_malloc_trim()
 
     if args.render_gradient:
         GRAD_DIR = "../../grad"
 
+        fd_delta = 5e-2 #2
         sensor_id = 0
-        idx_param = 0
+        idx_param = 2 #0
+        param_delta = torch.zeros(3).cuda()
+        param_delta[idx_param] = fd_delta
+        isAlbedo = True
+        # isAlbedo = False
         
-        if True:
-            A = Variable(sc.param_map[material_key].albedo.data.torch(), requires_grad=True)
-            filename = os.path.join(GRAD_DIR,f"deriv_scene{args.scene}_sigmat_param{idx_param}_sensor{sensor_id}.png")
-            result = compute_forward_derivative(A,S=None, sensor_id=sensor_id,idx_param=idx_param)
-        else:
-            S = Variable(sc.param_map[material_key].sigma_t.data.torch(), requires_grad=True)
-            filename = os.path.join(GRAD_DIR,f"deriv_scene{args.scene}_albedo_param{idx_param}_sensor{sensor_id}.png")
-            result = compute_forward_derivative(A=None,S=S, sensor_id=sensor_id,idx_param=idx_param)
-        img = result.numpy().reshape(512,512,-1)[...,idx_param]
+        # S = Variable(torch.log(sc.param_map[material_key].sigma_t.data.torch()), requires_grad=not isAlbedo) #False)
+        # A = Variable(sc.param_map[material_key].albedo.data.torch(), requires_grad=isAlbedo)
+        # R = Variable(sc.param_map[material_key].alpha_u.data.torch(), requires_grad=False)
+        # G = Variable(sc.param_map[material_key].eta.data.torch(), requires_grad=False)
+        # V = Variable(sc.param_map[mesh_key].vertex_positions.torch(), requires_grad=False)
+        # _vertex     = Vector3fD(V)
+        # _albedo     = Vector3fD(A)
+        # _sigma_t    = Vector3fD(S)
+        # _rough      = FloatD(R)
+        # _eta        = FloatD(G)
+        # ek.set_requires_gradient(_vertex,       V.requires_grad)
+        # ek.set_requires_gradient(_albedo,       A.requires_grad)
+        # ek.set_requires_gradient(_sigma_t,      S.requires_grad)
+        # ek.set_requires_gradient(_rough,        R.requires_grad)
+        # ek.set_requires_gradient(_eta,          G.requires_grad)
 
-        import matplotlib.pyplot as plt
-        plt.imshow(img, cmap='inferno')
+        # sc.param_map[mesh_key].vertex_positions  = _vertex
+        # sc.param_map[material_key].albedo.data   = _albedo
+        # sc.param_map[material_key].sigma_t.data  = _sigma_t
+        # sc.param_map[material_key].alpha_u.data  = roughness
+        # sc.param_map[material_key].eta.data      = eta
+        
+        A,S = None,None
+        if isAlbedo:
+            A = Variable(sc.param_map[material_key].albedo.data.torch(), requires_grad=True)
+            filename = os.path.join(GRAD_DIR,f"{args.scene}_sensor{sensor_id}_albedo{sc.param_map[material_key].albedo.data}_param{idx_param}_{sc.param_map[material_key].type_name()}_deriv.png")
+        else:
+            S = Variable(torch.log(sc.param_map[material_key].sigma_t.data.torch()), requires_grad=True)
+            filename = os.path.join(GRAD_DIR,f"{args.scene}_sensor{sensor_id}_sigma_t{sc.param_map[material_key].sigma_t.data}_param{idx_param}_{sc.param_map[material_key].type_name()}_deriv.png")
+        
+        result = compute_forward_derivative(A=A, S=S, sensor_id=sensor_id,idx_param=idx_param)
+        img = result.numpy().reshape(sc.opts.cropheight,sc.opts.cropwidth,-1)[...,idx_param]
+
+        norm = MidpointNormalize(midpoint=0.0)
+        plt.imshow(img, cmap='RdBu',norm=norm)
         plt.tight_layout()
         plt.colorbar()
         plt.axis('off')
-        # plt.show()
+
+        print(f"Write gradient image to {filename}")
+        plt.savefig(filename,bbox_inches='tight')
+        plt.close()
+        
+        filename = filename.replace("deriv","FD",)
+        ## Gradient estimate using finite differences
+        A,S = None, None
+        if isAlbedo:
+            A0 = Variable(sc.param_map[material_key].albedo.data.torch() - param_delta, requires_grad=True)
+            A1 = Variable(sc.param_map[material_key].albedo.data.torch() + param_delta, requires_grad=True)
+            result0 = compute_forward_derivative(A0,S=S,sensor_id=sensor_id,idx_param=idx_param,FD=True)
+            result1 = compute_forward_derivative(A1,S=S,sensor_id=sensor_id,idx_param=idx_param,FD=True)
+        else:
+            S0 = Variable(sc.param_map[material_key].sigma_t.data.torch() - fd_delta, requires_grad=True)
+            S1 = Variable(sc.param_map[material_key].sigma_t.data.torch() + fd_delta, requires_grad=True)
+            result0 = compute_forward_derivative(A,S=S0,sensor_id=sensor_id,idx_param=idx_param,FD=True)
+            result1 = compute_forward_derivative(A,S=S1,sensor_id=sensor_id,idx_param=idx_param,FD=True)
+        
+        img0 = result0 * 255.0
+        img1 = result1 * 255.0
+        # img0 = result0.numpy().reshape(512,512,-1) * 255
+        # img1 = result1.numpy().reshape(512,512,-1) * 255
+
+        cv2.imwrite("test0.png",img0)
+        cv2.imwrite("test1.png",img1)
+        result_fd = (result1 - result0) / (2*fd_delta)
+        img = result_fd[...,idx_param]
+
+        norm = MidpointNormalize(midpoint=0.0)
+        plt.imshow(img, cmap='RdBu',norm=norm)
+        plt.tight_layout()
+        plt.colorbar()
+        plt.axis('off')
 
         print(f"Write gradient image to {filename}")
         plt.savefig(filename,bbox_inches='tight')
         plt.close()
 
-    elif args.render_FD:
-        raise NotImplementedError
+
+        del result0, result1, result_fd
+
+        A,S = None, None
+        if isAlbedo:
+            A = Variable(sc.param_map[material_key].albedo.data.torch(), requires_grad=True)
+        else:
+            S = Variable(sc.param_map[material_key].sigma_t.data.torch(), requires_grad=True)
+
+        # # Render image
+        # npixels = ro.cropheight * ro.cropwidth
+        # sc.opts.spp = args.spp
+        # sc.setseed(npixels)
+        # sc.configure()
+        # sc.setlightposition(Vector3fD(lights[sensor_id][0], lights[sensor_id][1], lights[sensor_id][2]))
+        # img = myIntegrator.renderD(sc, sensor_id)
+
+        # # Forward-propagate gradients from single input to multi-outputs
+        # ek.set_label(_sigma_t,"sigma_t")
+        # ek.set_label(_albedo,"albedo")
+        # ek.set_label(img,"img")
+        # print(ek.graphviz(img))
+        # with open("test_graph.dot", "w") as f:
+        #     f.write(ek.graphviz(img))
+    
+        # # ek.forward(_albedo[0]) #idx_param]) #[idx_param])
+        # ek.forward(_sigma_t[0]) #idx_param]) #[idx_param])
+        # grad_for = ek.gradient(img)
+        # print(grad_for)
+        # breakpoint()
+
+        # breakpoint()
+            
+        # cv2.imwrite(filename,img*255.0)
+        
+
     else:
         optTask(args)
 

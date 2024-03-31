@@ -125,17 +125,7 @@ Spectrum<ad> DirectIntegrator::__Li(const Scene &scene, Sampler &sampler, const 
         // auto gradient_ = gradient(bs.po.p);
         // int count = 0;
         // int i = 0;
-        // while(count < 5){
-        //     auto array_value = bsdf_val;
-        //     if(array_value[0][i] != 0){
-        //         auto array_value = bsdf_val;
-        //         std::cout << "slice(array_value,i) " << slice(array_value,i) << std::endl;
-        //         std::cout << "slice(gradient_,i) " << slice(gradient_,i) << std::endl;
-        //         count ++;
-        //     }
-        //     i++;
-        // }
-
+        //
         // FIXME: grad
         // This works as expected
         // bsdf_val = hsum(bs.po.p.x()); 
@@ -183,7 +173,6 @@ Spectrum<ad> DirectIntegrator::__Li(const Scene &scene, Sampler &sampler, const 
         // std::cout << "[Grad] Le " << masked_grad_Le << std::endl;
         // Array<Vectorf<20,ad>,3> masked_grad_Le = gather<Array<Vectorf<20,ad>,3>>(grad_Le,IntD(validRayIdx));
         // std::cout << "[Grad] Le " << masked_grad_Le << std::endl;
-
     }
     else{
         Le = scene.m_emitters[0]->eval(bs.po, active1);

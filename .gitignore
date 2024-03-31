@@ -15,6 +15,7 @@ data/
 build_*/
 
 viz/
+!examples/python/viz/viz_scatter_3d.py
 wandb/
 *.npy
 *.obj

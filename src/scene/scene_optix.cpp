@@ -293,7 +293,7 @@ Vector2i<ad> Scene_OptiX::ray_intersect(const Ray<ad> &ray, Mask<ad> &active) co
             &m_accel->sbt,
             m,              // launch size
             1,              // launch height
-            1               // launch depth
+            1              // launch depth
         )
     );
 

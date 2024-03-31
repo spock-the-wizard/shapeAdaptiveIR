@@ -36,6 +36,12 @@ if __name__ =="__main__":
         elif xml_med.get("name") == "sigma_t":
             xml_med.set("value",args.sigma_t)
 
+    list_xml_med = root.findall("bsdf")[0].findall("float")
+    for xml_med in list_xml_med:
+        if xml_med.get("name") == "albedo":
+            xml_med.set("value",args.albedo)
+        elif xml_med.get("name") == "sigma_t":
+            xml_med.set("value",args.sigma_t)
     if args.is_baseline:
         xml_med = root.findall("bsdf")[0]
         xml_med.set("type","hetersub")

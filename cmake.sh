@@ -5,4 +5,4 @@ cmake -D CMAKE_C_COMPILER=gcc-9                       \
       -D OpenEXR_ROOT=/usr/include/OpenEXR/           \
       -D ENOKI_DIR=/home/enoki \
       ..
-make -j
+make -j 2>&1 | tee log

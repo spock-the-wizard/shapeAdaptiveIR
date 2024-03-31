@@ -6,22 +6,24 @@ python3.8 ../learn_real_data.py \
         --n_dump 25 \
         --ref_folder "exr_ref" \
         --mesh_lr 0.00 \
-        --sigma_lr 0.01 \
-        --albedo_lr 0.01 \
-        --rough_lr 0.05 \
+        --sigma_lr 0.005 \
+        --albedo_lr 0.003 \
+        --rough_lr 0.01 \
         --eta_lr 0.001 \
         --n_reduce_step 400 \
-        --n_iters 500 \
+        --n_iters 300 \
         --laplacian 30 \
         --sigma_laplacian 0 \
         --albedo_laplacian 0 \
         --rough_laplacian 0 \
         --no_init "no" \
-        --spp 4 \
+        --spp 16 \
         --sppe 4 \
         --sppse 4 \
         --ref_spp $3 \
         --albedo_texture 0 \
         --rough_texture 0 \
         --sigma_texture 0 \
+        --silhouette "no" \
         --scene_file $4 \
+        --n_crops 4 \

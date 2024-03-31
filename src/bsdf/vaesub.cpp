@@ -678,10 +678,10 @@ std::tuple<Intersection<ad>,Float<ad>,Vector3f<ad>,Vector3f<ad>> VaeSub::__sampl
         // FIXME: detach detection
         // TODO: Evaluate for each unique shapeFeatures instead of each input
         std::tie(polyVal,projDir) = evalGradient<ad>(detach(its.p),detach(shapeFeatures),detach(outPos),3,detach(fitScaleFactor),true,vz);
-        ///////////////////////////////
+        // /////////////////////////////
         // polyVal = full<Float<ad>>(1.0f);
         // projDir = vz;
-        ///////////////////////////////
+        // /////////////////////////////
         projDir = normalize(projDir);
         projDir = -sign(polyVal) * projDir;
         
@@ -733,7 +733,7 @@ std::tuple<Intersection<ad>,Float<ad>,Vector3f<ad>,Vector3f<ad>> VaeSub::__sampl
 
             // Reparameterization to allow gradient flow
             auto ray_dir = select(msk,projDir,-projDir);
-            its3.p = outPos-eps*ray_dir + its3.t * ray_dir;
+            its3.p = outPos-eps*detach(ray_dir) + detach(its3.t) * detach(ray_dir);
         
 
             // std::cout << "[AF] its3.p " << its3.p << std::endl;

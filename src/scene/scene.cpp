@@ -73,6 +73,8 @@ void Scene::configure() {
     std::cout<<"configure sampler"<<std::endl;
     if ( m_opts.spp  > 0 ) {
         int64_t sample_count = static_cast<int64_t>(m_opts.cropheight)*m_opts.cropwidth*m_opts.spp;
+        // NOTE: Joon added. Reduced sample count for batch procesing
+        // int64_t sample_count = static_cast<int64_t>(m_opts.cropheight)*m_opts.cropwidth; //*m_opts.spp;
         std::cout << sample_count << std::endl;
         if ( m_samplers[0].m_sample_count != sample_count )
             // m_samplers[0].seed(arange<UInt64C>(sample_count));

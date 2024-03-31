@@ -69,6 +69,8 @@ Spectrum<ad> HeterSub::__Sp(const Intersection<ad>&its, const Intersection<ad>&b
     Spectrum<ad> sigma_s = m_sigma_t.eval<ad>(its.uv) * albedo;
     Spectrum<ad> sigma_a = m_sigma_t.eval<ad>(its.uv) - sigma_s;
 
+    // FIXME: debugging
+    // set_requires_gradient(albedo);
 
     Spectrum<ad> miu_s_p = (1.0f - m_g.eval<ad>(its.uv)) * sigma_s;
     Spectrum<ad> miu_t_p = miu_s_p + sigma_a;
@@ -246,7 +248,14 @@ Spectrum<ad> HeterSub::__eval_sub(const Intersection<ad> &its, const BSDFSample<
     Spectrum<ad> value = sp * sw * (1.0f - F) * cos_theta_o;
     // std::cout << "cos_theta_o " << cos_theta_o << std::endl;
     if constexpr ( ad ) {
+        
         value = value * bs.po.J;    
+
+        // backward(value[0]);
+        // Spectrum<ad> albedo = m_albedo.eval<ad>(its.uv);
+        // auto grad_alb = gradient(albedo);
+        // std::cout << "grad_alb" << grad_alb <<std::endl;
+        
     }
     return value & active;
 }
@@ -288,11 +297,7 @@ BSDFSample<ad> HeterSub::__sample(const Scene *scene, const Intersection<ad> &it
     bs.po.sh_frame.n = select(sample.x() > prob, bs.po.sh_frame.n, bsdf_bs.po.sh_frame.n);
     bs.po.abs_prob = select(sample.x() > prob, bs.po.abs_prob, bsdf_bs.po.abs_prob);
     bs.rgb_rv = select(sample.x() > prob, bs.rgb_rv, bsdf_bs.rgb_rv);
-    if constexpr (ad){
-        std::cout << "[sample after selection] bs.po.p " << bs.po.p << std::endl;
-        // active &= false;
-        std::cout << "active " << active << std::endl;
-    }
+    bs.po.poly_coeff = select(sample.x() > prob, bs.po.poly_coeff, bsdf_bs.po.poly_coeff);
     return bs;
 }
 
@@ -501,13 +506,13 @@ std::tuple<Intersection<ad>,Float<ad>,Vector3f<ad>,Vector3f<ad>> HeterSub::__sam
 
         Ray<ad> ray2(its.p + r * (vx * cos(phi) + vy * sin(phi)) - vz * 0.5f * l, vz, l);
         Intersection<ad> its2 = scene->ray_all_intersect<ad, ad>(ray2, active, sample, 5);
-        auto mask = its2.is_valid();
-        float validity = 100*count(mask) / slices(mask);
-        std::cout << "validity " << validity << std::endl;
+        // auto mask = its2.is_valid();
+        // float validity = 100*count(mask) / slices(mask);
+        // std::cout << "validity " << validity << std::endl;
 
         // return its2;
         // NOTE: modified for viz
-        auto outPos = its.p + r * (vx * cos(phi) + vy * sin(phi));
+        auto outPos = its.p + r * (vx * cos(phi)+ vy * sin(phi));
         auto projDir = vz;
         
 
