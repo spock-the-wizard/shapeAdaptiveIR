@@ -116,9 +116,12 @@ void Mesh::instance(const Mesh * origin_mesh, float offset){
     m_ready = false;
 }
 
+void Mesh::load_poly2(Vector20fC coeffs, int index) {
+    m_poly_coeff[index] = coeffs;
+    return;
+}
 
 void Mesh::load_poly(const char *fname, int index, bool verbose) {
-    std::cout << "load_poly function " << fname << std::endl;
     cnpy::NpyArray arr = cnpy::npy_load(fname);
     
     // Load from npy data

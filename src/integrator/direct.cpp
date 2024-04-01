@@ -66,6 +66,75 @@ SpectrumD DirectIntegrator::Li(const Scene &scene, Sampler &sampler, const RayD 
     return __Li<true>(scene, sampler, ray, active);
 }
 
+SpectrumC DirectIntegrator::Li_shape(const Scene &scene, Sampler &sampler, const IntersectionC &its, MaskC active, int sensor_id) const {
+    return __Li_shape<false>(scene, sampler, its, active);
+}
+
+
+SpectrumD DirectIntegrator::Li_shape(const Scene &scene, Sampler &sampler, const IntersectionD&its, MaskD active, int sensor_id) const {
+    return __Li_shape<true>(scene, sampler, its, active);
+}
+
+
+template <bool ad>
+Spectrum<ad> DirectIntegrator::__Li_shape(const Scene &scene, Sampler &sampler, const Intersection<ad> &its, Mask<ad> active) const {
+    // std::cout << "its.poly_coeff " << its.poly_coeff << std::endl;
+    std::cout << "ad " << ad << std::endl;
+    std::cout<<"rendering ... "<<std::endl;
+
+    // Intersection<ad> its = scene.ray_intersect<ad>(ray, active);
+    // std::cout<<"intersection ... "<<std::endl;
+
+    active &= its.is_valid();
+
+    Spectrum<ad> result = zero<Spectrum<ad>>();
+    BSDFArray<ad> bsdf_array = its.shape->bsdf(active);
+
+    Mask<ad> maskl = Mask<ad>(active);
+    Vector3f<ad> lightpoint = (scene.m_emitters[0]->sample_position(Vector3f<ad>(1.0f), Vector2f<ad>(1.0f), maskl)).p;
+
+
+    BSDFSample<ad> bs;
+    // TODO: modify 
+    bs = bsdf_array->sample(&scene, its, sampler.next_nd<8, ad>(), active);
+    Mask<ad> active1 = active && bs.is_valid;
+
+    Vector3f<ad> wo = lightpoint - bs.po.p;
+    Float<ad> dist_sqr = squared_norm(wo);
+    Float<ad> dist = safe_sqrt(dist_sqr);
+    wo /= dist;
+
+    bs.wo = bs.po.sh_frame.to_local(wo);
+    bs.po.wi = bs.wo;
+    Ray<ad> ray1(bs.po.p, wo, dist);
+    Intersection<ad> its1 = scene.ray_intersect<ad, ad>(ray1, active1);
+
+    // Note the negation as we are casting rays TO the light source.
+    // Occlusion indicates Invisibility
+    active1 &= !its1.is_valid(); 
+
+    Spectrum<ad> bsdf_val;
+    if constexpr ( ad ) {
+        bsdf_val = bsdf_array->eval(its, bs, active1);
+    } else {
+        bsdf_val = bsdf_array->eval(its, bs, active1);
+    }
+    
+    Float<ad> pdfpoint = bsdf_array->pdfpoint(its, bs, active1);
+    Spectrum<ad> Le;
+
+    if constexpr ( ad ) {
+        Le = scene.m_emitters[0]->eval(bs.po, active1);
+    }
+    else{
+        Le = scene.m_emitters[0]->eval(bs.po, active1);
+    }
+
+    masked(result, active1) +=  bsdf_val * Le / detach(pdfpoint); //Spectrum<ad>(detach(dd));  //bsdf_val;//detach(Intensity) / 
+    return result;
+}
+
+
 
 template <bool ad>
 Spectrum<ad> DirectIntegrator::__Li(const Scene &scene, Sampler &sampler, const Ray<ad> &ray, Mask<ad> active) const {

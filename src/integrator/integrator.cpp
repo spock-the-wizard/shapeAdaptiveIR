@@ -26,6 +26,71 @@
 
 namespace psdr
 {
+
+IntersectionC Integrator::getIntersection(const Scene &scene, int sensor_id) const {
+    using namespace std::chrono;
+    // auto start_time = high_resolution_clock::now();
+
+    PSDR_ASSERT_MSG(scene.is_ready(), "Input scene must be configured!");
+    PSDR_ASSERT_MSG(sensor_id >= 0 && sensor_id < scene.m_num_sensors, "Invalid sensor id!");
+
+    const RenderOption &opts = scene.m_opts;
+    const int num_pixels = opts.cropwidth*opts.cropheight;
+    const bool ad = false;
+    Intersection<ad> its;
+    if ( likely(opts.spp > 0) ) {
+        int64_t num_samples = static_cast<int64_t>(num_pixels)*opts.spp;
+        PSDR_ASSERT(num_samples <= std::numeric_limits<int>::max());
+
+        Int<ad> idx = arange<Int<ad>>(num_samples);
+        if ( likely(opts.spp > 1) ) idx /= opts.spp;
+        // std::cout<<"idx: "<<slices(idx)<<std::endl;
+        Vector2f<ad> samples_base = gather<Vector2f<ad>>(meshgrid(arange<Float<ad>>(opts.cropwidth),
+                                                        arange<Float<ad>>(opts.cropheight)),
+                                                        idx);
+        // std::cout << "samples_base " << samples_base << std::endl;
+
+
+        Vector2f<ad> samples = (samples_base + scene.m_samplers[0].next_2d<ad>())
+                                / ScalarVector2f(opts.cropwidth, opts.cropheight);
+        // std::cout<<"sampled: "<<slices(samples)<<std::endl;
+        Ray<ad> camera_ray = scene.m_sensors[sensor_id]->sample_primary_ray(samples);
+        
+        // Compute ray intersection
+        its = scene.ray_intersect<ad>(camera_ray, true);
+
+    }
+
+    cuda_eval(); cuda_sync();
+
+    // auto end_time = high_resolution_clock::now();
+    // if ( scene.m_opts.log_level ) {
+    //     std::stringstream oss;
+    //     oss << "Rendered in " << duration_cast<duration<double>>(end_time - start_time).count() << " seconds.";
+    //     LOG(oss.str().c_str());
+    // }
+    return its;
+}
+
+SpectrumC Integrator::renderC_shape(const Scene &scene, const IntersectionC &its, int sensor_id) const {
+    using namespace std::chrono;
+    auto start_time = high_resolution_clock::now();
+
+    // std::cout << "[renderC_shape]  its.poly_coeff " << its.poly_coeff << std::endl;
+    SpectrumC result = __render_shape<false>(scene, its, sensor_id);
+
+    cuda_eval(); cuda_sync();
+
+    auto end_time = high_resolution_clock::now();
+    if ( scene.m_opts.log_level ) {
+        std::stringstream oss;
+        oss << "Rendered in " << duration_cast<duration<double>>(end_time - start_time).count() << " seconds.";
+        LOG(oss.str().c_str());
+    }
+
+    return result;
+}
+
 SpectrumC Integrator::renderC(const Scene &scene, int sensor_id) const {
     using namespace std::chrono;
     auto start_time = high_resolution_clock::now();
@@ -138,6 +203,32 @@ SpectrumD Integrator::renderD(const Scene &scene, int sensor_id) const {
     }
 
     std::cout<<"renderD: test3"<<std::endl;
+    return result;
+}
+
+template <bool ad>
+Spectrum<ad> Integrator::__render_shape(const Scene &scene, const Intersection<ad> &its, int sensor_id) const {
+    PSDR_ASSERT_MSG(scene.is_ready(), "Input scene must be configured!");
+    PSDR_ASSERT_MSG(sensor_id >= 0 && sensor_id < scene.m_num_sensors, "Invalid sensor id!");
+
+    const RenderOption &opts = scene.m_opts;
+    const int num_pixels = opts.cropwidth*opts.cropheight;
+    // std::cout<<"pixel number: "<<num_pixels<<std::endl;
+    Spectrum<ad> result = zero<Spectrum<ad>>(num_pixels);
+    if ( likely(opts.spp > 0) ) {
+        int64_t num_samples = static_cast<int64_t>(num_pixels)*opts.spp;
+        PSDR_ASSERT(num_samples <= std::numeric_limits<int>::max());
+
+        Int<ad> idx = arange<Int<ad>>(num_samples);
+        if ( likely(opts.spp > 1) ) idx /= opts.spp;
+        Spectrum<ad> value = Li_shape(scene, scene.m_samplers[0], its, true, sensor_id);
+        masked(value, ~enoki::isfinite<Spectrum<ad>>(value)) = 0.f;
+        scatter_add(result, value, idx);
+        if ( likely(opts.spp > 1) ) {
+            result /= static_cast<float>(opts.spp);
+        }
+    }
+
     return result;
 }
 

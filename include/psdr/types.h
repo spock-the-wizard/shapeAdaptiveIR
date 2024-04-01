@@ -57,6 +57,9 @@ template <bool ad>
 using Vector20f  = Vectorf<20, ad>;
 
 template <bool ad>
+using ShapeVector20f  = Array<Vectorf<20, ad>,3>;
+
+template <bool ad>
 using Vector3i  = Vectori<3, ad>;
 
 template <bool ad>
@@ -97,6 +100,9 @@ using Vector3fD = Vector3f<true>;
 
 using Vector20fC = Vector20f<false>;
 using Vector20fD = Vector20f<true>;
+
+using ShapeVector20fC = ShapeVector20f<false>;
+using ShapeVector20fD = ShapeVector20f<true>;
 
 using Vector3iC = Vector3i<false>;
 using Vector3iD = Vector3i<true>;

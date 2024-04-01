@@ -20,6 +20,7 @@ public:
 
     void load(const char *fname, bool verbose = false);
     void load_poly(const char *fname, int index, bool verbose = false);
+    void load_poly2(Vector20fC coeffs, int index);
     
     // xi deng added for multilayer bssrdf
     void instance(const Mesh *mesh, float offset=0.01f);

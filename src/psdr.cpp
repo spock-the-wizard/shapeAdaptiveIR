@@ -55,8 +55,8 @@ PYBIND11_MODULE(psdr_cuda, m) {
     m.doc() = "Path-space differentiable renderer";
 
     // auto vector20f_class = bind<Vector20fC>(m, s, "Vector20f");
-    // py::class_<Vector20fC>(m,"Vector20f")
-    //     .def(py::init<const Vector20fC  &>());
+    py::class_<ShapeVector20fC>(m,"ShapeVector20f")
+        .def(py::init<const ShapeVector20fC  &>());
 
     py::class_<Object>(m, "Object")
         .def("type_name", &Object::type_name)
@@ -138,6 +138,16 @@ PYBIND11_MODULE(psdr_cuda, m) {
         .def_readwrite("data", &Bitmap3fD::m_data);
 
     /*
+
+    py::class_<Sampler>(m, "Sampler")
+        .def(py::init<>())
+        .def("clone", &Sampler::clone)
+        .def("seed", &Sampler::seed)
+        .def("next_1d", &Sampler::next_1d<false>)
+        .def("next_2d", &Sampler::next_2d<false>);
+    */
+
+    /// NOTE: Joon added 
     py::class_<InteractionC>(m, "InteractionC")
         .def("is_valid", &InteractionC::is_valid)
         .def_readonly("wi", &InteractionC::wi)
@@ -154,6 +164,8 @@ PYBIND11_MODULE(psdr_cuda, m) {
         .def_readonly("shape", &IntersectionC::shape)
         .def_readonly("n", &IntersectionC::n)
         .def_readonly("sh_frame", &IntersectionC::sh_frame)
+        .def_readwrite("poly_coeff", &IntersectionC::poly_coeff)
+        .def("set_poly_coeff", &IntersectionC::set_poly_coeff,"coeff"_a,"idx"_a=0)
         .def_readonly("uv", &IntersectionC::uv)
         .def_readonly("J", &IntersectionC::J);
 
@@ -161,17 +173,10 @@ PYBIND11_MODULE(psdr_cuda, m) {
         .def_readonly("shape", &IntersectionD::shape)
         .def_readonly("n", &IntersectionD::n)
         .def_readonly("sh_frame", &IntersectionD::sh_frame)
+        .def_readwrite("poly_coeff", &IntersectionD::poly_coeff)
         .def_readonly("uv", &IntersectionD::uv)
         .def_readonly("J", &IntersectionD::J);
-
-    py::class_<Sampler>(m, "Sampler")
-        .def(py::init<>())
-        .def("clone", &Sampler::clone)
-        .def("seed", &Sampler::seed)
-        .def("next_1d", &Sampler::next_1d<false>)
-        .def("next_2d", &Sampler::next_2d<false>);
-    */
-
+    
     py::class_<DiscreteDistribution>(m, "DiscreteDistribution")
         .def(py::init<>())
         .def("init", &DiscreteDistribution::init)
@@ -304,6 +309,7 @@ PYBIND11_MODULE(psdr_cuda, m) {
     py::class_<Mesh, Object>(m, "Mesh")
         .def(py::init<>())
         .def("load", &Mesh::load, "filename"_a, "verbose"_a = false)
+        .def("load_poly", &Mesh::load_poly2, "coeffs"_a, "index"_a=0)
         .def("configure", &Mesh::configure)
         .def("set_transform", &Mesh::set_transform, "mat"_a, "set_left"_a = true)
         .def("append_transform", &Mesh::append_transform, "mat"_a, "append_left"_a = true)
@@ -344,7 +350,9 @@ PYBIND11_MODULE(psdr_cuda, m) {
     // Integrator base and basic integrators
 
     py::class_<Integrator, Object>(m, "Integrator")
+        .def("getIntersection", &Integrator::getIntersection, "scene"_a, "sensor_id"_a = 0)
         .def("renderC", &Integrator::renderC, "scene"_a, "sensor_id"_a = 0)
+        .def("renderC_shape", &Integrator::renderC_shape, "scene"_a, "intersection"_a, "sensor_id"_a = 0)
         .def("renderD", &Integrator::renderD, "scene"_a, "sensor_id"_a = 0)
         .def("preprocess_secondary_edges", &Integrator::preprocess_secondary_edges, "scene"_a, "sensor_id"_a, "resolution"_a, "nrounds"_a = 1)
         .def("sample_sub", &Integrator::sample_sub, "scene"_a, "pts"_a,"dir"_a);

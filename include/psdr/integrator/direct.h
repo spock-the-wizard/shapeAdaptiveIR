@@ -18,6 +18,11 @@ protected:
     SpectrumC Li(const Scene &scene, Sampler &sampler, const RayC &ray, MaskC active = true, int sensor_id=0) const override;
     SpectrumD Li(const Scene &scene, Sampler &sampler, const RayD &ray, MaskD active = true, int sensor_id=0) const override;
 
+    // NOTE: Joon added
+    SpectrumC Li_shape(const Scene &scene, Sampler &sampler, const IntersectionC&its, MaskC active, int sensor_id) const override;
+    SpectrumD Li_shape(const Scene &scene, Sampler &sampler, const IntersectionD&its, MaskD active, int sensor_id) const override;
+    template <bool ad>
+    Spectrum<ad> __Li_shape(const Scene &scene, Sampler &sampler, const Intersection<ad> &its, Mask<ad> active) const;
     
     IntC _compress(IntC input, MaskC mask) const;
 

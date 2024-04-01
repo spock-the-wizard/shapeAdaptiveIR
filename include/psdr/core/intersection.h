@@ -36,7 +36,14 @@ struct Intersection_ : public Interaction_<Float_> {
     inline Spectrum<ad> Le(Mask<ad> active) const {
         return shape->emitter(active)->eval(*this, active);
     }
-
+    void set_poly_coeff(const Vector20fC coeffs,const int idx) {
+        // std::cout << "coeffs " << coeffs << std::endl;
+        poly_coeff[idx] = coeffs;
+        // std::cout << "poly_coeff[idx] " << poly_coeff[idx] << std::endl;
+        // exit(0);
+        return;
+    }
+    
     MeshArray<ad>       shape;
 
     Vector3f<ad>        n;                  // geometric normal

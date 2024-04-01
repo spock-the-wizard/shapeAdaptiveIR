@@ -6,7 +6,8 @@ spp=64
 
 
 # for name in head1 #buddha1 kettle1 duck # cone4 sphere1 pyramid4 cylinder4 
-for name in duck kettle1 head1 # head1 # botijo cone4 pyramid4 cube4 cylinder4
+# for name in duck kettle1 head1 # head1 # botijo cone4 pyramid4 cube4 cylinder4
+for name in head1 # head1 # botijo cone4 pyramid4 cube4 cylinder4
 do
     echo Running $name
 
