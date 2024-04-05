@@ -33,6 +33,7 @@ void Bitmap<channels>::load_openexr(const char *file_name) {
     if constexpr ( channels == 1 ) {
         m_data = data[0];
     } else {
+        // std::cout << "data " << data << std::endl;
         m_data = Vector3fD(data[0], data[1], data[2]);
     }
 }

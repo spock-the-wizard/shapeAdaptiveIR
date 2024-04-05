@@ -909,34 +909,14 @@ def opt_task(args):
         GRAD_DIR = "../../grad"
 
         fd_delta = 5e-2 #2
+        # fd_delta = 5 #2
         sensor_id = 0
         idx_param = 2 #0
         param_delta = torch.zeros(3).cuda()
         param_delta[idx_param] = fd_delta
+
         isAlbedo = True
         # isAlbedo = False
-        
-        # S = Variable(torch.log(sc.param_map[material_key].sigma_t.data.torch()), requires_grad=not isAlbedo) #False)
-        # A = Variable(sc.param_map[material_key].albedo.data.torch(), requires_grad=isAlbedo)
-        # R = Variable(sc.param_map[material_key].alpha_u.data.torch(), requires_grad=False)
-        # G = Variable(sc.param_map[material_key].eta.data.torch(), requires_grad=False)
-        # V = Variable(sc.param_map[mesh_key].vertex_positions.torch(), requires_grad=False)
-        # _vertex     = Vector3fD(V)
-        # _albedo     = Vector3fD(A)
-        # _sigma_t    = Vector3fD(S)
-        # _rough      = FloatD(R)
-        # _eta        = FloatD(G)
-        # ek.set_requires_gradient(_vertex,       V.requires_grad)
-        # ek.set_requires_gradient(_albedo,       A.requires_grad)
-        # ek.set_requires_gradient(_sigma_t,      S.requires_grad)
-        # ek.set_requires_gradient(_rough,        R.requires_grad)
-        # ek.set_requires_gradient(_eta,          G.requires_grad)
-
-        # sc.param_map[mesh_key].vertex_positions  = _vertex
-        # sc.param_map[material_key].albedo.data   = _albedo
-        # sc.param_map[material_key].sigma_t.data  = _sigma_t
-        # sc.param_map[material_key].alpha_u.data  = roughness
-        # sc.param_map[material_key].eta.data      = eta
         
         A,S = None,None
         if isAlbedo:
@@ -958,6 +938,7 @@ def opt_task(args):
         print(f"Write gradient image to {filename}")
         plt.savefig(filename,bbox_inches='tight')
         plt.close()
+        del result, img
         
         filename = filename.replace("deriv","FD",)
         ## Gradient estimate using finite differences
@@ -978,8 +959,8 @@ def opt_task(args):
         # img0 = result0.numpy().reshape(512,512,-1) * 255
         # img1 = result1.numpy().reshape(512,512,-1) * 255
 
-        cv2.imwrite("test0.png",img0)
-        cv2.imwrite("test1.png",img1)
+        cv2.imwrite(f"{filename.replace("FD","FD_0")}",img0)
+        cv2.imwrite(f"{filename.replace("FD","FD_1")}",img1)
         result_fd = (result1 - result0) / (2*fd_delta)
         img = result_fd[...,idx_param]
 
@@ -993,42 +974,7 @@ def opt_task(args):
         plt.savefig(filename,bbox_inches='tight')
         plt.close()
 
-
         del result0, result1, result_fd
-
-        A,S = None, None
-        if isAlbedo:
-            A = Variable(sc.param_map[material_key].albedo.data.torch(), requires_grad=True)
-        else:
-            S = Variable(sc.param_map[material_key].sigma_t.data.torch(), requires_grad=True)
-
-        # # Render image
-        # npixels = ro.cropheight * ro.cropwidth
-        # sc.opts.spp = args.spp
-        # sc.setseed(npixels)
-        # sc.configure()
-        # sc.setlightposition(Vector3fD(lights[sensor_id][0], lights[sensor_id][1], lights[sensor_id][2]))
-        # img = myIntegrator.renderD(sc, sensor_id)
-
-        # # Forward-propagate gradients from single input to multi-outputs
-        # ek.set_label(_sigma_t,"sigma_t")
-        # ek.set_label(_albedo,"albedo")
-        # ek.set_label(img,"img")
-        # print(ek.graphviz(img))
-        # with open("test_graph.dot", "w") as f:
-        #     f.write(ek.graphviz(img))
-    
-        # # ek.forward(_albedo[0]) #idx_param]) #[idx_param])
-        # ek.forward(_sigma_t[0]) #idx_param]) #[idx_param])
-        # grad_for = ek.gradient(img)
-        # print(grad_for)
-        # breakpoint()
-
-        # breakpoint()
-            
-        # cv2.imwrite(filename,img*255.0)
-        
-
     else:
         optTask(args)
 

@@ -10,6 +10,7 @@
 #include <enoki/autodiff.h>
 #include <enoki/special.h>
 
+#include <chrono>
 
 namespace psdr
 {
@@ -206,8 +207,15 @@ template <bool ad>
 
 template <bool ad>
 Spectrum<ad> HeterSub::__eval(const Intersection<ad> &its, const BSDFSample<ad> &bs, Mask<ad> active) const {
-    
-    return select(bs.is_sub, __eval_sub<ad>(its, bs, active), __eval_bsdf<ad>(its, bs, active));
+    using namespace std::chrono;
+    // auto start_time = high_resolution_clock::now();
+
+    auto res = select(bs.is_sub, __eval_sub<ad>(its, bs, active), __eval_bsdf<ad>(its, bs, active));
+
+    // auto end_time = high_resolution_clock::now();
+    // std::cout << "[Time] __eval" <<  duration_cast<duration<double>>(end_time - start_time).count() << " seconds.";
+
+    return res;
 }
 
 template <bool ad>
@@ -327,6 +335,9 @@ BSDFSample<ad> HeterSub::__sample_bsdf(const Intersection<ad> &its, const Vector
 
 template <bool ad>
 BSDFSample<ad> HeterSub::__sample_sub(const Scene *scene, const Intersection<ad> &its, const Vector8f<ad> &sample, Mask<ad> active) const {
+    using namespace std::chrono;
+    // auto start_time = high_resolution_clock::now();
+
     Float<ad> cos_theta_i = Frame<ad>::cos_theta(its.wi);
     BSDFSample<ad> bs;
     Float<ad> pdf_po = Frame<ad>::cos_theta(its.wi);
@@ -342,6 +353,8 @@ BSDFSample<ad> HeterSub::__sample_sub(const Scene *scene, const Intersection<ad>
     pdf_po = __pdf_sub<ad>(its, bs, active) * warp::square_to_cosine_hemisphere_pdf<ad>(bs.wo);
     bs.pdf = pdf_po;
     bs.rgb_rv = 1.0f;
+    // auto end_time = high_resolution_clock::now();
+    // std::cout << "[Time] sample_sub" <<  duration_cast<duration<double>>(end_time - start_time).count() << " seconds.";
 
     return bs;
 }
@@ -504,8 +517,13 @@ std::tuple<Intersection<ad>,Float<ad>,Vector3f<ad>,Vector3f<ad>> HeterSub::__sam
 
         Float<ad> l = 2.0f * sqrt(rmax * rmax - r * r);
 
+        // std::cout << "[DEBUG] Projection count" << count(active) <<std::endl;
+        // using namespace std::chrono;
+        // auto start_time = high_resolution_clock::now();
         Ray<ad> ray2(its.p + r * (vx * cos(phi) + vy * sin(phi)) - vz * 0.5f * l, vz, l);
         Intersection<ad> its2 = scene->ray_all_intersect<ad, ad>(ray2, active, sample, 5);
+        // auto end_time = high_resolution_clock::now();
+        // std::cout << "[Time] Projection" <<  duration_cast<duration<double>>(end_time - start_time).count() << " seconds.";
         // auto mask = its2.is_valid();
         // float validity = 100*count(mask) / slices(mask);
         // std::cout << "validity " << validity << std::endl;

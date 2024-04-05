@@ -13,8 +13,10 @@
 #include <enoki/special.h>
 #include <enoki/random.h>
 
-#include <sdf/sdf.hpp>
+// #include <sdf/sdf.hpp>
 // #include <sdf/sdf.h>
+#include <chrono>
+#include <nvml.h>
 
 
 #define UNUSED(x) (void)(x)
@@ -27,6 +29,10 @@ namespace psdr
 {
     void VaeSub::loadNetwork() {
         //Load Network
+        // Initialize NVML
+        if (nvmlInit() != NVML_SUCCESS) {
+            std::cerr << "Failed to initialize NVML." << std::endl;
+        }
 
         const std::string variablePath = "../../../variables";
         const std::string featStatsFilePath = "../../../data_stats.json";
@@ -41,15 +47,6 @@ namespace psdr
         NetworkHelpers::loadVector(variablePath + "/scatter_decoder_fcn_fcn_2_biases.bin",(float*) &m_scatter_decoder_fcn_fcn_2_biases);
         NetworkHelpers::loadMat(variablePath + "/scatter_dense_2_kernel.bin", (float*) &m_scatter_dense_2_kernel,3);
         NetworkHelpers::loadVector(variablePath + "/scatter_dense_2_bias.bin",(float*) &m_scatter_dense_2_bias);
-        // NetworkHelpers::loadMat(variablePath + "/scatter_decoder_fcn_fcn_0_weights.bin",(float*) &scatter_decoder_fcn_fcn_0_weights,68);
-        // NetworkHelpers::loadMat(variablePath + "/scatter_decoder_fcn_fcn_1_weights.bin",(float*) &scatter_decoder_fcn_fcn_1_weights);
-        // NetworkHelpers::loadMat(variablePath + "/scatter_decoder_fcn_fcn_2_weights.bin",(float*) &scatter_decoder_fcn_fcn_2_weights);
-        // NetworkHelpers::loadVector(variablePath + "/scatter_decoder_fcn_fcn_0_biases.bin",(float*) &scatter_decoder_fcn_fcn_0_biases);
-        // NetworkHelpers::loadVector(variablePath + "/scatter_decoder_fcn_fcn_1_biases.bin",(float*) &scatter_decoder_fcn_fcn_1_biases);
-        // NetworkHelpers::loadVector(variablePath + "/scatter_decoder_fcn_fcn_2_biases.bin",(float*) &scatter_decoder_fcn_fcn_2_biases);
-        // NetworkHelpers::loadMat(variablePath + "/scatter_dense_2_kernel.bin", (float*) &scatter_dense_2_kernel);
-        // NetworkHelpers::loadVector(variablePath + "/scatter_dense_2_bias.bin",(float*) &scatter_dense_2_bias);
-        
 
         NetworkHelpers::loadMat(variablePath + "/shared_preproc_mlp_2_shapemlp_fcn_0_weights.bin",(float*) &m_shared_preproc_mlp_2_shapemlp_fcn_0_weights);
         NetworkHelpers::loadMat(variablePath + "/shared_preproc_mlp_2_shapemlp_fcn_1_weights.bin",(float*) &m_shared_preproc_mlp_2_shapemlp_fcn_1_weights);
@@ -57,19 +54,11 @@ namespace psdr
         NetworkHelpers::loadVector(variablePath + "/shared_preproc_mlp_2_shapemlp_fcn_0_biases.bin",(float*) &shared_preproc_mlp_2_shapemlp_fcn_0_biases);
         NetworkHelpers::loadVector(variablePath + "/shared_preproc_mlp_2_shapemlp_fcn_1_biases.bin",(float*) &shared_preproc_mlp_2_shapemlp_fcn_1_biases);
         NetworkHelpers::loadVector(variablePath + "/shared_preproc_mlp_2_shapemlp_fcn_2_biases.bin",(float*) &shared_preproc_mlp_2_shapemlp_fcn_2_biases);
-        // NetworkHelpers::loadMat(variablePath + "/shared_preproc_mlp_2_shapemlp_fcn_0_weights.bin",(float*) &shared_preproc_mlp_2_shapemlp_fcn_0_weights);
-        // NetworkHelpers::loadMat(variablePath + "/shared_preproc_mlp_2_shapemlp_fcn_1_weights.bin",(float*) &shared_preproc_mlp_2_shapemlp_fcn_1_weights);
-        // NetworkHelpers::loadMat(variablePath + "/shared_preproc_mlp_2_shapemlp_fcn_2_weights.bin",(float*) &shared_preproc_mlp_2_shapemlp_fcn_2_weights);
-        
 
         NetworkHelpers::loadMat(variablePath + "/absorption_dense_kernel.bin",(float*) &m_absorption_dense_kernel,1);
         NetworkHelpers::loadMat(variablePath + "/absorption_mlp_fcn_0_weights.bin",(float*) &m_absorption_mlp_fcn_0_weights,32); //[32,64]
         NetworkHelpers::loadVector(variablePath + "/absorption_dense_bias.bin", (float*) &m_absorption_dense_bias);
         NetworkHelpers::loadVector(variablePath + "/absorption_mlp_fcn_0_biases.bin", (float*) &m_absorption_mlp_fcn_0_biases);
-        // NetworkHelpers::loadMat(variablePath + "/absorption_dense_kernel.bin",(float*) &absorption_dense_kernel);
-        // NetworkHelpers::loadMat(variablePath + "/absorption_mlp_fcn_0_weights.bin",(float*) &absorption_mlp_fcn_0_weights);
-        // NetworkHelpers::loadVector(variablePath + "/absorption_dense_bias.bin", (float*) &absorption_dense_bias);
-        // NetworkHelpers::loadVector(variablePath + "/absorption_mlp_fcn_0_biases.bin", (float*) &absorption_mlp_fcn_0_biases);
 
         std::ifstream inStreamStats(featStatsFilePath);
         if (inStreamStats) {
@@ -241,8 +230,14 @@ template <bool ad>
 
 template <bool ad>
 Spectrum<ad> VaeSub::__eval(const Intersection<ad> &its, const BSDFSample<ad> &bs, Mask<ad> active) const {
-    
-    return select(bs.is_sub, __eval_sub<ad>(its, bs, active), __eval_bsdf<ad>(its, bs, active));
+    using namespace std::chrono;
+    auto start_time = high_resolution_clock::now();
+
+    auto res = select(bs.is_sub, __eval_sub<ad>(its, bs, active), __eval_bsdf<ad>(its, bs, active));
+
+    auto end_time = high_resolution_clock::now();
+    std::cout << "[Time] __eval" <<  duration_cast<duration<double>>(end_time - start_time).count() << " seconds.";
+    return res;
 }
 
 template <bool ad>
@@ -376,6 +371,8 @@ BSDFSample<ad> VaeSub::__sample_bsdf(const Intersection<ad> &its, const Vector8f
 
 template <bool ad>
 BSDFSample<ad> VaeSub::__sample_sub(const Scene *scene, const Intersection<ad> &its, const Vector8f<ad> &sample, Mask<ad> active) const {
+    using namespace std::chrono;
+    auto start_time = high_resolution_clock::now();
     Float<ad> cos_theta_i = Frame<ad>::cos_theta(its.wi);
     BSDFSample<ad> bs;
     Float<ad> pdf_po = Frame<ad>::cos_theta(its.wi);
@@ -393,6 +390,8 @@ BSDFSample<ad> VaeSub::__sample_sub(const Scene *scene, const Intersection<ad> &
     
     pdf_po = __pdf_sub<ad>(its, bs, active) * warp::square_to_cosine_hemisphere_pdf<ad>(bs.wo);
     bs.pdf = pdf_po;
+    auto end_time = high_resolution_clock::now();
+    std::cout << "[Time] sample_sub" <<  duration_cast<duration<double>>(end_time - start_time).count() << " seconds." <<std::endl;
     return bs;
 }
 
@@ -608,6 +607,7 @@ Float<ad> VaeSub::getKernelEps(const Intersection<ad>& its,Float<ad> rnd) const 
 }
 template <bool ad>
 std::tuple<Intersection<ad>,Float<ad>,Vector3f<ad>,Vector3f<ad>> VaeSub::__sample_sp(const Scene *scene, const Intersection<ad> &its, const Vector8f<ad> &sample, Float<ad> &pdf, Mask<ad> active) const {        
+        using namespace std::chrono;
     
         Float<ad> rnd = sample[5];
 
@@ -619,7 +619,10 @@ std::tuple<Intersection<ad>,Float<ad>,Vector3f<ad>,Vector3f<ad>> VaeSub::__sampl
         float is_light_space = true;
 
 
+        // auto start_time = high_resolution_clock::now();
         auto x = _preprocessFeatures<ad>(its,rnd,is_plane,its.wi,is_light_space);
+        // auto end_time = high_resolution_clock::now();
+        // std::cout << "[Time] preprocess" <<  duration_cast<duration<double>>(end_time - start_time).count() << " seconds.";
         auto kernelEps = getKernelEps<ad>(its,rnd);
         auto fitScaleFactor = 1.0f / sqrt(kernelEps);
         
@@ -627,16 +630,19 @@ std::tuple<Intersection<ad>,Float<ad>,Vector3f<ad>,Vector3f<ad>> VaeSub::__sampl
         Spectrum<ad> outPos;
         Float<ad> absorption;;
 
+        // start_time = high_resolution_clock::now();
+        outPos = its.p;
+        absorption = 1.0f;
         if constexpr(ad){
-            // set_requires_gradient(x);
             std::tie(outPos,absorption)= _run<ad>(x,latent);
-            // backward(outPos[0]);
-            // auto grad_VAE = gradient(x);
-            // std::cout << "grad_VAE " << grad_VAE << std::endl;
         }
         else
             std::tie(outPos,absorption)= _run<ad>(x,latent);
-        
+        // end_time = high_resolution_clock::now();
+        // std::cout << "[Time] _run" <<  duration_cast<duration<double>>(end_time - start_time).count() << " seconds.";
+
+        // Vector3f<ad> vx = its.sh_frame.s;
+        // Vector3f<ad> vy = its.sh_frame.t;
         Vector3f<ad> vz = its.sh_frame.n;
 
         pdf = 1.0f;
@@ -674,14 +680,26 @@ std::tuple<Intersection<ad>,Float<ad>,Vector3f<ad>,Vector3f<ad>> VaeSub::__sampl
 
         // NOTE: useLocalDir should be TRUE when using TS shape features
         // outPos should be in WORLD coords
-        ///////////////////////////////
         // FIXME: detach detection
         // TODO: Evaluate for each unique shapeFeatures instead of each input
-        std::tie(polyVal,projDir) = evalGradient<ad>(detach(its.p),detach(shapeFeatures),detach(outPos),3,detach(fitScaleFactor),true,vz);
-        // /////////////////////////////
+        
+        // auto st_t = high_resolution_clock::now();
+        if (ad) {
+            /////////////////////////////
+            // polyVal = full<Float<ad>>(1.0f);
+            // projDir = vz;
+            /////////////////////////////
+            std::tie(polyVal,projDir) = evalGradient<ad>(detach(its.p),detach(shapeFeatures),detach(outPos),3,detach(fitScaleFactor),true,vz);
+        }
+        else{
+            std::tie(polyVal,projDir) = evalGradient<ad>(detach(its.p),detach(shapeFeatures),detach(outPos),3,detach(fitScaleFactor),true,vz);
+        }
+        // ///////////////////////////
         // polyVal = full<Float<ad>>(1.0f);
         // projDir = vz;
-        // /////////////////////////////
+        // ///////////////////////////
+        // auto end_t = high_resolution_clock::now();
+        // std::cout << "[Time] evalGradient evaluation" << duration_cast<duration<double>>(end_t - st_t).count() << std::endl;
         projDir = normalize(projDir);
         projDir = -sign(polyVal) * projDir;
         
@@ -690,15 +708,44 @@ std::tuple<Intersection<ad>,Float<ad>,Vector3f<ad>,Vector3f<ad>> VaeSub::__sampl
         // FIXME
         // active &= (absorption < rnd_var);
         
+        tmax = 1.0f;
+        // tmax = 0.05f; //1.0f;
+        // tmax = fitScaleFactor;
+        // tmax = kernelEps;
+        // std::cout << "tmax " << tmax << std::endl;
+
         Intersection<ad> its3;
         float eps = 0.05f;
         Mask<ad> msk;
-        if(true){
+        // std::cout << "[DEBUG] Projection count" << hsum(active) <<std::endl;
+        // Spectrum<ad> sigma_s = m_sigma_t.eval<ad>(its.uv) * m_albedo.eval<ad>(its.uv);
+        // Spectrum<ad> sigma_a = m_sigma_t.eval<ad>(its.uv) - sigma_s;
 
-            Ray<ad> ray3(outPos- eps*projDir, projDir); //- 0.5f*tmax*projDir,projDir, tmax);
+        // Spectrum<ad> miu_s_p = (1.0f - m_g.eval<ad>(its.uv)) * sigma_s;
+        // Spectrum<ad> D = 1.0f / (3.0f * (sigma_a + miu_s_p));
+
+        // Spectrum<ad> miu_tr = sqrt(sigma_a / D);
+        // Float<ad> miu_tr_0 = 0.5f;
+
+        // rnd = sample[5];
+        // miu_tr_0 = select(rnd < 1.0f / 3.0f, miu_tr.x(), miu_tr.y());
+        // miu_tr_0 = select(rnd > 2.0f / 3.0f, miu_tr.z(), miu_tr_0);
+        
+        // Float<ad> r = __sample_sr<ad>(miu_tr_0, sample.z());
+        // Float<ad> phi = 2.0f * Pi * sample.w();
+        // Float<ad> rmax = __sample_sr<ad>(miu_tr_0, 0.999999f);
+
+        // Float<ad> l = 2.0f * sqrt(rmax * rmax - r * r);
+        // tmax = l;
+        // start_time = high_resolution_clock::now();
+        // if(false) {
+        if(true){
+            // Ray<ad> ray3(detach(outPos) - eps*detach(projDir), projDir,detach(tmax)); //1.0f); //- 0.5f*tmax*projDir,projDir, tmax);
+            Ray<ad> ray3(outPos- eps*projDir, projDir); //,tmax);
             Intersection<ad> its3_front = scene->ray_intersect<ad, ad>(ray3, active);
 
-            Ray<ad> ray_back(outPos+ eps*projDir,-projDir);
+            Ray<ad> ray_back(outPos+ eps*projDir,-projDir); //tmax);
+            // Ray<ad> ray_back(outPos+ eps*projDir,-projDir);
             Intersection<ad> its3_back = scene->ray_intersect<ad, ad>(ray_back,active);
 
             msk = !(its3_back.is_valid() && (its3_front.t > its3_back.t));
@@ -715,34 +762,23 @@ std::tuple<Intersection<ad>,Float<ad>,Vector3f<ad>,Vector3f<ad>> VaeSub::__sampl
             its3.p = select(msk,its3_front.p,its3_back.p);
             its3.t = select(msk,its3_front.t,its3_back.t);
             its3.shape = select(msk,its3_front.shape,its3_back.shape);
-            // its3.poly_coeff = select(msk,its3_front.poly_coeff,its3_back.poly_coeff);
             its3.poly_coeff = shapeFeatures;
-            // std::cout << "its3.poly_coeff " << its3.poly_coeff << std::endl;
         }
         else{
-            Ray<ad> ray3(outPos- eps*projDir, projDir); //- 0.5f*tmax*projDir,projDir, tmax);
+            // Ray<ad> ray3(its.p + r * (vx * cos(phi) + vy * sin(phi)) - vz * 0.5f * l, vz, l);
+            Ray<ad> ray3(detach(outPos) - eps*detach(projDir), projDir,detach(tmax)); //1.0f); //- 0.5f*tmax*projDir,projDir, tmax);
             its3 = scene->ray_intersect<ad, ad>(ray3, active);
+            msk = true;
         }
 
+        // end_time = high_resolution_clock::now();
+        // std::cout << "[Time] projection" <<  duration_cast<duration<double>>(end_time - start_time).count() << " seconds.";
 
         its3.abs_prob = absorption;
         if constexpr(ad){
-            // FIXME:
-            // set_requires_gradient(outPos);
-            // set_requires_gradient(its3.poly_coeff.x());
-
             // Reparameterization to allow gradient flow
             auto ray_dir = select(msk,projDir,-projDir);
             its3.p = outPos-eps*detach(ray_dir) + detach(its3.t) * detach(ray_dir);
-        
-
-            // std::cout << "[AF] its3.p " << its3.p << std::endl;
-            // its3.p = its.p + hmean(its3.poly_coeff.x());
-            // backward(its3.p[0]);
-            // auto grad_proj = gradient(x);
-            // auto grad_proj = gradient(outPos);
-            // auto grad_proj = gradient(its3.poly_coeff.x());
-            // std::cout << "grad_proj " << grad_proj << std::endl;
         }
         else{
             auto ray_dir = select(msk,projDir,-projDir);

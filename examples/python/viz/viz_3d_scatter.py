@@ -94,7 +94,7 @@ class Scatter3DViewer(ViewerApp):
     def extract_mesh_polys(self):
         all_coeffs = []
         t0 = time.time()
-        feat_name = self.absorption_config.shape_features_name
+        # feat_name = self.absorption_config.shape_features_name
         for i in tqdm.tqdm(range(self.mesh.mesh_positions.shape[1])):
             # breakpoint()
             pos = self.mesh.mesh_positions[:, i].ravel()
@@ -122,62 +122,63 @@ class Scatter3DViewer(ViewerApp):
             nor_hist = None
             # NOTE: tmp
             # if not self.visualize_gt_absorption:
-            if not self.visualize_gt_absorption:
+            # if not self.visualize_gt_absorption:
 
-                absorption = vae.model.estimate_absorption(self.session, pos, -normal, normal,
-                                                           self.absorption_config, self.absorption_pred, self.feature_statistics, self.albedo,
-                                                           self.sigma_t, self.g, self.eta, features)
+            #     absorption = vae.model.estimate_absorption(self.session, pos, -normal, normal,
+            #                                                self.absorption_config, self.absorption_pred, self.feature_statistics, self.albedo,
+            #                                                self.sigma_t, self.g, self.eta, features)
 
-                t0 = time.time()
-                ref_pos_mts = vae.utils.mts_p(pos)
-                ref_dir_mts = vae.utils.mts_v(-normal)
-                kernel_eps = vae.utils.kernel_epsilon(self.g, self.sigma_t, self.albedo)
-                scale_fac = float(vae.utils.get_poly_scale_factor(kernel_eps))
-                # TODO: tmp
-                thickness = 0.0
-                # thickness = mitsuba.render.Volpath3D.samplePolyThickness([float(c) for c in features['coeffs'].ravel()], ref_pos_mts, ref_dir_mts, False,
-                #                                                          scale_fac, 8,
-                #                                                          ref_pos_mts, ref_dir_mts, 123, 0.0, 3.0 * float(np.sqrt(kernel_eps)))
-                thickness = np.array([[thickness]])
+            #     t0 = time.time()
+            #     ref_pos_mts = vae.utils.mts_p(pos)
+            #     ref_dir_mts = vae.utils.mts_v(-normal)
+            #     kernel_eps = vae.utils.kernel_epsilon(self.g, self.sigma_t, self.albedo)
+            #     scale_fac = float(vae.utils.get_poly_scale_factor(kernel_eps))
+            #     # TODO: tmp
+            #     thickness = 0.0
+            #     # thickness = mitsuba.render.Volpath3D.samplePolyThickness([float(c) for c in features['coeffs'].ravel()], ref_pos_mts, ref_dir_mts, False,
+            #     #                                                          scale_fac, 8,
+            #     #                                                          ref_pos_mts, ref_dir_mts, 123, 0.0, 3.0 * float(np.sqrt(kernel_eps)))
+            #     thickness = np.array([[thickness]])
 
-                if 'nor_constraints' in features:
-                    nors = vae.utils.mts_to_np(features['nor_constraints'])
-                    cos_theta = np.sum(normal * nors, axis=1)
-                    nor_hist, _ = np.histogram(cos_theta, 4, [-1.01, 1.01])
-                    nor_hist = nor_hist[None, :]
-            else:
-                medium = vae.utils.medium_params_list([mitsuba.core.Spectrum(self.albedo)],
-                                                      [mitsuba.core.Spectrum(self.sigma_t)], [self.g], [self.eta])
+            #     if 'nor_constraints' in features:
+            #         nors = vae.utils.mts_to_np(features['nor_constraints'])
+            #         cos_theta = np.sum(normal * nors, axis=1)
+            #         nor_hist, _ = np.histogram(cos_theta, 4, [-1.01, 1.01])
+            #         nor_hist = nor_hist[None, :]
+            # else:
+            #     medium = vae.utils.medium_params_list([mitsuba.core.Spectrum(self.albedo)],
+            #                                           [mitsuba.core.Spectrum(self.sigma_t)], [self.g], [self.eta])
 
-                ref_pos_mts = vae.utils.mts_p(pos)
-                ref_dir_mts = vae.utils.mts_v(-normal)
-                in_dir_mts = vae.utils.mts_v(normal / np.sqrt(np.sum(normal ** 2)))
-                kernel_eps = vae.utils.kernel_epsilon(self.g, self.sigma_t, self.albedo)
-                t0 = time.time()
-                coeffs, _, _ = mitsuba.render.Volpath3D.fitPolynomials(ref_pos_mts, in_dir_mts, vae.utils.mts_v(normal),
-                                                                       vae.utils.kernel_epsilon(
-                    self.g, self.sigma_t, self.albedo),
-                    self.fit_regularization, self.scatter_config.poly_order(), 'gaussian',
-                    self.kdtree_threshold, self.constraint_kd_tree, False, self.sigma_t, self.use_hard_surface_constraint)
+            #     ref_pos_mts = vae.utils.mts_p(pos)
+            #     ref_dir_mts = vae.utils.mts_v(-normal)
+            #     in_dir_mts = vae.utils.mts_v(normal / np.sqrt(np.sum(normal ** 2)))
+            #     kernel_eps = vae.utils.kernel_epsilon(self.g, self.sigma_t, self.albedo)
+            #     t0 = time.time()
+            #     coeffs, _, _ = mitsuba.render.Volpath3D.fitPolynomials(ref_pos_mts, in_dir_mts, vae.utils.mts_v(normal),
+            #                                                            vae.utils.kernel_epsilon(
+            #         self.g, self.sigma_t, self.albedo),
+            #         self.fit_regularization, self.scatter_config.poly_order(), 'gaussian',
+            #         self.kdtree_threshold, self.constraint_kd_tree, False, self.sigma_t, self.use_hard_surface_constraint)
 
-                coeffs = np.array(coeffs)
-                # coeffs[0] = 0.0  # Polygon should really be zero on the current position
-                seed = int(np.random.randint(10000))
-                scale_fac = float(vae.utils.get_poly_scale_factor(kernel_eps))
-                tmp_result = mitsuba.render.Volpath3D.samplePolyFixedStart([float(c) for c in coeffs], ref_pos_mts, ref_dir_mts,
-                                                                           False, scale_fac, medium, 128, 128, 256,
-                                                                           ref_pos_mts, ref_dir_mts, self.ignore_zero_scatter,
-                                                                           self.disable_rr, seed)
-                absorption = np.mean(tmp_result['absorptionProb'])
-                absorption = np.array([[absorption]])
+            #     coeffs = np.array(coeffs)
+            #     # coeffs[0] = 0.0  # Polygon should really be zero on the current position
+            #     seed = int(np.random.randint(10000))
+            #     scale_fac = float(vae.utils.get_poly_scale_factor(kernel_eps))
+            #     tmp_result = mitsuba.render.Volpath3D.samplePolyFixedStart([float(c) for c in coeffs], ref_pos_mts, ref_dir_mts,
+            #                                                                False, scale_fac, medium, 128, 128, 256,
+            #                                                                ref_pos_mts, ref_dir_mts, self.ignore_zero_scatter,
+            #                                                                self.disable_rr, seed)
+            #     absorption = np.mean(tmp_result['absorptionProb'])
+            #     absorption = np.array([[absorption]])
 
-                t0 = time.time()
-                thickness = mitsuba.render.Volpath3D.samplePolyThickness([float(c) for c in coeffs], ref_pos_mts, ref_dir_mts, False,
-                                                                         scale_fac, 8,
-                                                                         ref_pos_mts, ref_dir_mts, seed, 0.0, 3.0 * float(kernel_eps))
-                thickness = np.array([[thickness]])
+            #     t0 = time.time()
+            #     thickness = mitsuba.render.Volpath3D.samplePolyThickness([float(c) for c in coeffs], ref_pos_mts, ref_dir_mts, False,
+            #                                                              scale_fac, 8,
+            #                                                              ref_pos_mts, ref_dir_mts, seed, 0.0, 3.0 * float(kernel_eps))
+            #     thickness = np.array([[thickness]])
 
-            feat_to_show = [1.0 - absorption]
+            # feat_to_show = [1.0 - absorption]
+            feat_to_show = [np.array([[1.0]])]
             if False:  # For now, do not visualize any of these extra features
                 if nor_hist is not None:
                     feat_to_show.append(nor_hist)
@@ -542,52 +543,6 @@ class Scatter3DViewer(ViewerApp):
 
         self.load_networks()
 
-        # def cb(value):
-        #     self.scatter_net = self.networks[value]
-        #     self.load_networks()
-        #     self.update_displayed_scattering()
-        # Label(tools, 'Scatter Network')
-        # popoutList = FilteredPopupListPanel(tools, self.networks_short, self)
-        # popoutList.setCallback(cb)
-        # popoutList.setSelectedIndex(len(self.networks_short) - 1)
-
-        # def cb(value):
-        #     self.absorption_net = self.absorption_networks[value]
-        #     self.load_networks()
-        #     self.update_displayed_scattering()
-        # Label(tools, 'Absorption Network')
-        # popoutList = FilteredPopupListPanel(tools, self.absorption_networks_short, self)
-        # popoutList.setCallback(cb)
-        # popoutList.setSelectedIndex(len(self.absorption_networks_short) - 1)
-
-        # def cb(value):
-        #     self.angular_scatter_net = self.angular_networks[value]
-        #     self.load_networks()
-        #     self.update_displayed_scattering()
-        # Label(tools, 'Angular Scatter Network')
-        # popoutList = FilteredPopupListPanel(tools, self.angular_networks_short, self)
-        # popoutList.setCallback(cb)
-        # popoutList.setSelectedIndex(len(self.angular_networks_short) - 1)
-
-        # self.nbounces_window = Window(self, "Bounces")
-        # self.nbounces_window.setPosition((350, 15))
-        # self.nbounces_window.setLayout(GroupLayout())
-        # Label(self.nbounces_window, "Histogram of number of bounces", "sans-bold")
-        # self.n_bounces_graph = nanogui.Graph(self.nbounces_window, "")
-        # self.n_bounces_graph.setWidth(250)
-        # self.n_bounces_graph.setFixedHeight(100)
-        # self.nbounces_window.setVisible(self.show_nbounces_histogram)
-
-        # self.angular_histogram_window = Window(self, "Histogram of outgoing directions")
-        # self.angular_histogram_window.setPosition((600, 15))
-        # self.angular_histogram_window.setLayout(GroupLayout())
-        # self.angular_histogram_window.setVisible(self.show_angular_scattering)
-
-        # img_data = np.zeros((256, 256, 3))
-        # self.img = GLTexture(img_data)
-        # self.angular_img_view = ImageView(self.angular_histogram_window, self.img.id)
-        # self.angular_img_view.setGridThreshold(3)
-
         self.performLayout()
         self.thread_count = 0
         self.t = None
@@ -602,6 +557,9 @@ class Scatter3DViewer(ViewerApp):
 
     def load_networks(self):
         sc = psdr_cuda.Scene()
+        self.mesh_key = "Mesh[id=init]"
+        self.material_key = "BSDF[id=opt]"
+        # self.sc = sc
         # TODO
         scene_file = "/sss/InverseTranslucent/examples/scenes/cone4_out.xml"
         
@@ -647,6 +605,21 @@ class Scatter3DViewer(ViewerApp):
         self.scatter_config.dataset = loaded_scatter_config['config0']['dataset']
         self.scatter_config.dim = 3
         
+        # albedo = self.scene.param_map[self.material_key].albedo.data.numpy()
+        # sigma_t = self.scene.param_map[self.material_key].sigma_t.data.numpy()
+        # self.g = self.scene.param_map[self.material_key].g.data.numpy()[0]
+        
+        # idx = 0
+        # self.albedo = albedo[:,idx]
+        # self.sigma_t = sigma_t[:,idx]
+        # self.extract_mesh_polys()
+        
+        # self.albedo = self.albedo[0]
+        # self.sigma_t = self.sigma_t[0]
+
+
+        # self.scene.param_map[self.mesh_key].load_poly(self.mesh_polys[:,:20],0)
+
 
 
     def save_angular_histogram(self, path):
@@ -756,6 +729,8 @@ class Scatter3DViewer(ViewerApp):
 
             its_loc = Vector3f((self.its_loc-self.inDirection).reshape(-1,3).repeat(n,0))
             its_dir = Vector3f(self.inDirection.reshape(-1,3).repeat(n,0))
+
+
             p_proj, p_sampled, p_projdir, poly_coeffs, p_weight = self.sampler.sample_sub(self.scene,its_loc,its_dir)
             print(f"Number of Invalid points: {(np.array(p_proj)[:,0]==0).sum()}/{self.n_scatter_samples}")
             self.sampled_p = np.array(p_sampled)
@@ -907,27 +882,25 @@ class Scatter3DViewer(ViewerApp):
             coeffs_ls, _, _ = utils.mtswrapper.fitPolynomial(self.constraint_kd_tree, self.its_loc, -self.inDirection, self.sigma_t,
                                                              self.g, self.albedo, fit_opts, normal=self.face_normal)
             
-            # NOTE: debugging to see if rotation is the issue
-            pos = self.its_loc
-            normal = self.inDirection
-            cfg = copy.deepcopy(self.scatter_config)
-            cfg.polynomial_space = 'LS'
-            # cfg.polynomial_space = 'WS'
-            import vae.model
-            features = vae.model.extract_shape_features(cfg, pos, self.scene, self.constraint_kd_tree, -normal,
-                                                        self.g, self.sigma_t, self.albedo, True, self.mesh,
-                                                        normal, False, self.kdtree_threshold, self.fit_regularization, self.use_hard_surface_constraint)
-            poly_coeffs_extract = features['coeffs']
+            # t0 = time.time()
+            # batch_size = 64
+            # n_abs_samples = 64
+            # seed = int(np.random.randint(10000))
 
-            t0 = time.time()
+            # opts = self.get_poly_fit_options()
+            # opts['disable_rr'] = self.disable_rr
+            # opts['importance_sample_polys'] = self.importance_sample_train_data
+            # tmp_result = utils.mtswrapper.sample_scattering_mesh(self.mesh_file, self.n_scatter_samples, batch_size,
+            #                                                      n_abs_samples, medium, seed, self.constraint_kd_tree, self.get_poly_fit_options())
+            # t0 = time.time()
             tmp_result = mitsuba.render.Volpath3D.samplePolyFixedStart([float(c) for c in coeffs], ref_pos_mts, ref_dir_mts,
                                                                        False, scale_factor, medium, self.n_scatter_samples, 1, 1,
                                                                        ref_pos_mts, ref_dir_mts, self.ignore_zero_scatter,
                                                                        self.disable_rr, seed)
-            gt_absorption = np.mean(tmp_result['absorptionProb'])
-            outPos = vae.utils.mts_to_np(tmp_result['outPos'])
-            print('Took {} s'.format(time.time() - t0))
-            print('absorption: {}'.format(gt_absorption))
+            # gt_absorption = np.mean(tmp_result['absorptionProb'])
+            # outPos = vae.utils.mts_to_np(tmp_result['outPos'])
+            # print('Took {} s'.format(time.time() - t0))
+            # print('absorption: {}'.format(gt_absorption))
 
             # 2. Try to reconstruct them using the VAE: Are they far from the surface?
            
@@ -945,6 +918,8 @@ class Scatter3DViewer(ViewerApp):
             # its_loc = Vector3f((self.its_loc-its_dir).reshape(-1,3).repeat(n,0))
             # its_dir = Vector3f(self.inDirection.reshape(-1,3).repeat(n,0))
             # its_dir = Vector3f((its_loc-light_pos).reshape(-1,3).repeat(n,0))
+            
+            
             p_proj, p_sampled, p_projdir, poly_coeffs, p_weight = self.sampler.sample_sub(self.scene,its_loc,its_dir)
             # breakpoint()
             print(f"Number of Invalid points: {(np.array(p_proj)[:,0]==0).sum()}/{self.n_scatter_samples}")
@@ -971,7 +946,7 @@ class Scatter3DViewer(ViewerApp):
 
             # coeffs_plane[7:9] = 1.0
             # coeffs_plane[0] = -2.0
-            # self.viewer_data.coeffs = coeffs_ls
+            self.viewer_data.coeffs = coeffs_ls
             # self.viewer_data.coeffs = coeffs_plane
             print("[Coeffs - Viewer] ",coeffs_ls)
             print("[Coeffs - OURS] ",poly_coeffs)
@@ -1285,6 +1260,10 @@ class Scatter3DViewer(ViewerApp):
             test1 = PointCloud(self.sampled_pts) #[[0,1.5,0]])
             # breakpoint()
             test1.draw_contents(self.camera, self.render_context, None,
+                                             [1, 0, 0], disable_ztest=True, use_depth=True, depth_map=self.fb.depth())
+        if self.sampled_p is not None: #n
+            # breakpoint()
+            self.sampled_p.draw_contents(self.camera, self.render_context, None,
                                              [1, 0, 0], disable_ztest=True, use_depth=True, depth_map=self.fb.depth())
         if self.sampled_dir is not None and self.show_outgoing_dir:
             test_dir = VectorCloud(self.sampled_pts,self.sampled_dir,) #color=[0,0,1]) #[0,1.5,0],[0,-1,0])

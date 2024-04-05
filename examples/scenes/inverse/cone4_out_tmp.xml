@@ -21,8 +21,8 @@
         <float name="eta" value="1.00" />
         <rgb name="specular_reflectance" value="0, 0, 0" />
         <rgb name="alpha" value="0.05" />
-        <float name="sigma_t" value="65.00" />
-        <float name="albedo" value="0.8" />
+        <float name="sigma_t" value="80.0, 80.0, 80.0" />
+        <float name="albedo" value="0.8, 0.8, 0.8" />
         
         
     </bsdf>

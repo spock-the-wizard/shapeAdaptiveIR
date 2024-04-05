@@ -1,4 +1,4 @@
-python3.8 ../learn_real_data.py \
+python3.8 /sss/InverseTranslucent/examples/python/learn_real_data_2.py \
         --stats_folder $1 \
         --d_type "custom" \
         --seed 2 \
@@ -6,7 +6,7 @@ python3.8 ../learn_real_data.py \
         --n_dump 25 \
         --ref_folder "exr_ref" \
         --mesh_lr 0.00 \
-        --sigma_lr 0.01 \
+        --sigma_lr 0.001 \
         --albedo_lr 0.01 \
         --rough_lr 0.05 \
         --eta_lr 0.001 \
@@ -18,8 +18,8 @@ python3.8 ../learn_real_data.py \
         --rough_laplacian 0 \
         --no_init "no" \
         --spp 16 \
-        --sppe 4 \
-        --sppse 4 \
+        --sppe 0 \
+        --sppse 0 \
         --ref_spp $3 \
         --albedo_texture 0 \
         --rough_texture 0 \
