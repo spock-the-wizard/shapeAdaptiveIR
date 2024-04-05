@@ -879,8 +879,9 @@ class Scatter3DViewer(ViewerApp):
             coeffs, _, _ = utils.mtswrapper.fitPolynomial(self.constraint_kd_tree, self.its_loc, -self.inDirection, self.sigma_t,
                                                           self.g, self.albedo, fit_opts, normal=self.face_normal)
             fit_opts['useLightspace'] = True
-            coeffs_ls, _, _ = utils.mtswrapper.fitPolynomial(self.constraint_kd_tree, self.its_loc, -self.inDirection, self.sigma_t,
+            coeffs_ls, p_con,n_con = utils.mtswrapper.fitPolynomial(self.constraint_kd_tree, self.its_loc, -self.inDirection, self.sigma_t,
                                                              self.g, self.albedo, fit_opts, normal=self.face_normal)
+            breakpoint()
             
             # t0 = time.time()
             # batch_size = 64
@@ -1261,10 +1262,9 @@ class Scatter3DViewer(ViewerApp):
             # breakpoint()
             test1.draw_contents(self.camera, self.render_context, None,
                                              [1, 0, 0], disable_ztest=True, use_depth=True, depth_map=self.fb.depth())
-        if self.sampled_p is not None: #n
-            # breakpoint()
-            self.sampled_p.draw_contents(self.camera, self.render_context, None,
-                                             [1, 0, 0], disable_ztest=True, use_depth=True, depth_map=self.fb.depth())
+        # if self.sampled_p is not None: #n
+        #     self.sampled_p.draw_contents(self.camera, self.render_context, None,
+        #                                      [1, 0, 0], disable_ztest=True, use_depth=True, depth_map=self.fb.depth())
         if self.sampled_dir is not None and self.show_outgoing_dir:
             test_dir = VectorCloud(self.sampled_pts,self.sampled_dir,) #color=[0,0,1]) #[0,1.5,0],[0,-1,0])
             # test_dir = VectorCloud(self.sampled_p,self.sampled_p + self.sampled_dir,) #color=[0,0,1]) #[0,1.5,0],[0,-1,0])
