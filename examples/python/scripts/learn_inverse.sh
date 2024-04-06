@@ -7,7 +7,7 @@ out_file=../../scenes/inverse/${name}_out_tmp.xml
 
 echo Running $name
 # # Medium 0
-exp_name="exp3/var47"
+exp_name="test/grad"
 echo $exp_name
 sigma_t="80.0, 80.0, 80.0"
 albedo="0.8, 0.8, 0.8"

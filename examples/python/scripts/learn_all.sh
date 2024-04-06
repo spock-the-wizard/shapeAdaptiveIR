@@ -4,18 +4,18 @@ exp_name="exp3/var25"
 # exp_name="test/gpu"
 spp=128
 root=/sss/InverseTranslucent/examples/python/scripts
-echo $SHELL
+# echo $SHELL
 # export PYTHONPATH=/sss/InverseTranslucent/build/lib:/sss/InverseTranslucent/build:$PYTHONPATH
 # export LD_LIBRARY_PATH=/sss/InverseTranslucent/build/lib:/sss/InverseTranslucent/build:$LD_LIBRARY_PATH
 # cat /root/.bashrc
-export PYTHONPATH=/home/learned-subsurface-scattering/dist/python/3.8:/home/nanogui2/build/python:/home/nanogui2/build:/sss/InverseTranslucent/build/lib:/home/enoki/build:/home/enoki:/home/InverseTranslucent/build:/home/InverseTranslucent/build/lib:$PYTHONPATH
-export LD_LIBRARY_PATH=/home/nanogui2/build:/home/learned-subsurface-scattering/dist/python:/home/nanogui2/build/python:/sss/InverseTranslucent/build/lib:/sss/InverseTranslucent/build:/home/enoki/build:/home/enoki:/usr/local/nvidia/lib:/usr/local/nvidia/lib64:$LD_LIBRARY_PATH
-cd $root
-echo $PYTHONPATH
-echo $LD_LIBRARY_PATH
+# export PYTHONPATH=/home/learned-subsurface-scattering/dist/python/3.8:/home/nanogui2/build/python:/home/nanogui2/build:/sss/InverseTranslucent/build/lib:/home/enoki/build:/home/enoki:/home/InverseTranslucent/build:/home/InverseTranslucent/build/lib:$PYTHONPATH
+# export LD_LIBRARY_PATH=/home/nanogui2/build:/home/learned-subsurface-scattering/dist/python:/home/nanogui2/build/python:/sss/InverseTranslucent/build/lib:/sss/InverseTranslucent/build:/home/enoki/build:/home/enoki:/usr/local/nvidia/lib:/usr/local/nvidia/lib64:$LD_LIBRARY_PATH
+# cd $root
+# echo $PYTHONPATH
+# echo $LD_LIBRARY_PATH
 # for name in head1 #buddha1 kettle1 duck # cone4 sphere1 pyramid4 cylinder4 
 # for name in duck kettle1 head1 # head1 # botijo cone4 pyramid4 cube4 cylinder4
-for name in head1 duck kettle1 cylinder4 #head1 # botijo cone4 pyramid4 cube4 cylinder4
+for name in head1 #duck kettle1 cylinder4 #head1 # botijo cone4 pyramid4 cube4 cylinder4
 do
     echo Running $name
 
@@ -39,7 +39,7 @@ do
     # bash ./template/learn_$name.sh $exp_name $spp ../../scenes/scenes_baseline/${name}_out.xml
 
     # Exp 4. Inverse Rendering experiment
-    exp_name="test/profile"
+    exp_name="test/desc"
     echo $exp_name
     xml_file=$root/../../scenes/inverse/${name}_out.xml
     out_file=$root/../../scenes/inverse/${name}_out_tmp.xml
@@ -53,7 +53,7 @@ do
     # --is_baseline
     spp_inv=16
     n_crops=2
-    bash $root/inverse/learn_inverse.sh $exp_name $name $spp $out_file $spp_inv $n_crops
+    bash $root/inverse/learn_inverse_2.sh $exp_name $name $spp $out_file $spp_inv $n_crops
 
     # # Exp 5. Render Gradient Image
     # exp_name="test/grad"

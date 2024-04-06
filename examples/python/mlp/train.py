@@ -5,6 +5,9 @@ from torch.utils.data import Dataset, DataLoader
 import torch.nn as nn
 import torch.optim as optim
 from tqdm import tqdm
+import wandb
+import json
+import argparse
 
 class SimpleFCN2(nn.Module):
     def __init__(self,stats_pth,k_mean,k_stdinv):
@@ -38,11 +41,12 @@ class SimpleFCN2(nn.Module):
         self.k_mean = k_mean.cuda()
         self.k_stdinv = k_stdinv.cuda()
 
-    def forward(self, kernelEps, maxCoeffs ,denormalize=True):
+    def forward(self, kernelEps, maxCoeffs ,denormalize=True,sqrtKernelEps=False):
         # Normalize maxCoeffs
         maxCoeffs = (maxCoeffs - self.coeffs_mean) * self.coeffs_stdinv
         # Normalize kernelEps
-        kernelEps = (kernelEps - self.k_mean) * self.k_stdinv
+        if not sqrtKernelEps:
+            kernelEps = (kernelEps - self.k_mean) * self.k_stdinv
         
         x = torch.cat((kernelEps, maxCoeffs),1).cuda()
         x = torch.relu(self.fc1(x))
@@ -53,14 +57,15 @@ class SimpleFCN2(nn.Module):
         # x = torch.relu(self.fc2_4(x))
         # x = torch.relu(self.fc2_5(x))
         x = self.fc3(x)
-        if denormalize:
+        if not sqrtKernelEps and denormalize:
             x = x / self.coeffs_stdinv + self.coeffs_mean
         return x
     
 
 class SimpleFCN(nn.Module):
-    def __init__(self,stats_pth,k_mean,k_stdinv):
+    def __init__(self,stats_pth,k_mean,k_stdinv,sqrtKernelEps=False):
         super().__init__()
+        self.sqrtKernelEps = sqrtKernelEps
 
         hd = 64
         self.fc1 = nn.Linear(21, hd)  # Input layer (20D constant + 1D kernelEps = 21)
@@ -77,7 +82,6 @@ class SimpleFCN(nn.Module):
         
         # Load poly and med coeffs
         self.stats_pth = stats_pth
-        import json
         feat_name = 'mlsPolyLS3'
         self.stats_med = json.load(open(self.stats_pth,"r"))
         # Load mean, stdinv
@@ -87,11 +91,13 @@ class SimpleFCN(nn.Module):
         self.k_mean = k_mean.cuda()
         self.k_stdinv = k_stdinv.cuda()
 
-    def forward(self, kernelEps, maxCoeffs ,denormalize=True):
+    # FIXME: tmp setting
+    def forward(self, kernelEps, maxCoeffs ,denormalize=True,):
         # Normalize maxCoeffs
         maxCoeffs = (maxCoeffs - self.coeffs_mean) * self.coeffs_stdinv
         # Normalize kernelEps
-        kernelEps = (kernelEps - self.k_mean) * self.k_stdinv
+        if not self.sqrtKernelEps:
+            kernelEps = (kernelEps - self.k_mean) * self.k_stdinv
         
         x = torch.cat((kernelEps, maxCoeffs),1).cuda()
         x = torch.relu(self.fc1(x))
@@ -102,7 +108,7 @@ class SimpleFCN(nn.Module):
         # x = torch.relu(self.fc2_4(x))
         # x = torch.relu(self.fc2_5(x))
         x = self.fc3(x)
-        if denormalize:
+        if not self.sqrtKernelEps and denormalize:
             x = x / self.coeffs_stdinv + self.coeffs_mean
         return x
     
@@ -129,15 +135,15 @@ class NPZDataset(Dataset):
                 # self.poly_data.append()
                 for key,val in data.items():
                     v = val.tolist()
-                    kernelEps  = torch.from_numpy(v['kernelEps']).float()
+                    kernelEps  = torch.tensor(v['kernelEps'],device='cuda',dtype=torch.float32)
                     self.poly_data.append({
-                        'albedo': torch.from_numpy(v['albedo']).float(),
-                        'sigma_t': torch.from_numpy(v['sigma_t']).float(),
-                        'g': torch.from_numpy(v['g']).float(),
-                        'coeffs': torch.from_numpy(v['coeffs']).float(),
+                        'albedo': torch.tensor(v['albedo'],device='cuda',dtype=torch.float32),
+                        'sigma_t': torch.tensor(v['sigma_t'],device='cuda',dtype=torch.float32),
+                        'g': torch.tensor(v['g'],device='cuda',dtype=torch.float32),
+                        'coeffs': torch.tensor(v['coeffs'],device='cuda',dtype=torch.float32),
                         'kernelEps': kernelEps,
-                        'fitScaleFactor': torch.from_numpy(v['fitScaleFactor']).float(),
-                        'maxCoeffs': torch.from_numpy(v['maxCoeffs']).float(),
+                        'fitScaleFactor': torch.tensor(v['fitScaleFactor'],device='cuda',dtype=torch.float32),
+                        'maxCoeffs': torch.tensor(v['maxCoeffs'],device='cuda',dtype=torch.float32),
                         })
                     self.kernelEps.append(kernelEps)
 
@@ -175,9 +181,9 @@ def save_mlp_coeffs(file_path,model,out_path):
             v = val.tolist()
 
             # for k,v in val.items():
-            coeffs = torch.from_numpy(v['coeffs']).float()
-            kernelEps = torch.from_numpy(v['kernelEps']).float()[...,None]
-            maxCoeffs = torch.from_numpy(v['maxCoeffs']).float()
+            coeffs = torch.tensor(v['coeffs'],device='cuda')
+            kernelEps = torch.tensor(v['kernelEps'],device='cuda')[...,None]
+            maxCoeffs = torch.tensor(v['maxCoeffs'],device='cuda')
             
             
             # inputs = torch.cat((kernelEps, maxCoeffs),1).cuda()
@@ -188,68 +194,83 @@ def save_mlp_coeffs(file_path,model,out_path):
             # data[key].set(v)
     np.savez(out_path,**out)
 
-
-ckpt_pth = "./head_v2_mlp_all.pth"
-out_path = "./head_v2_poly_data_mlp_all.npz"
-ckpt_pth = "./head_v2_mlp_N50.pth"
-out_path = "./head_v2_poly_data_mlp_N50.npz"
-# FIXME: tmp setting
-num_verts = -1
-num_verts = 50
-batch_size = 5000
-# data_pth = "../viz/head1_poly_data.npz"
-data_pth = "../viz/head_v2_poly_data.npz"
-stats_pth = "../../../data_stats.json"
-n_ckpt = 10
-n_print = 1 #100
+if __name__ == "__main__":
 
 
-dataset =NPZDataset(data_pth,num_verts=num_verts)
-dataloader = DataLoader(dataset,batch_size=batch_size,shuffle=(num_verts == -1))
+    os.environ["OPENCV_IO_ENABLE_OPENEXR"]="1"
 
-k_mean = dataset.k_mean
-k_stdinv = dataset.k_stdinv
-model = SimpleFCN(stats_pth=stats_pth,k_mean=k_mean,k_stdinv=k_stdinv).cuda()
-if os.path.exists(ckpt_pth):
-    model.load_state_dict(torch.load(ckpt_pth))
-# Loss and optimizer
-criterion = nn.MSELoss()
-optimizer = optim.Adam(model.parameters(), lr=1e-4)
+    parser = argparse.ArgumentParser()
+    parser.add_argument('--exp_name',              default="test/noname")
+    parser.add_argument('--scene',              default="head_v2")
+    parser.add_argument('--num_verts',              type=int,default=-1)
+
+    parser.add_argument('--sqrtKernelEps', action="store_true")
+    parser.add_argument('--diff', action="store_true")
+    args = parser.parse_args()
+
+    exp_name = args.exp_name.split("/")[-1]
+    num_verts = args.num_verts
+    batch_size = 5000
+    n_ckpt = 100
+    n_print = 1 #100
+
+    # ckpt_pth = f"./head_v2_mlp_{exp_name}_{num_verts}.pth"
+    # out_path = f"./head_v2_poly_data_{exp_name}_{num_verts}.npz"
+    ckpt_pth = f"./{args.scene}_mlp_{exp_name}_{num_verts}.pth"
+    out_path = f"./{args.scene}_poly_data_{exp_name}_{num_verts}.npz"
+    data_pth = f"../viz/{args.scene}_poly_data.npz"
+    stats_pth = "../../../data_stats.json"
+    run = wandb.init(
+            project="inverse-learned-sss-descriptor",
+            config=args,
+    )
+            
+
+    dataset =NPZDataset(data_pth,num_verts=num_verts)
+    dataloader = DataLoader(dataset,batch_size=batch_size,shuffle=(num_verts == -1)) #,num_workers=10,) #pin_memory=True)
+
+    k_mean = dataset.k_mean
+    k_stdinv = dataset.k_stdinv
+    model = SimpleFCN(stats_pth=stats_pth,k_mean=k_mean,k_stdinv=k_stdinv,sqrtKernelEps=args.sqrtKernelEps).cuda()
+    if os.path.exists(ckpt_pth):
+        model.load_state_dict(torch.load(ckpt_pth))
+    # Loss and optimizer
+    criterion = nn.MSELoss()
+    optimizer = optim.Adam(model.parameters(), lr=1e-4)
 
 
 
+    # Training loop
+    num_epochs = 15000  # Number of epochs
+    for epoch in range(num_epochs):
+        for kernelEps,in_coeffs,out_coeffs in tqdm(dataloader,desc=f"Epoch {epoch+1}/{num_epochs}"):  # Assuming 'dataloader' is your DataLoader instance
+            out_coeffs = out_coeffs.cuda()
+            kernelEps = kernelEps.unsqueeze(-1)
+            
+            # Concatenate kernelEps with the constant input
+            # Forward pass
+            outputs = model.forward(kernelEps, in_coeffs)
+            loss = criterion(outputs, out_coeffs)
+            # print("[DEBUG]", loss)
+            # Backward and optimize
+            optimizer.zero_grad()
+            # print("[DEBUG]", outputs)
+            
+            loss.backward()
+            optimizer.step()
 
-# Training loop
-num_epochs = 15000  # Number of epochs
-for epoch in range(num_epochs):
-    for kernelEps,in_coeffs,out_coeffs in tqdm(dataloader,desc=f"Epoch {epoch+1}/{num_epochs}"):  # Assuming 'dataloader' is your DataLoader instance
-        out_coeffs = out_coeffs.cuda()
-        kernelEps = kernelEps.unsqueeze(-1)
-        
-        # Concatenate kernelEps with the constant input
-        # inputs = torch.cat((kernelEps, in_coeffs),1).cuda()
-        
-        # Forward pass
-        outputs = model(kernelEps.cuda(),in_coeffs.cuda())
-        # outputs = model(inputs)
-        loss = criterion(outputs, out_coeffs)
-        # print("[DEBUG]", outputs)
-        # print("[DEBUG]", loss)
-        
-        # Backward and optimize
-        optimizer.zero_grad()
-        loss.backward()
-        optimizer.step()
+        if epoch % n_print == 0:
+            print(f'Epoch [{epoch+1}/{num_epochs}], Loss: {loss.item():.8f}')
+            wandb.log({"Loss" : loss.item(), "epoch": epoch,
+                    "values/out": outputs[0].detach().cpu().numpy(),
+                    "values/target": out_coeffs[0].detach().cpu().numpy(),
+                    })
 
-    if epoch % n_print == 0:
-        print(f'Epoch [{epoch+1}/{num_epochs}], Loss: {loss.item():.8f}')
-    if epoch % n_ckpt == 0:
-        torch.save(model.state_dict(),ckpt_pth)
+        if epoch % n_ckpt == 0:
+            torch.save(model.state_dict(),ckpt_pth)
 
-torch.save(model.state_dict(),ckpt_pth)
-# Test loop
-save_mlp_coeffs(data_pth,model,out_path)
-breakpoint()
+    torch.save(model.state_dict(),ckpt_pth)
 
-# if __name__=="__main__":
-#     breakpoint()
+    # Test loop
+    with torch.no_grad():
+        save_mlp_coeffs(data_pth,model,out_path)

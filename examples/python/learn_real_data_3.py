@@ -94,6 +94,8 @@ from viewer.viewer import GLTexture, ViewerApp
 from utils.printing import printr, printg
 import utils.mtswrapper
 
+from mlp.train import SimpleFCN
+
 
 class Mode(Enum):
     REF = 0
@@ -403,6 +405,12 @@ def opt_task(args):
     else:
         raise NotImplementedError
 
+    stats_pth = "../../../data_stats.json"
+    # FIXME: load kernelEps stats
+    model = SimpleFCN(stats_pth,torch.zeros(1),torch.zeros(1))
+    # FIXME : fix pth
+    model.load_state_dict(torch.load("../mlp/head_v2_mlp_var2_-1.pth"))
+    
 
     def precompute_mesh_polys():
         albedo = sc.param_map[material_key].albedo.data.numpy()
