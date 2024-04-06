@@ -36,6 +36,10 @@ struct Intersection_ : public Interaction_<Float_> {
     inline Spectrum<ad> Le(Mask<ad> active) const {
         return shape->emitter(active)->eval(*this, active);
     }
+    
+    Vector20f<ad> get_poly_coeff(const int idx) {
+        return poly_coeff[idx];
+    }
     void set_poly_coeff(const Vector20fC coeffs,const int idx) {
         // std::cout << "coeffs " << coeffs << std::endl;
         poly_coeff[idx] = coeffs;

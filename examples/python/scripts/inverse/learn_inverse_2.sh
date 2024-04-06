@@ -27,3 +27,4 @@ python3.8 ../learn_real_data_3.py \
         --silhouette "no" \
         --scene_file $4 \
         --n_crops $6 \
+        # --debug \

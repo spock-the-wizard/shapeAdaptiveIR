@@ -1,4 +1,4 @@
-python3.8 ../learn_real_data_2.py \
+python3.8 ../learn_real_data.py \
         --stats_folder $1 \
         --d_type "custom" \
         --seed 2 \

@@ -20,7 +20,8 @@ set(CMAKE_MODULE_PATH "${CMAKE_SOURCE_DIR}/CMake" ${CMAKE_MODULE_PATH})
 
 set(PYTHON_INCLUDE_PATH "${CMAKE_SOURCE_DIR}/ext/pybind11/include/" "/usr/include/python3.8/" )
 set(OpenEXR_ROOT "/usr/include/OpenEXR/")
-# set(ENOKI_DIR "${CMAKE_SOURCE_DIR}/ext/enoki/")
+set(ENOKI_DIR "/home/enoki") # /home/enoki/build "${CMAKE_SOURCE_DIR}/ext/enoki/")
+
 
 if( WIN32 )
     set(ENOKI_DIR ${CMAKE_SOURCE_DIR}/ext_win64/enoki)
@@ -50,6 +51,7 @@ option(CUDA_GENERATE_DEPENDENCIES_DURING_CONFIGURE
        "Generate dependencies during configure time instead of only during build time." OFF)
 
 find_package(CUDA 10.0 REQUIRED)
+# find_package(CUDA 11.8 REQUIRED)
 mark_as_advanced(CLEAR CUDA_64_BIT_DEVICE_CODE)
 
 set(CMAKE_RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/bin")
@@ -67,7 +69,7 @@ find_package(OptiX REQUIRED)
 find_package (Eigen3 3.3 REQUIRED NO_MODULE)
 # Added cnpy
 # add_subdirectory( ../../usr/local/lib)
-find_package(sdf)
+# find_package(sdf)
 
 
 if( WIN32 )
@@ -114,6 +116,7 @@ else()
         ${OpenEXR_INCLUDE_DIR}
         ${PYTHON_INCLUDE_PATH}
         ${ENOKI_DIR}/include
+        # /usr/local/cuda-11.8/targets/x86_64-linux/lib/stubs
     )
     link_directories(
         ${ENOKI_DIR}/build
@@ -246,7 +249,8 @@ else()
     # NOTE: added eigen
     target_link_libraries(psdr_cuda Eigen3::Eigen)
     target_link_libraries(psdr_cuda cnpy)
-    target_link_libraries(psdr_cuda sdf::sdf)
+    # target_link_libraries(psdr_cuda nvidia-ml)
+    # target_link_libraries(psdr_cuda sdf::sdf)
     # add_compile_options(-Wno-unused-variable) # Suppress all warnings for all targets
     
 endif()

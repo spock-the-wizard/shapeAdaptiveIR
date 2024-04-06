@@ -959,8 +959,8 @@ def opt_task(args):
         # img0 = result0.numpy().reshape(512,512,-1) * 255
         # img1 = result1.numpy().reshape(512,512,-1) * 255
 
-        cv2.imwrite(f"{filename.replace("FD","FD_0")}",img0)
-        cv2.imwrite(f"{filename.replace("FD","FD_1")}",img1)
+        cv2.imwrite(f"{filename.replace('FD','FD_0')}",img0)
+        cv2.imwrite(f"{filename.replace('FD','FD_1')}",img1)
         result_fd = (result1 - result0) / (2*fd_delta)
         img = result_fd[...,idx_param]
 

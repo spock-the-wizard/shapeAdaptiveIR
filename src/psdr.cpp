@@ -57,6 +57,8 @@ PYBIND11_MODULE(psdr_cuda, m) {
     // auto vector20f_class = bind<Vector20fC>(m, s, "Vector20f");
     py::class_<ShapeVector20fC>(m,"ShapeVector20f")
         .def(py::init<const ShapeVector20fC  &>());
+    // py::class_<ShapeVector20fD>(m,"ShapeVector20f")
+    //     .def(py::init<const ShapeVector20fD  &>());
 
     py::class_<Object>(m, "Object")
         .def("type_name", &Object::type_name)
@@ -166,6 +168,7 @@ PYBIND11_MODULE(psdr_cuda, m) {
         .def_readonly("sh_frame", &IntersectionC::sh_frame)
         .def_readwrite("poly_coeff", &IntersectionC::poly_coeff)
         .def("set_poly_coeff", &IntersectionC::set_poly_coeff,"coeff"_a,"idx"_a=0)
+        .def("get_poly_coeff", &IntersectionC::get_poly_coeff,"idx"_a=0)
         .def_readonly("uv", &IntersectionC::uv)
         .def_readonly("J", &IntersectionC::J);
 
@@ -174,6 +177,8 @@ PYBIND11_MODULE(psdr_cuda, m) {
         .def_readonly("n", &IntersectionD::n)
         .def_readonly("sh_frame", &IntersectionD::sh_frame)
         .def_readwrite("poly_coeff", &IntersectionD::poly_coeff)
+        .def("set_poly_coeff", &IntersectionD::set_poly_coeff,"coeff"_a,"idx"_a=0)
+        .def("get_poly_coeff", &IntersectionD::get_poly_coeff,"idx"_a=0)
         .def_readonly("uv", &IntersectionD::uv)
         .def_readonly("J", &IntersectionD::J);
     
@@ -268,7 +273,8 @@ PYBIND11_MODULE(psdr_cuda, m) {
         .def("setSigmaT", &VaeSub::setSigmaT, "sigma_t"_a)
         .def("setAlbedoTexture", &VaeSub::setAlbedoTexture, "filename"_a)
         .def("setSigmaTexture", &VaeSub::setSigmaTexture, "filename"_a)  
-        .def("setAlphaTexture", &VaeSub::setAlphaTexture, "filename"_a);    
+        .def("setAlphaTexture", &VaeSub::setAlphaTexture, "filename"_a) ;  
+        // .def("getKernelEps", &VaeSub::getKernelEps<true>, "Intersection"_a,"idx"_a);    
 
 
     py::class_<Microfacet, BSDF>(m, "MicrofacetBSDF")
@@ -350,9 +356,11 @@ PYBIND11_MODULE(psdr_cuda, m) {
     // Integrator base and basic integrators
 
     py::class_<Integrator, Object>(m, "Integrator")
-        .def("getIntersection", &Integrator::getIntersection, "scene"_a, "sensor_id"_a = 0)
+        .def("getIntersectionD", &Integrator::getIntersectionD, "scene"_a, "sensor_id"_a = 0)
+        .def("getIntersectionC", &Integrator::getIntersectionC, "scene"_a, "sensor_id"_a = 0)
         .def("renderC", &Integrator::renderC, "scene"_a, "sensor_id"_a = 0)
         .def("renderC_shape", &Integrator::renderC_shape, "scene"_a, "intersection"_a, "sensor_id"_a = 0)
+        .def("renderD_shape", &Integrator::renderD_shape, "scene"_a, "intersection"_a, "sensor_id"_a = 0)
         .def("renderD", &Integrator::renderD, "scene"_a, "sensor_id"_a = 0)
         .def("preprocess_secondary_edges", &Integrator::preprocess_secondary_edges, "scene"_a, "sensor_id"_a, "resolution"_a, "nrounds"_a = 1)
         .def("sample_sub", &Integrator::sample_sub, "scene"_a, "pts"_a,"dir"_a);

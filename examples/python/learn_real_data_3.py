@@ -8,7 +8,7 @@ import numpy as np
 import math
 from enoki.cuda_autodiff import Float32 as FloatD, Vector3f as Vector3fD, Matrix4f as Matrix4fD, Vector3i
 from enoki.cuda import Vector20f as Vector20fC
-# from enoki.cuda_autodiff import Vector20fD as Vector20fD
+from enoki.cuda_autodiff import Vector20f as Vector20fD
 from enoki.cuda import Float32 as FloatC
 import matplotlib.pyplot as plt
 import torch
@@ -27,6 +27,7 @@ import wandb
 import time
 
 import pytorch_ssim
+import enoki
 
 
 # from largesteps.optimize import AdamUnifom
@@ -96,6 +97,15 @@ import utils.mtswrapper
 
 from mlp.train import SimpleFCN
 
+import random
+random_seed = 0
+torch.manual_seed(random_seed)
+torch.cuda.manual_seed(random_seed)
+torch.cuda.manual_seed_all(random_seed) # if use multi-GPU
+torch.backends.cudnn.deterministic = True
+torch.backends.cudnn.benchmark = False
+np.random.seed(random_seed)
+random.seed(random_seed) # if use multi-GPU
 
 class Mode(Enum):
     REF = 0
@@ -212,6 +222,7 @@ parser.add_argument('--d_type',             type=str,     default="real")
 parser.add_argument('--silhouette',         type=str,     default="yes")
 
 parser.add_argument('--render_gradient', action="store_true")
+parser.add_argument('--debug', action="store_true")
 
 os.environ["OPENCV_IO_ENABLE_OPENEXR"]="1"
 
@@ -407,7 +418,7 @@ def opt_task(args):
 
     stats_pth = "../../../data_stats.json"
     # FIXME: load kernelEps stats
-    model = SimpleFCN(stats_pth,torch.zeros(1),torch.zeros(1))
+    model = SimpleFCN(stats_pth,torch.zeros(1),torch.zeros(1)).cuda()
     # FIXME : fix pth
     model.load_state_dict(torch.load("../mlp/head_v2_mlp_var2_-1.pth"))
     
@@ -435,8 +446,9 @@ def opt_task(args):
         time_end = time.time()
         # print(f"Precomputing polynomials took {time_end - time_start} seconds")
 
-    if not isBaseline:
-        precompute_mesh_polys()
+    # FIXME : tmp disabled
+    # if not isBaseline:
+    #     precompute_mesh_polys()
 
     tars = [] 
     maks = []
@@ -488,10 +500,79 @@ def opt_task(args):
         loss = (lossA.mean() + lossR.mean() + lossG.mean() + lossS.mean()) * weight
         return loss
 
+    def getKernelEps(albedo_ch,sigma_t_ch,g_ch):
+        sigma_s = sigma_t_ch * albedo_ch
+        sigma_a = sigma_t_ch - sigma_s
+
+        miu_s_p = (1.0 - g_ch) * sigma_s
+        miu_t_p = miu_s_p + sigma_a
+        alpha_p = miu_s_p / miu_t_p
+
+        effectiveAlbedo = -torch.log(1.0-alpha_p * (1.0 - math.exp(-8.0))) / 8.0
+        # effectiveAlbedo = -enoki.log(1.0-alpha_p * (1.0 - enoki.exp(-8.0))) / 8.0
+        
+        val = 0.25 * g_ch + 0.25 * alpha_p + 1.0 * effectiveAlbedo
+        res = 4.0 * val * val / (miu_t_p * miu_t_p)
+
+        return res
+
+    def renderD(integrator,scene,sensor_id,A,S,G): #,coeffs=None,fit_mode='avg'):
+        # if False: #True:
+        if True:
+            its = integrator.getIntersectionD(scene,sensor_id)
+            its_p = its.p.numpy()
+            its_n = its.n.numpy()
+            its_mask = its.is_valid().numpy()
+
+            # TODO: Compute kernelEps
+            albedo = Variable(sc.param_map[material_key].albedo.data.torch(),requires_grad=True)
+            sigma_t = Variable(sc.param_map[material_key].sigma_t.data.torch(),requires_grad=True)
+            g = Variable(sc.param_map[material_key].g.data.torch(),requires_grad=True)
+            kernelEps = getKernelEps(albedo,sigma_t,g).T
+            # kernelEps = getKernelEps(A,S,G).transpose(0,1) #albedo,sigma_t,g).T
+            # TODO: Estimate coeffs
+            idx_c = 0
+            in_coeff = its.get_poly_coeff(idx_c).torch() # requires_grad is False
+            # kernelEps = kernelEps[idx_c].repeat(in_coeff.shape[0]).unsqueeze(-1)
+            kernelEps = kernelEps[idx_c].repeat(its_mask.sum()).unsqueeze(-1)
+            out_coeff = torch.zeros_like(in_coeff)
+            out_coeff[its_mask] = model.forward(kernelEps,in_coeff[its_mask])
+            
+            its.set_poly_coeff(out_coeff,0)
+            its.set_poly_coeff(out_coeff,1)
+            its.set_poly_coeff(out_coeff,2)
+
+            image = integrator.renderD_shape(scene,its,sensor_id)
+        else:
+            image = integrator.renderD(scene, sensor_id)
+            its = None 
+            coeff = None
+        return image
+
+        
     def renderC(scene,integrator,sensor_id,coeffs=None,fit_mode='avg'):
         # TODO: add mode select (baseline)
-        if False:
-        # if False:
+        if True:
+            its = integrator.getIntersectionC(scene,sensor_id)
+            its_p = its.p.numpy()
+            its_n = its.n.numpy()
+            its_mask = its.is_valid().numpy()
+
+            # TODO: Compute kernelEps
+            albedo = Variable(sc.param_map[material_key].albedo.data.torch(),requires_grad=True)
+            sigma_t = Variable(sc.param_map[material_key].sigma_t.data.torch(),requires_grad=True)
+            g = Variable(sc.param_map[material_key].g.data.torch(),requires_grad=True)
+            kernelEps = getKernelEps(albedo,sigma_t,g).T
+            # TODO: Estimate coeffs
+            idx_c = 0
+            in_coeff = its.get_poly_coeff(idx_c).torch() # requires_grad is False
+            kernelEps = kernelEps[idx_c].repeat(in_coeff.shape[0]).unsqueeze(-1)
+            out_coeff = model.forward(kernelEps,in_coeff)
+            
+            its.set_poly_coeff(out_coeff,0)
+
+            image = integrator.renderC_shape(scene,its,sensor_id)
+        elif False:
             its = integrator.getIntersection(scene,sensor_id)
             its_p = its.p.numpy()
             its_n = its.n.numpy()
@@ -667,13 +748,16 @@ def opt_task(args):
         
     class Renderer(torch.autograd.Function):
         @staticmethod
-        def forward(ctx, V, A, S, R, G, batch_size, seed,crop_idx=0):
+        def forward(ctx, V, A, S, R, G, D, batch_size, seed,crop_idx=0):
             # Roughness = R
             _vertex     = Vector3fD(V)
             _albedo     = Vector3fD(A)
             _sigma_t    = Vector3fD(S)
             _rough      = FloatD(R)
             _eta        = FloatD(G)
+            # Joon added
+            # _coeffs = Vector20fD(D)
+            
 
             ek.set_requires_gradient(_vertex,       V.requires_grad)
             ek.set_requires_gradient(_albedo,       A.requires_grad)
@@ -719,11 +803,17 @@ def opt_task(args):
                 tar_img = Vector3fD(tars[sensor_id].reshape((ro.height,ro.width,-1))[coy:coy+coh,cox:cox+cow,:].reshape(-1,3).cuda())
                 # tar_img = Vector3fD(tars[sensor_id].cuda())
                 # weight_img = Vector3fD(tmeans[sensor_id].cuda()f)
-                our_imgA = myIntegrator.renderD(sc, sensor_id)
+                # FIXME: tmp working on renderD
+                our_imgA = renderD(myIntegrator,sc, sensor_id,A,S,G)
                 if isBaseline:
-                    our_imgB = myIntegrator.renderD(sc, sensor_id)
+                    our_imgB = renderD(myIntegrator,sc, sensor_id,A,S,G)
                 else:
                     our_imgB = our_imgA
+                # our_imgA = myIntegrator.renderD(sc, sensor_id)
+                # if isBaseline:
+                #     our_imgB = myIntegrator.renderD(sc, sensor_id)
+                # else:
+                #     our_imgB = our_imgA
                 render_loss += compute_render_loss(our_imgA, our_imgB, tar_img, args.img_weight) / batch_size
                 # render_loss += compute_render_loss(our_imgA, our_imgA, tar_img, args.img_weight) / batch_size
                 
@@ -842,7 +932,7 @@ def opt_task(args):
             Y = torch.from_numpy(target2.transpose(2,0,1)[None]) #torch.zeros((1,3,256,256))
             # calculate ssim & ms-ssim for each image
             ssim_val = ssim( X, Y, data_range=255, size_average=False) # return (N,)
-            wandb.log({
+            wandb_log({
                 "images/gt": wandb.Image(cv2.cvtColor(target2,cv2.COLOR_BGR2RGB)),
                 "images/out" : wandb.Image(cv2.cvtColor(img2,cv2.COLOR_BGR2RGB)),
                 "images/error": wandb.Image(cv2.cvtColor(cv2.imread(outfile_error),cv2.COLOR_BGR2RGB)),              
@@ -858,20 +948,25 @@ def opt_task(args):
         # error = np.concatenate((error_map), axis=1)                
         cv2.imwrite(statsdir + "/iter_{}.exr".format(i+1), output)
         # cv2.imwrite(statsdir + "/error_{}.png".format(i+1), error)
-        wandb.log({
+        wandb_log({
             "loss/rmse_avg_image": sum(rmse_list) / len(rmse_list), #rmse(img2,target2).mean(),
             "loss/ssim_avg_image": sum(ssim_list) / len(rmse_list), #rmse(img2,target2).mean(),
         })
 
 
+    def wandb_log(wandb_args,):
+        if not args.debug:
+            wandb.log(wandb_args)
+
     def optTask(args):
 
-        run = wandb.init(
-                # Set the project where this run will be logged
-                project="inverse-learned-sss",
-                # Track hyperparameters and run metadata
-                config=args,
-        )
+        if not args.debug:
+            run = wandb.init(
+                    # Set the project where this run will be logged
+                    project="inverse-learned-sss",
+                    # Track hyperparameters and run metadata
+                    config=args,
+            )
         
         
 
@@ -998,6 +1093,7 @@ def opt_task(args):
                     print(R.shape)
                     loss_ += total_variation_loss(R, args.tot_weight, args.rough_texture, 1)
 
+                # breakpoint()
                 loss_.backward()
                 optimizer.step()
                 loss += loss_.item()
@@ -1023,7 +1119,7 @@ def opt_task(args):
                 print("\n rough: ", R.detach().cpu().numpy())
                 roughhistory.append(R.detach().cpu().numpy())    
             
-            # wandb.log({
+            # wandb_log({
             #     "image loss": loss.item(),
             #     "eta": G.detach().cpu().numpy(),
             #     "albedo" : A.detach().cpu().numpy(),
@@ -1033,7 +1129,7 @@ def opt_task(args):
             log_alb = A.detach().cpu().numpy()[0]
             log_sig = S.detach().cpu().numpy()[0]
 
-            wandb.log({
+            wandb_log({
                 "loss/rmse_param_alb": rmse(log_alb,params_gt[args.scene]['albedo']),
                 "loss/rmse_param_sig": rmse(np.exp(log_sig), params_gt[args.scene]['sigmat']),
                 "loss/rmse_param_sigT": rmse(log_sig, np.log(params_gt[args.scene]['sigmat'])),
@@ -1059,7 +1155,7 @@ def opt_task(args):
             
         
             if i == 0 or ((i+1) %  args.n_dump) == 0:
-                wandb.log({
+                wandb_log({
                         # "loss/total": loss.item(),
                         # "loss/image": image_loss.item(),
                         "loss/total": loss,

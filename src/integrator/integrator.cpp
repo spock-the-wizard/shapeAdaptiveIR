@@ -27,7 +27,17 @@
 namespace psdr
 {
 
-IntersectionC Integrator::getIntersection(const Scene &scene, int sensor_id) const {
+IntersectionC Integrator::getIntersectionC(const Scene &scene, int sensor_id) const {
+    return getIntersection<false>(scene,sensor_id);
+}
+
+IntersectionD Integrator::getIntersectionD(const Scene &scene, int sensor_id) const {
+    return getIntersection<true>(scene,sensor_id);
+}
+
+template <bool ad>
+Intersection<ad> Integrator::getIntersection(const Scene &scene, int sensor_id) const {
+// IntersectionC Integrator::getIntersection(const Scene &scene, int sensor_id) const {
     using namespace std::chrono;
     // auto start_time = high_resolution_clock::now();
 
@@ -36,7 +46,7 @@ IntersectionC Integrator::getIntersection(const Scene &scene, int sensor_id) con
 
     const RenderOption &opts = scene.m_opts;
     const int num_pixels = opts.cropwidth*opts.cropheight;
-    const bool ad = false;
+    // const bool ad = false;
     Intersection<ad> its;
     if ( likely(opts.spp > 0) ) {
         int64_t num_samples = static_cast<int64_t>(num_pixels)*opts.spp;
@@ -174,11 +184,35 @@ std::tuple<Vector3fC, Vector3fC, Vector3fC, Vector20fC, FloatC> Integrator::samp
 
     return std::make_tuple(its_sub.p,outPos,projDir,poly_coeffs,color);
 }
+SpectrumD Integrator::renderD_shape(const Scene &scene, const IntersectionD &its, int sensor_id) const {
+    // Interior integral
+
+    // std::cout << "its.poly_coeff " << its.poly_coeff << std::endl;
+    SpectrumD result = __render_shape<true>(scene, its,sensor_id);
+
+    // Boundary integral
+    if ( likely(scene.m_opts.sppe > 0) ) {
+        render_primary_edges(scene, sensor_id, result);
+    }
+
+    if ( likely(scene.m_opts.sppse > 0) ) {
+        // std::cout<<" secondary edge "<<std::endl;
+        render_secondary_edges(scene, sensor_id, result);
+    }
+    
+    cuda_eval(); cuda_sync();
+
+    if ( scene.m_opts.log_level ) {
+        std::stringstream oss;
+        // oss << "Rendered in " << duration_cast<duration<double>>(end_time - start_time).count() << " seconds.";
+        // LOG(oss.str().c_str());
+    }
+
+    return result;
+}
 
 SpectrumD Integrator::renderD(const Scene &scene, int sensor_id) const {
     using namespace std::chrono;
-    auto start_time = high_resolution_clock::now();
-
     // Interior integral
 
     SpectrumD result = __render<true>(scene, sensor_id);
@@ -195,14 +229,12 @@ SpectrumD Integrator::renderD(const Scene &scene, int sensor_id) const {
     
     cuda_eval(); cuda_sync();
 
-    auto end_time = high_resolution_clock::now();
     if ( scene.m_opts.log_level ) {
         std::stringstream oss;
-        oss << "Rendered in " << duration_cast<duration<double>>(end_time - start_time).count() << " seconds.";
-        LOG(oss.str().c_str());
+        // oss << "Rendered in " << duration_cast<duration<double>>(end_time - start_time).count() << " seconds.";
+        // LOG(oss.str().c_str());
     }
 
-    std::cout<<"renderD: test3"<<std::endl;
     return result;
 }
 

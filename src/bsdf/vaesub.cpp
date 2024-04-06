@@ -29,10 +29,6 @@ namespace psdr
 {
     void VaeSub::loadNetwork() {
         //Load Network
-        // Initialize NVML
-        if (nvmlInit() != NVML_SUCCESS) {
-            std::cerr << "Failed to initialize NVML." << std::endl;
-        }
 
         const std::string variablePath = "../../../variables";
         const std::string featStatsFilePath = "../../../data_stats.json";
@@ -611,8 +607,8 @@ std::tuple<Intersection<ad>,Float<ad>,Vector3f<ad>,Vector3f<ad>> VaeSub::__sampl
     
         Float<ad> rnd = sample[5];
 
-        // float is_plane = true;
-        float is_plane = false;
+        float is_plane = true;
+        // float is_plane = false;
         // FIXME: detach detection
         ///////////////////////////////
         // float is_light_space = false;
