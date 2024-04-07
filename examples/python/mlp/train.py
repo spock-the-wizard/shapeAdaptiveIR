@@ -99,7 +99,7 @@ class SimpleFCN(nn.Module):
         if not self.sqrtKernelEps:
             kernelEps = (kernelEps - self.k_mean) * self.k_stdinv
         
-        x = torch.cat((kernelEps, maxCoeffs),1).cuda()
+        x = torch.cat((kernelEps, maxCoeffs),1) #.cuda()
         x = torch.relu(self.fc1(x))
         x = torch.relu(self.fc2(x))
         x = torch.relu(self.fc2_1(x))

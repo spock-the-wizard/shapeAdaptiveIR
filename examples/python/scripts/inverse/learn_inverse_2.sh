@@ -6,12 +6,12 @@ python3.8 ../learn_real_data_3.py \
         --n_dump 25 \
         --ref_folder "exr_ref" \
         --mesh_lr 0.00 \
-        --sigma_lr 0.0001 \
-        --albedo_lr 0.0001 \
+        --sigma_lr 0.001 \
+        --albedo_lr 0.001 \
         --rough_lr 0.0005 \
         --eta_lr 0.0001 \
         --n_reduce_step 400 \
-        --n_iters 300 \
+        --n_iters 500 \
         --laplacian 30 \
         --sigma_laplacian 0 \
         --albedo_laplacian 0 \
@@ -27,4 +27,4 @@ python3.8 ../learn_real_data_3.py \
         --silhouette "no" \
         --scene_file $4 \
         --n_crops $6 \
-        # --debug \
+        --debug \

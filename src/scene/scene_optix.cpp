@@ -161,9 +161,9 @@ Vector2i<ad> Scene_OptiX::ray_all_layer(const Ray<ad> &ray, Mask<ad> &active, co
             reinterpret_cast<CUdeviceptr>( m_accel->d_params ),
             sizeof( Params ),
             &m_accel->sbt,
-            m,              // launch size
-            1,              // launch height
-            1               // launch depth
+            m/4,              // launch size
+            2,              // launch height
+            2               // launch depth
         )
     );
 

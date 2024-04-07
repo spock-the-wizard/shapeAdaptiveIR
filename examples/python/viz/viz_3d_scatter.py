@@ -578,6 +578,8 @@ class Scatter3DViewer(ViewerApp):
                 scene_file = "/sss/InverseTranslucent/examples/scenes/kettle1_out.xml"
             elif "buddha" in mesh_name:
                 scene_file = "/sss/InverseTranslucent/examples/scenes/buddha1_out.xml"
+            elif "sphere" in mesh_name:
+                scene_file = "/sss/InverseTranslucent/examples/scenes/sphere1_out.xml"
             else: #if "cube_subdiv" in self.mesh_file:
                 scene_file = "/sss/InverseTranslucent/examples/scenes/cone4_out.xml"
                 scene_file = scene_file.replace('cone',mesh_name)
@@ -881,7 +883,7 @@ class Scatter3DViewer(ViewerApp):
             fit_opts['useLightspace'] = True
             coeffs_ls, p_con,n_con = utils.mtswrapper.fitPolynomial(self.constraint_kd_tree, self.its_loc, -self.inDirection, self.sigma_t,
                                                              self.g, self.albedo, fit_opts, normal=self.face_normal)
-            breakpoint()
+            # breakpoint()
             
             # t0 = time.time()
             # batch_size = 64

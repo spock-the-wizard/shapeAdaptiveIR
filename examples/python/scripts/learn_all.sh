@@ -2,7 +2,7 @@
 exp_name="exp1/var48"
 exp_name="exp3/var25"
 # exp_name="test/gpu"
-spp=128
+spp=16
 root=/sss/InverseTranslucent/examples/python/scripts
 # echo $SHELL
 # export PYTHONPATH=/sss/InverseTranslucent/build/lib:/sss/InverseTranslucent/build:$PYTHONPATH
@@ -15,9 +15,9 @@ root=/sss/InverseTranslucent/examples/python/scripts
 # echo $LD_LIBRARY_PATH
 # for name in head1 #buddha1 kettle1 duck # cone4 sphere1 pyramid4 cylinder4 
 # for name in duck kettle1 head1 # head1 # botijo cone4 pyramid4 cube4 cylinder4
-for name in head1 #duck kettle1 cylinder4 #head1 # botijo cone4 pyramid4 cube4 cylinder4
+for name in duck #kettle1 cylinder4 #head1 # botijo cone4 pyramid4 cube4 cylinder4
 do
-    echo Running $name
+    # echo Running $name
 
     # # Exp 0. Rendering with complex geometry
     # echo $exp_name
@@ -39,12 +39,18 @@ do
     # bash ./template/learn_$name.sh $exp_name $spp ../../scenes/scenes_baseline/${name}_out.xml
 
     # Exp 4. Inverse Rendering experiment
-    exp_name="test/desc"
+    # name=sphere1
+    exp_name="exp3/var59"
+    # exp_name="test/opt"
+    # exp_name="test/desc_v0"
     echo $exp_name
     xml_file=$root/../../scenes/inverse/${name}_out.xml
     out_file=$root/../../scenes/inverse/${name}_out_tmp.xml
-    sigma_t="80.0, 80.0, 80.0"
-    albedo="0.8, 0.8, 0.8"
+    # sigma_t="25.0, 25.0, 25.0" # duck
+    sigma_t="54.0, 72.0, 98.0" # sphere1
+    # sigma_t="109.0, 109.0, 52.0" # head1
+    
+    albedo="0.5, 0.5, 0.5"
 
     python $root/replace_xml.py --sigma_t "$sigma_t" \
     --albedo "$albedo" \
@@ -53,7 +59,8 @@ do
     # --is_baseline
     spp_inv=16
     n_crops=2
-    bash $root/inverse/learn_inverse_2.sh $exp_name $name $spp $out_file $spp_inv $n_crops
+    # bash $root/inverse/learn_inverse_2.sh $exp_name $name $spp $out_file $spp_inv $n_crops
+    bash $root/inverse/learn_inverse.sh $exp_name $name $spp $out_file $spp_inv $n_crops
 
     # # Exp 5. Render Gradient Image
     # exp_name="test/grad"

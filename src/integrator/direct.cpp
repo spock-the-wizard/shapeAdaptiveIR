@@ -95,7 +95,6 @@ Spectrum<ad> DirectIntegrator::__Li_shape(const Scene &scene, Sampler &sampler, 
 
 
     BSDFSample<ad> bs;
-    // TODO: modify 
     bs = bsdf_array->sample(&scene, its, sampler.next_nd<8, ad>(), active);
     Mask<ad> active1 = active && bs.is_valid;
 

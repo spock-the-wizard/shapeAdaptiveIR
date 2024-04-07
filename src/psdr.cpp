@@ -167,7 +167,8 @@ PYBIND11_MODULE(psdr_cuda, m) {
         .def_readonly("n", &IntersectionC::n)
         .def_readonly("sh_frame", &IntersectionC::sh_frame)
         .def_readwrite("poly_coeff", &IntersectionC::poly_coeff)
-        .def("set_poly_coeff", &IntersectionC::set_poly_coeff,"coeff"_a,"idx"_a=0)
+        .def("set_poly_coeff", py::overload_cast< Vector20fC, int>(&IntersectionC::set_poly_coeff<false>),"coeff"_a,"idx"_a=0)
+        // .def("set_poly_coeffD", py::overload_cast< Vector20fD, int>(&IntersectionC::set_poly_coeff),"coeff"_a,"idx"_a=0)
         .def("get_poly_coeff", &IntersectionC::get_poly_coeff,"idx"_a=0)
         .def_readonly("uv", &IntersectionC::uv)
         .def_readonly("J", &IntersectionC::J);
@@ -177,7 +178,8 @@ PYBIND11_MODULE(psdr_cuda, m) {
         .def_readonly("n", &IntersectionD::n)
         .def_readonly("sh_frame", &IntersectionD::sh_frame)
         .def_readwrite("poly_coeff", &IntersectionD::poly_coeff)
-        .def("set_poly_coeff", &IntersectionD::set_poly_coeff,"coeff"_a,"idx"_a=0)
+        // .def("set_poly_coeff", py::overload_cast<Vector20fC, int>(&IntersectionD::set_poly_coeff),"coeff"_a,"idx"_a=0)
+        .def("set_poly_coeff", py::overload_cast<Vector20fD, int>(&IntersectionD::set_poly_coeff<true>),"coeff"_a,"idx"_a=0)
         .def("get_poly_coeff", &IntersectionD::get_poly_coeff,"idx"_a=0)
         .def_readonly("uv", &IntersectionD::uv)
         .def_readonly("J", &IntersectionD::J);

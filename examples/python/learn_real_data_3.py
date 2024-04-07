@@ -13,6 +13,7 @@ from enoki.cuda import Float32 as FloatC
 import matplotlib.pyplot as plt
 import torch
 from torch.autograd import Variable
+from enoki import *
 
 import argparse
 import os
@@ -413,6 +414,8 @@ def opt_task(args):
         mesh_file = "../../smoothshape/kettle_.obj"
     elif args.scene == "duck":
         mesh_file = "../../smoothshape/duck_v2.obj"
+    elif args.scene == "sphere1":
+        mesh_file = "../../smoothshape/sphere_v2.obj"
     else:
         raise NotImplementedError
 
@@ -501,6 +504,7 @@ def opt_task(args):
         return loss
 
     def getKernelEps(albedo_ch,sigma_t_ch,g_ch):
+
         sigma_s = sigma_t_ch * albedo_ch
         sigma_a = sigma_t_ch - sigma_s
 
@@ -515,44 +519,67 @@ def opt_task(args):
         res = 4.0 * val * val / (miu_t_p * miu_t_p)
 
         return res
-
-    def renderD(integrator,scene,sensor_id,A,S,G): #,coeffs=None,fit_mode='avg'):
-        # if False: #True:
+    def renderD(integrator,scene,sensor_id,A,S,G,mode='desc'): #,coeffs=None,fit_mode='avg'):
         if True:
+        # if mode == 'desc':
             its = integrator.getIntersectionD(scene,sensor_id)
             its_p = its.p.numpy()
             its_n = its.n.numpy()
             its_mask = its.is_valid().numpy()
 
             # TODO: Compute kernelEps
-            albedo = Variable(sc.param_map[material_key].albedo.data.torch(),requires_grad=True)
-            sigma_t = Variable(sc.param_map[material_key].sigma_t.data.torch(),requires_grad=True)
-            g = Variable(sc.param_map[material_key].g.data.torch(),requires_grad=True)
-            kernelEps = getKernelEps(albedo,sigma_t,g).T
-            # kernelEps = getKernelEps(A,S,G).transpose(0,1) #albedo,sigma_t,g).T
-            # TODO: Estimate coeffs
-            idx_c = 0
-            in_coeff = its.get_poly_coeff(idx_c).torch() # requires_grad is False
-            # kernelEps = kernelEps[idx_c].repeat(in_coeff.shape[0]).unsqueeze(-1)
-            kernelEps = kernelEps[idx_c].repeat(its_mask.sum()).unsqueeze(-1)
-            out_coeff = torch.zeros_like(in_coeff)
-            out_coeff[its_mask] = model.forward(kernelEps,in_coeff[its_mask])
+            # albedo = Variable(sc.param_map[material_key].albedo.data.torch(),requires_grad=True)
+            # sigma_t = Variable(sc.param_map[material_key].sigma_t.data.torch(),requires_grad=True)
+            # g = Variable(sc.param_map[material_key].g.data.torch(),requires_grad=True)
+            # kernelEps = getKernelEps(albedo,sigma_t,g).T
+            # Joon added
+            coeffs_list = []
+            with torch.enable_grad():
+
+                # coeffs_sum = Variable0
+                kernelEps = getKernelEps(A,S,G).transpose(0,1) #albedo,sigma_t,g).T
+                coeffs_sum = Variable(torch.ones(1,device='cuda'),requires_grad=True)
+                for idx in range(3):
+
+                    # TODO: pass thru network
+                    # coeffs = kernelEps[idx]
+                    # _coeffs = Vector20fD(coeffs)
+
+                    in_coeff = its.get_poly_coeff(idx).torch().clone() # requires_grad is False
+                    in_coeff.requires_grad_(True)
+                    in_k = A[0,0].repeat(its_mask.sum()).unsqueeze(-1)
+                    breakpoint()
+                    tmp = in_k.repeat(1,20)
+                    # in_k = kernelEps[idx].repeat(its_mask.sum()).unsqueeze(-1)
+                    out_coeff = torch.zeros_like(in_coeff)
+                    # out_coeff[its_mask] = model.forward(in_k,tmp)
+                    out_coeff[its_mask] = model(in_k,in_coeff[its_mask])
+                    tmp2 = out_coeff.sum() 
+                    tmp2.backward()
+
+                    coeffs_sum = coeffs_sum + out_coeff.sum()
+                    its.set_poly_coeff(out_coeff,idx)
+
             
-            its.set_poly_coeff(out_coeff,0)
-            its.set_poly_coeff(out_coeff,1)
-            its.set_poly_coeff(out_coeff,2)
+            # out_coeff = D # Vector20fD(torch.ones((its_mask.shape[0]),device='cuda'))
+            # breakpoint()
+            # its.set_poly_coeff(_coeffs,0)
+            # its.set_poly_coeff(_coeffs,1)
+            # its.set_poly_coeff(_coeffs,2)
 
             image = integrator.renderD_shape(scene,its,sensor_id)
         else:
             image = integrator.renderD(scene, sensor_id)
             its = None 
-            coeff = None
-        return image
+            coeffs_list = []
+        return image,coeffs_sum
 
         
-    def renderC(scene,integrator,sensor_id,coeffs=None,fit_mode='avg'):
+    def renderC(scene,integrator,sensor_id,coeffs=None,fit_mode='avg',mode='desc'):
         # TODO: add mode select (baseline)
         if True:
+        # if False:
+        # if mode == 'desc':
             its = integrator.getIntersectionC(scene,sensor_id)
             its_p = its.p.numpy()
             its_n = its.n.numpy()
@@ -614,53 +641,17 @@ def opt_task(args):
             its = None 
             coeff = None
         return image,coeffs
-
-    # def renderC(scene,integrator,sensor_id,its=None):
-    #     # TODO: add mode select (baseline)
-    #     if True:
-    #     # if False:
-    #         if its is None:
-    #             its = integrator.getIntersection(scene,sensor_id)
-    #             its_p = its.p.numpy()
-    #             its_n = its.n.numpy()
-    #             its_mask = its.is_valid().numpy()
-            
-    #             albedo = scene.param_map[material_key].albedo.data.numpy()
-    #             sigma_t = scene.param_map[material_key].sigma_t.data.numpy()
-    #             g = scene.param_map[material_key].g.data.numpy()
-
-    #             # NOTE: change to RGB
-    #             albedo = albedo[0][0]
-    #             sigma_t = sigma_t[0][0]
-    #             g = g[0]
-                
-    #             coeffs = np.zeros((its_mask.shape[0],20))
-    #             time_start = time.time()
-    #             coeffs[its_mask] = app.get_shape_features(its_p[its_mask],its_n[its_mask],sigma_t,g,albedo,its_n[its_mask])
-    #             # coeffs = np.random.rand(its_mask.shape[0],20)
-    #             time_end = time.time()
-    #             print(f"Fitting took {time_end - time_start} seconds")
-    #             coeffs = Vector20fC(coeffs)
-    #             # print(coeffs)
-    #             its.set_poly_coeff(coeffs,0)
-    #             its.set_poly_coeff(coeffs,1)
-    #             its.set_poly_coeff(coeffs,2)
-    #         image = integrator.renderC_shape(scene,its,sensor_id)
-    #     else:
-    #         image = integrator.renderC(scene, sensor_id)
-    #         its = None 
-    #     return image,its
                 
     def renderNtimes(scene, integrator, n, sensor_id):
 
-        image,coeffs = renderC(scene,integrator,sensor_id)
+        image,coeffs = renderC(scene,integrator,sensor_id,mode='forward')
         # image = integrator.renderC(scene, sensor_id)
         
         weight = 1.0 / n
         out = image.numpy().reshape((scene.opts.cropheight, scene.opts.cropwidth, 3))
         
         for i in range(1, n):
-            image,_ = renderC(scene, integrator, sensor_id, coeffs=coeffs)
+            image,_ = renderC(scene, integrator, sensor_id, coeffs=coeffs,mode='forward')
             # image = integrator.renderC(scene, sensor_id)
             out += image.numpy().reshape((scene.opts.cropheight, scene.opts.cropwidth, 3))
             
@@ -748,22 +739,22 @@ def opt_task(args):
         
     class Renderer(torch.autograd.Function):
         @staticmethod
-        def forward(ctx, V, A, S, R, G, D, batch_size, seed,crop_idx=0):
+        def forward(ctx, V, A, S, R, G, batch_size, seed,crop_idx=0):
+
+
             # Roughness = R
             _vertex     = Vector3fD(V)
             _albedo     = Vector3fD(A)
             _sigma_t    = Vector3fD(S)
             _rough      = FloatD(R)
             _eta        = FloatD(G)
-            # Joon added
-            # _coeffs = Vector20fD(D)
             
-
             ek.set_requires_gradient(_vertex,       V.requires_grad)
             ek.set_requires_gradient(_albedo,       A.requires_grad)
             ek.set_requires_gradient(_sigma_t,      S.requires_grad)
             ek.set_requires_gradient(_rough,        R.requires_grad)
             ek.set_requires_gradient(_eta,          G.requires_grad)
+
 
         
             ctx.input1 = _vertex
@@ -785,6 +776,7 @@ def opt_task(args):
             sc.param_map[material_key].sigma_t.data  = sigma_t
             sc.param_map[material_key].alpha_u.data  = roughness
             sc.param_map[material_key].eta.data      = eta
+
             
             print("------------------------------------seed----------",seed)
             npixels = ro.cropheight * ro.cropwidth
@@ -801,24 +793,22 @@ def opt_task(args):
 
                 cox,coy,coh,cow = ro.crop_offset_x,ro.crop_offset_y,ro.cropheight,ro.cropwidth
                 tar_img = Vector3fD(tars[sensor_id].reshape((ro.height,ro.width,-1))[coy:coy+coh,cox:cox+cow,:].reshape(-1,3).cuda())
-                # tar_img = Vector3fD(tars[sensor_id].cuda())
-                # weight_img = Vector3fD(tmeans[sensor_id].cuda()f)
-                # FIXME: tmp working on renderD
-                our_imgA = renderD(myIntegrator,sc, sensor_id,A,S,G)
+                our_imgA,coeffs_sum= renderD(myIntegrator,sc, sensor_id,A,S,G) #__None)
+
+                ctx.save_for_backward(A,S,G,coeffs_sum)
                 if isBaseline:
-                    our_imgB = renderD(myIntegrator,sc, sensor_id,A,S,G)
+                    our_imgB = renderD(myIntegrator,sc, sensor_id,A,S,G)#None)
                 else:
                     our_imgB = our_imgA
+
+                # tmp = graphviz(our_imgA)
+
                 # our_imgA = myIntegrator.renderD(sc, sensor_id)
                 # if isBaseline:
                 #     our_imgB = myIntegrator.renderD(sc, sensor_id)
                 # else:
                 #     our_imgB = our_imgA
                 render_loss += compute_render_loss(our_imgA, our_imgB, tar_img, args.img_weight) / batch_size
-                # render_loss += compute_render_loss(our_imgA, our_imgA, tar_img, args.img_weight) / batch_size
-                
-                # Save RMSE loss for logging
-                # render_loss += compute_render_loss(our_imgA, our_imgB, tar_img, args.img_weight) / batch_size
 
             if args.silhouette == "yes":
                 sc.opts.spp = 1
@@ -839,6 +829,7 @@ def opt_task(args):
                 ek.set_gradient(ctx.output, FloatC(grad_out))
             except:
                 result = (None, None, None, None, None, None, None)
+                # result = (None, None, None, None, None, None, None, None)
         
             # print("--------------------------------------------------------")
             FloatD.backward()
@@ -863,14 +854,31 @@ def opt_task(args):
             gradG = ek.gradient(ctx.input5).torch()
             gradG[torch.isnan(gradG)] = 0.0
             gradG[torch.isinf(gradG)] = 0.0
+            # print("-------------------------D-----------------------------")
+            # gradD = ek.gradient(ctx.input6).torch()
+            # gradD[torch.isnan(gradD)] = 0.0
+            # gradD[torch.isinf(gradD)] = 0.0
+            gradD = None
 
-            result = (gradV, gradA, gradS, gradR, gradG, None, None)
+            # TODO: compute gradients for dependency of kernelEps
+            # dA,dS, dG, dD0, dD1, dD2 = ctx.saved_tensors
+            breakpoint()
+            # dD = [dD0,dD1, dD2]
+            # for idx,dd in enumerate(dD):
+            dA,dS, dG, dd = ctx.saved_tensors
+            desc_gradA,desc_gradS, desc_gradG = torch.autograd.grad(dd, (dA,dS,dG))
+            gradA += desc_gradA
+            gradS += desc_gradS
+            gradG += desc_gradG
+            # breakpoint()
+
+            result = (gradV, gradA, gradS, gradR, gradG, gradD, None,None)
+            # del ctx.output, ctx.input1, ctx.input2, ctx.input3, ctx.input4, ctx.input5, ctx.input6
             del ctx.output, ctx.input1, ctx.input2, ctx.input3, ctx.input4, ctx.input5
             print("==========================")
             print("Estimated gradients")
-            print("gradA ",gradA,"gradS ",gradS)
-            # assert(torch.all(gradA==0.0))
-            # assert(torch.all(gradS == 0.0))
+            print("gradA ",gradA,"gradS ",gradS,)
+            print("gradD",gradD)
             return result
 
     
@@ -1013,6 +1021,8 @@ def opt_task(args):
         A = Variable(sc.param_map[material_key].albedo.data.torch(), requires_grad=True)
         R = Variable(sc.param_map[material_key].alpha_u.data.torch(), requires_grad=True)
         G = Variable(sc.param_map[material_key].eta.data.torch(), requires_grad=True)
+        # TODO: tmp setting
+        D = Variable(torch.ones((1),device='cuda'), requires_grad=True)
 
         # TODO: disabled for now
         V = Variable(sc.param_map[mesh_key].vertex_positions.torch(), requires_grad=not(args.mesh_lr==0))

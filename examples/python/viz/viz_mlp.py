@@ -234,10 +234,15 @@ class Scatter3DViewer(ViewerApp):
         # TODO: Take npz file as input
         # self.load_data("./test_poly_data.npz")
         # self.poly_data_mlp= self.load_data("../mlp/mlp_poly_data.npz")
-        self.poly_data_mlp= self.load_data("../mlp/head_v2_poly_data_mlp_N50.npz")
-        self.poly_data_gt= self.load_data("./head_v2_poly_data.npz")
-        # self.poly_data_mlp = None
-        # self.poly_data_gt = None
+        # self.poly_data_mlp= self.load_data("../mlp/head_v2_poly_data_mlp_N50.npz")
+        # self.poly_data_gt= self.load_data("./head_v2_poly_data.npz")
+        # self.poly_data_mlp= self.load_data("../mlp/sphere_v2_poly_data_mlp_N50.npz")
+        # self.poly_data_gt= self.load_data("./sphere_v2_poly_data.npz")
+        self.poly_data_mlp = None
+        self.poly_data_gt = None
+        self.poly_num_vert = 10
+        self.poly_num_med= 10
+        self.poly_data = None
 
         if args.mesh and os.path.isfile(args.mesh):
             self.set_mesh(args.mesh)
@@ -475,6 +480,8 @@ class Scatter3DViewer(ViewerApp):
                 scene_file = "/sss/InverseTranslucent/examples/scenes/kettle1_out.xml"
             elif "buddha" in mesh_name:
                 scene_file = "/sss/InverseTranslucent/examples/scenes/buddha1_out.xml"
+            elif "sphere" in mesh_name:
+                scene_file = "/sss/InverseTranslucent/examples/scenes/sphere1_out.xml"
             else: #if "cube_subdiv" in self.mesh_file:
                 scene_file = "/sss/InverseTranslucent/examples/scenes/cone4_out.xml"
                 scene_file = scene_file.replace('cone',mesh_name)
@@ -1088,9 +1095,9 @@ class Scatter3DViewer(ViewerApp):
                         h = self.viewer_data.get_histogram()
                         # self.mesh.draw_contents(self.camera, self.render_context, h,
                         #                         bb_min=self.min_pos, bb_max=self.max_pos)
-                # else:
-                #     self.mesh.draw_contents(self.camera, self.render_context, None,
-                #                             (1.0,1.0,1.0,0.2))
+                else:
+                    self.mesh.draw_contents(self.camera, self.render_context, None,
+                                            (1.0,1.0,1.0,0.2))
 
         if self.training_points is not None:
             self.training_points.draw_contents(self.camera, self.render_context, None, [0, 1, 0])

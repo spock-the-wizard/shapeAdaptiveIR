@@ -1,4 +1,4 @@
-python3.8 ../learn_real_data.py \
+python3.8 ../learn_real_data_2.py \
         --stats_folder $1 \
         --d_type "custom" \
         --seed 2 \
@@ -6,10 +6,10 @@ python3.8 ../learn_real_data.py \
         --n_dump 25 \
         --ref_folder "exr_ref" \
         --mesh_lr 0.00 \
-        --sigma_lr 0.0001 \
-        --albedo_lr 0.0001 \
-        --rough_lr 0.0005 \
-        --eta_lr 0.0001 \
+        --sigma_lr 0.005 \
+        --albedo_lr 0.01 \
+        --rough_lr 0.05 \
+        --eta_lr 0.001 \
         --n_reduce_step 400 \
         --n_iters 300 \
         --laplacian 30 \

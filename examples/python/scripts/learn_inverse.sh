@@ -18,8 +18,8 @@ python ./replace_xml.py --sigma_t "$sigma_t" \
 --in_xml "$xml_file" \
 --out_xml "$out_file" \
 # --is_baseline
-# bash ./inverse/learn_inverse_2.sh $exp_name $name $spp $out_file $spp_inv $n_crops
-bash ./inverse/learn_inverse.sh $exp_name $name $spp $out_file $spp_inv $n_crops
+bash ./inverse/learn_inverse_2.sh $exp_name $name $spp $out_file $spp_inv $n_crops
+# bash ./inverse/learn_inverse.sh $exp_name $name $spp $out_file $spp_inv $n_crops
 
 # # Medium 1
 # exp_name="exp3/var35"

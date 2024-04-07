@@ -400,6 +400,8 @@ def opt_task(args):
         mesh_file = "../../smoothshape/kettle_.obj"
     elif args.scene == "duck":
         mesh_file = "../../smoothshape/duck_v2.obj"
+    elif args.scene == "sphere1":
+        mesh_file = "../../smoothshape/sphere_v2.obj"
     else:
         raise NotImplementedError
 
