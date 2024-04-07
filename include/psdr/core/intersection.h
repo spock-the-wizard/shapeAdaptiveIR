@@ -40,11 +40,9 @@ struct Intersection_ : public Interaction_<Float_> {
     Vector20f<ad> get_poly_coeff(const int idx) {
         return poly_coeff[idx];
     }
-    void set_poly_coeff(const Vector20fC coeffs,const int idx) {
-        // std::cout << "coeffs " << coeffs << std::endl;
+    template <bool ad>
+    void set_poly_coeff(const Vector20f<ad> coeffs,const int idx) {
         poly_coeff[idx] = coeffs;
-        // std::cout << "poly_coeff[idx] " << poly_coeff[idx] << std::endl;
-        // exit(0);
         return;
     }
     
