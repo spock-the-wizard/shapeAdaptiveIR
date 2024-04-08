@@ -87,19 +87,34 @@ args = parser.parse_args()
 
 import matplotlib as mpl
 import matplotlib.pyplot as plt
+# class MidpointNormalize(mpl.colors.Normalize):
+#     """
+#     class to help renormalize the color scale
+#     """
+#     def __init__(self, vmin=None, vmax=None, midpoint=None, clip=False):
+#         self.midpoint = midpoint
+#         mpl.colors.Normalize.__init__(self, vmin, vmax, clip)
+
+#     def __call__(self, value, clip=None):
+#         # I'm ignoring masked values and all kinds of edge cases to make a
+#         # simple example...
+#         x, y = [self.vmin, self.midpoint, self.vmax], [0, 0.5, 1]
+#         return np.ma.masked_array(np.interp(value, x, y))
+
+
 class MidpointNormalize(mpl.colors.Normalize):
-    """
-    class to help renormalize the color scale
-    """
-    def __init__(self, vmin=None, vmax=None, midpoint=None, clip=False):
+    def __init__(self, vmin, vmax, midpoint=0, clip=False):
         self.midpoint = midpoint
         mpl.colors.Normalize.__init__(self, vmin, vmax, clip)
 
     def __call__(self, value, clip=None):
-        # I'm ignoring masked values and all kinds of edge cases to make a
-        # simple example...
-        x, y = [self.vmin, self.midpoint, self.vmax], [0, 0.5, 1]
+        normalized_min = max(0, 1 / 2 * (1 - abs((self.midpoint - self.vmin) / (self.midpoint - self.vmax))))
+        normalized_max = min(1, 1 / 2 * (1 + abs((self.vmax - self.midpoint) / (self.midpoint - self.vmin))))
+        normalized_mid = 0.5
+        x, y = [self.vmin, self.midpoint, self.vmax], [normalized_min, normalized_mid, normalized_max]
         return np.ma.masked_array(np.interp(value, x, y))
+
+
 def saveArgument(ars, file):
     with open(file, 'w') as f:
         json.dump(ars.__dict__, f, indent=2)
@@ -929,8 +944,11 @@ def opt_task(args):
         result = compute_forward_derivative(A=A, S=S, sensor_id=sensor_id,idx_param=idx_param)
         img = result.numpy().reshape(sc.opts.cropheight,sc.opts.cropwidth,-1)[...,idx_param]
 
-        norm = MidpointNormalize(midpoint=0.0)
-        plt.imshow(img, cmap='RdBu',norm=norm)
+        # norm = MidpointNormalize(midpoint=0.0)
+
+        norm = MidpointNormalize(vmin=img.min(), vmax=img.max(), midpoint=0)
+        # plt.imshow(img, cmap='RdBu_r',norm=norm)
+        plt.imshow(img, cmap='RdBu_r',vmin=-1.0, vmax=1.0)#norm=norm)
         plt.tight_layout()
         plt.colorbar()
         plt.axis('off')
@@ -964,8 +982,12 @@ def opt_task(args):
         result_fd = (result1 - result0) / (2*fd_delta)
         img = result_fd[...,idx_param]
 
-        norm = MidpointNormalize(midpoint=0.0)
-        plt.imshow(img, cmap='RdBu',norm=norm)
+        # norm = MidpointNormalize(midpoint=0.0)
+        
+        # divnorm=colors.TwoSlopeNorm(vmin=-1.0, vcenter=0., vmax=1.0)
+        norm = MidpointNormalize(vmin=img.min(), vmax=img.max(), midpoint=0)
+        plt.imshow(img, cmap='RdBu_r',vmin=-1.0, vmax=1.0)#norm=norm)
+        # plt.imshow(img, cmap='RdBu',norm=divnorm)
         plt.tight_layout()
         plt.colorbar()
         plt.axis('off')

@@ -17,7 +17,7 @@ python3.8 /sss/InverseTranslucent/examples/python/learn_real_data_2.py \
         --albedo_laplacian 0 \
         --rough_laplacian 0 \
         --no_init "no" \
-        --spp 16 \
+        --spp 4 \
         --sppe 0 \
         --sppse 0 \
         --ref_spp $3 \

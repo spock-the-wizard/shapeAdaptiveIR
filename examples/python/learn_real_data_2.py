@@ -429,6 +429,7 @@ def opt_task(args):
         time_end = time.time()
         print(f"Precomputing polynomials took {time_end - time_start} seconds")
 
+    # FIXME
     if not isBaseline:
         precompute_mesh_polys()
 
@@ -714,7 +715,7 @@ def opt_task(args):
                 # tar_img = Vector3fD(tars[sensor_id].cuda())
                 # weight_img = Vector3fD(tmeans[sensor_id].cuda()f)
                 our_imgA = myIntegrator.renderD(sc, sensor_id)
-                if True: #isBaseline:
+                if isBaseline:
                     our_imgB = myIntegrator.renderD(sc, sensor_id)
                 else:
                     our_imgB = our_imgA
@@ -755,6 +756,7 @@ def opt_task(args):
             gradA = ek.gradient(ctx.input2).torch()
             gradA[torch.isnan(gradA)] = 0.0
             gradA[torch.isinf(gradA)] = 0.0
+            # gradA= None
             # print("-------------------------S-----------------------------")
             gradS = ek.gradient(ctx.input3).torch()
             gradS[torch.isnan(gradS)] = 0.0
@@ -1174,14 +1176,14 @@ def opt_task(args):
     if args.render_gradient:
         GRAD_DIR = "../../grad"
 
-        # fd_delta = 5e-2 #2
-        fd_delta = 5
+        fd_delta = 5e-2 #2
+        # fd_delta = 5
         sensor_id = 0
         idx_param = 2 #0
         param_delta = torch.zeros(3).cuda()
         param_delta[idx_param] = fd_delta
-        # isAlbedo = True
-        isAlbedo = False
+        isAlbedo = True
+        # isAlbedo = False
         
         A,S = None,None
         if isAlbedo:
@@ -1191,20 +1193,23 @@ def opt_task(args):
             S = Variable(sc.param_map[material_key].sigma_t.data.torch(), requires_grad=True)
             filename = os.path.join(GRAD_DIR,f"{args.scene}_sensor{sensor_id}_sigma_t{sc.param_map[material_key].sigma_t.data}_param{idx_param}_{sc.param_map[material_key].type_name()}_deriv.png")
         
-        # result = compute_forward_derivative(A=A, S=S, sensor_id=sensor_id,idx_param=idx_param)
-        # img = result.numpy().reshape(sc.opts.cropheight,sc.opts.cropwidth,-1)[...,idx_param]
+        result = compute_forward_derivative(A=A, S=S, sensor_id=sensor_id,idx_param=idx_param)
+        img = result.numpy().reshape(sc.opts.cropheight,sc.opts.cropwidth,-1)[...,idx_param]
 
         # norm = MidpointNormalize(midpoint=0.0)
         # plt.imshow(img, cmap='RdBu',norm=norm)
-        # plt.tight_layout()
-        # plt.colorbar()
-        # plt.axis('off')
+        cmax = max(img.max(),abs(img.min()))
+        norm = MidpointNormalize(vmin=-cmax,vmax=cmax,midpoint=0.0)
+        plt.imshow(img, cmap='RdBu_r',norm=norm)
+        plt.tight_layout()
+        plt.colorbar()
+        plt.axis('off')
 
-        # print(f"Write gradient image to {filename}")
-        # plt.savefig(filename,bbox_inches='tight')
-        # plt.close()
+        print(f"Write gradient image to {filename}")
+        plt.savefig(filename,bbox_inches='tight')
+        plt.close()
 
-        # del result, img
+        del result, img
         
         filename = filename.replace("deriv","FD",)
         ## Gradient estimate using finite differences
@@ -1215,10 +1220,12 @@ def opt_task(args):
             result0 = compute_forward_derivative(A0,S=S,sensor_id=sensor_id,idx_param=idx_param,FD=True)
             result1 = compute_forward_derivative(A1,S=S,sensor_id=sensor_id,idx_param=idx_param,FD=True)
         else:
-            S0 = Variable(sc.param_map[material_key].sigma_t.data.torch() - fd_delta, requires_grad=True)
-            S1 = Variable(sc.param_map[material_key].sigma_t.data.torch() + fd_delta, requires_grad=True)
+            S0 = Variable(sc.param_map[material_key].sigma_t.data.torch() - param_delta , requires_grad=True)
+            S1 = Variable(sc.param_map[material_key].sigma_t.data.torch() + param_delta , requires_grad=True)
             result0 = compute_forward_derivative(A,S=S0,sensor_id=sensor_id,idx_param=idx_param,FD=True)
             result1 = compute_forward_derivative(A,S=S1,sensor_id=sensor_id,idx_param=idx_param,FD=True)
+            # result0 = result0[...,idx_param][...,None]
+            # result1 = result1[...,idx_param][...,None]
         
         img0 = result0 * 255.0
         img1 = result1 * 255.0
@@ -1230,8 +1237,9 @@ def opt_task(args):
         result_fd = (result1 - result0) / (2*fd_delta)
         img = result_fd[...,idx_param]
 
-        norm = MidpointNormalize(midpoint=0.0)
-        plt.imshow(img, cmap='RdBu',norm=norm)
+        cmax = max(img.max(),abs(img.min()))
+        norm = MidpointNormalize(vmin=-cmax,vmax=cmax,midpoint=0.0)
+        plt.imshow(img, cmap='RdBu_r',norm=norm)
         plt.tight_layout()
         plt.colorbar()
         plt.axis('off')

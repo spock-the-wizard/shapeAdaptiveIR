@@ -510,21 +510,22 @@ Array<Float<ad>,23> VaeSub::_preprocessFeatures(const Intersection<ad>&its, Floa
             ) const {
     float scale = 1.0f;
     Spectrum<ad> albedo = m_albedo.eval<ad>(its.uv);
+    Spectrum<ad> g = m_g.eval<ad>(its.uv);
+    Spectrum<ad> eta = m_eta.eval<ad>(its.uv);
     Spectrum<ad> sigma_s = scale * m_sigma_t.eval<ad>(its.uv) * albedo;
     Spectrum<ad> sigma_a = scale * m_sigma_t.eval<ad>(its.uv) - sigma_s;
-    Spectrum<ad> miu_s_p = (1.0f - m_g.eval<ad>(its.uv)) * sigma_s;
+    Spectrum<ad> miu_s_p = (1.0f - g) * sigma_s;
     Spectrum<ad> miu_t_p = miu_s_p + sigma_a;
     Spectrum<ad> alpha_p = miu_s_p / miu_t_p;
 
-    Spectrum<ad> g = m_g.eval<ad>(its.uv);
-    Spectrum<ad> eta = m_eta.eval<ad>(its.uv);
-
     std::cout << "m_sigma_t" << m_sigma_t.eval<ad>(its.uv)  << std::endl;
     std::cout << "m_albedo" << m_albedo.eval<ad>(its.uv)  << std::endl;
+    // std::cout << "g " << g << std::endl;
     
     // NOTE: Modified
-    auto effectiveAlbedo = -log(1.0f-albedo * (1.0f - exp(-8.0f))) / 8.0f;
-    // auto effectiveAlbedo = -log(1.0f-alpha_p * (1.0f - exp(-8.0f))) / 8.0f;
+    // auto effectiveAlbedo = -log(1.0f-albedo * (1.0f - exp(-8.0f))) / 8.0f;
+    auto effectiveAlbedo = -log(1.0f-alpha_p * (1.0f - exp(-8.0f))) / 8.0f;
+    // std::cout << "alpha_p " << alpha_p << std::endl;
     
     auto albedoNorm = (effectiveAlbedo - m_albedoMean) * m_albedoStdInv;
     auto gNorm = (g-m_gMean) * m_gStdInv;
@@ -690,6 +691,7 @@ std::tuple<Intersection<ad>,Float<ad>,Vector3f<ad>,Vector3f<ad>> VaeSub::__sampl
             // polyVal = full<Float<ad>>(1.0f);
             // projDir = vz;
             /////////////////////////////
+            // std::tie(polyVal,projDir) = evalGradient<ad>(detach(its.p),detach(shapeFeatures),outPos,3,fitScaleFactor,true,vz);
             std::tie(polyVal,projDir) = evalGradient<ad>(detach(its.p),detach(shapeFeatures),detach(outPos),3,detach(fitScaleFactor),true,vz);
         }
         else{
@@ -718,28 +720,6 @@ std::tuple<Intersection<ad>,Float<ad>,Vector3f<ad>,Vector3f<ad>> VaeSub::__sampl
         Intersection<ad> its3;
         float eps = 0.05f;
         Mask<ad> msk;
-        // std::cout << "[DEBUG] Projection count" << hsum(active) <<std::endl;
-        // Spectrum<ad> sigma_s = m_sigma_t.eval<ad>(its.uv) * m_albedo.eval<ad>(its.uv);
-        // Spectrum<ad> sigma_a = m_sigma_t.eval<ad>(its.uv) - sigma_s;
-
-        // Spectrum<ad> miu_s_p = (1.0f - m_g.eval<ad>(its.uv)) * sigma_s;
-        // Spectrum<ad> D = 1.0f / (3.0f * (sigma_a + miu_s_p));
-
-        // Spectrum<ad> miu_tr = sqrt(sigma_a / D);
-        // Float<ad> miu_tr_0 = 0.5f;
-
-        // rnd = sample[5];
-        // miu_tr_0 = select(rnd < 1.0f / 3.0f, miu_tr.x(), miu_tr.y());
-        // miu_tr_0 = select(rnd > 2.0f / 3.0f, miu_tr.z(), miu_tr_0);
-        
-        // Float<ad> r = __sample_sr<ad>(miu_tr_0, sample.z());
-        // Float<ad> phi = 2.0f * Pi * sample.w();
-        // Float<ad> rmax = __sample_sr<ad>(miu_tr_0, 0.999999f);
-
-        // Float<ad> l = 2.0f * sqrt(rmax * rmax - r * r);
-        // tmax = l;
-        // start_time = high_resolution_clock::now();
-        // if(false) {
         if(true){
             // Ray<ad> ray3(detach(outPos) - eps*detach(projDir), projDir,detach(tmax)); //1.0f); //- 0.5f*tmax*projDir,projDir, tmax);
             Ray<ad> ray3(outPos- eps*projDir, projDir); //,tmax);
@@ -779,6 +759,9 @@ std::tuple<Intersection<ad>,Float<ad>,Vector3f<ad>,Vector3f<ad>> VaeSub::__sampl
         // if constexpr(ad){
         //     // Reparameterization to allow gradient flow
         //     auto ray_dir = select(msk,projDir,-projDir);
+        //     // std::cout << "[bef] its3.p " << its3.p << std::endl;
+        //     // its3.p = outPos-eps*ray_dir + detach(its3.t) * ray_dir;
+        //     // std::cout << "[aft] its3.p " << its3.p << std::endl;
         //     its3.p = outPos-eps*detach(ray_dir) + detach(its3.t) * detach(ray_dir);
         // }
         // else{
