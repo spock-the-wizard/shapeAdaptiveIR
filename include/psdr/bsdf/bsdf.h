@@ -1,6 +1,7 @@
 #pragma once
 
 #include <psdr/psdr.h>
+#include <psdr/core/bitmap.h>
 #include <psdr/core/intersection.h>
 #include <psdr/core/records.h>
 #include <psdr/scene/scene.h>
@@ -19,10 +20,14 @@ struct BSDFSample_ : public SampleRecord_<Float_> {
 
     // Joon added
     Float<ad> rgb_rv; //= full<Int<ad>>(1);
+    // Bitmap1fD m_alpha_u, m_alpha_v; // surface roughness
+    // Bitmap1fD m_eta, m_g;
+    // Bitmap3fD m_albedo, m_sigma_t; // medium features
+    // Bitmap3fD m_specular_reflectance; // reflectance
 
     ENOKI_DERIVED_STRUCT(BSDFSample_, Base,
         ENOKI_BASE_FIELDS(pdf, is_valid),
-        ENOKI_DERIVED_FIELDS(wo, po, is_sub, rgb_rv)
+        ENOKI_DERIVED_FIELDS(wo, po, is_sub, rgb_rv) //m_alpha_u,m_alpha_v,m_eta,m_g,m_albedo,m_sigma_t,m_specular_reflectance)
     )
 };
 
@@ -58,12 +63,21 @@ public:
     virtual FloatC pdfpoint(const IntersectionC &its, const BSDFSampleC &bs, MaskC active) const = 0;
     virtual FloatD pdfpoint(const IntersectionD &its, const BSDFSampleD &bs, MaskD active) const = 0;
 
+    
+    // template <bool ad>
+    // Float<ad> getKernelEps(const Intersection<ad>& its,Float<ad> idx) const;
+    virtual FloatC getKernelEps(const IntersectionC& its,FloatC rnd) const {
+        return full<FloatC>(1.0f);
+    }
+    virtual FloatD getKernelEps(const IntersectionD& its,FloatD idx) const { 
+        return full<FloatC>(1.0f);
+    }
     virtual bool hasbssdf() const = 0;
 PSDR_CLASS_DECL_END(BSDF)
 
 } // namespace psdr
 
-ENOKI_STRUCT_SUPPORT(psdr::BSDFSample_, pdf, is_valid, wo, po, is_sub,rgb_rv)
+ENOKI_STRUCT_SUPPORT(psdr::BSDFSample_, pdf, is_valid, wo, po, is_sub,rgb_rv) //,m_alpha_u,m_alpha_v,m_eta,m_g,m_albedo,m_sigma_t,m_specular_reflectance)
 
 ENOKI_CALL_SUPPORT_BEGIN(psdr::BSDF)
     ENOKI_CALL_SUPPORT_METHOD(eval)
@@ -72,5 +86,7 @@ ENOKI_CALL_SUPPORT_BEGIN(psdr::BSDF)
     ENOKI_CALL_SUPPORT_METHOD(pdf)
     ENOKI_CALL_SUPPORT_METHOD(pdfpoint)
     ENOKI_CALL_SUPPORT_METHOD(anisotropic)
+    // ENOKI_CALL_SUPPORT_METHOD(getKernelEps<true>)
+    ENOKI_CALL_SUPPORT_METHOD(getKernelEps)
     ENOKI_CALL_SUPPORT_METHOD(hasbssdf)
 ENOKI_CALL_SUPPORT_END(psdr::BSDF)

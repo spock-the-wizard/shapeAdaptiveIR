@@ -6,11 +6,11 @@ python3.8 ../learn_real_data_2.py \
         --n_dump 25 \
         --ref_folder "exr_ref" \
         --mesh_lr 0.00 \
-        --sigma_lr 0.05 \
+        --sigma_lr 0.02 \
         --albedo_lr 0.005 \
         --rough_lr 0.05 \
         --eta_lr 0.001 \
-        --n_reduce_step 400 \
+        --n_reduce_step 25 \
         --n_iters 300 \
         --laplacian 30 \
         --sigma_laplacian 0 \
@@ -19,7 +19,7 @@ python3.8 ../learn_real_data_2.py \
         --no_init "no" \
         --spp $5 \
         --sppe 0 \
-        --sppse 0 \
+        --sppse 8192 \
         --ref_spp $3 \
         --albedo_texture 0 \
         --rough_texture 0 \
@@ -27,4 +27,5 @@ python3.8 ../learn_real_data_2.py \
         --silhouette "no" \
         --scene_file $4 \
         --n_crops $6 \
+        --range_weight 100.0 \
         # --debug \

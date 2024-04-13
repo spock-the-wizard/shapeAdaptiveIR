@@ -179,7 +179,7 @@ parser.add_argument('--mesh_lr',            type=float,    default=0.05)
 parser.add_argument('--rough_lr',            type=float,   default=0.02)
 
 parser.add_argument('--img_weight',         type=float,    default=1.0)
-parser.add_argument('--range_weight',         type=float,    default=10.0)
+parser.add_argument('--range_weight',         type=float,    default=0.0)
 parser.add_argument('--tot_weight',         type=float,    default=0.01)
 parser.add_argument('--laplacian',          type=float,    default=60)
 parser.add_argument('--sigma_laplacian',    type=float,    default=0)
@@ -210,6 +210,7 @@ parser.add_argument('--d_type',             type=str,     default="real")
 parser.add_argument('--silhouette',         type=str,     default="yes")
 
 parser.add_argument('--render_gradient', action="store_true")
+parser.add_argument('--debug', action="store_true")
 
 os.environ["OPENCV_IO_ENABLE_OPENEXR"]="1"
 
@@ -268,6 +269,10 @@ def opt_task(args):
             'sigmat': [109.00, 109.00, 52.00],
         },
         'head1': {
+            'albedo': [0.9, 0.9, 0.9],
+            'sigmat': [109.00, 109.00, 52.00],
+        },
+        'head2': {
             'albedo': [0.9, 0.9, 0.9],
             'sigmat': [109.00, 109.00, 52.00],
         },
@@ -394,6 +399,8 @@ def opt_task(args):
         mesh_file = "../../smoothshape/vicini/cone_subdiv.obj"
     elif args.scene == "head1":
         mesh_file = "../../smoothshape/head_v2.obj"
+    elif args.scene == "head2":
+        mesh_file = "../../smoothshape/head_v2.obj"
     elif args.scene == "cylinder4":
         mesh_file = "../../smoothshape/vicini/cylinder_subdiv.obj"
     elif args.scene == "kettle1":
@@ -430,7 +437,7 @@ def opt_task(args):
         print(f"Precomputing polynomials took {time_end - time_start} seconds")
 
     # FIXME
-    if not isBaseline:
+    if not args.debug and not isBaseline:
         precompute_mesh_polys()
 
     tars = [] 
@@ -476,7 +483,7 @@ def opt_task(args):
         return indices
 
     def texture_range_loss(A, S, R, G, weight):
-        lossS = torch.pow(torch.where(S < 0, -S, torch.where(S > 100.0, S - 100.0, torch.zeros_like(S))), 2)
+        lossS = torch.pow(torch.where(S < 0, -S, torch.where(S > 150.0, S - 150.0, torch.zeros_like(S))), 2)
         lossA = torch.pow(torch.where(A < 0.0, -A, torch.where(A > 1.0, A - 1, torch.zeros_like(A))), 2)
         lossR = torch.pow(torch.where(R < 0.01, 0.02 - R, torch.where(R > 2.0, R - 2.0, torch.zeros_like(R))), 2)
         lossG = torch.pow(torch.where(G < 1.0, 2.0-G, torch.where(G > 10.0, G - 1, torch.zeros_like(G))), 2)
@@ -715,6 +722,11 @@ def opt_task(args):
                 # tar_img = Vector3fD(tars[sensor_id].cuda())
                 # weight_img = Vector3fD(tmeans[sensor_id].cuda()f)
                 our_imgA = myIntegrator.renderD(sc, sensor_id)
+                # FIXME!!
+                # tmp = our_imgA.numpy().reshape(512,512,3)
+                # cv2.imwrite("test.png",tmp*255)
+                # print(tmp.max())
+                # breakpoint()
                 if isBaseline:
                     our_imgB = myIntegrator.renderD(sc, sensor_id)
                 else:
@@ -730,6 +742,7 @@ def opt_task(args):
                 sc.configure()
                 for sensor_id in sensor_indices:
                     silhouette = silhouetteIntegrator.renderD(sc, sensor_id)
+                    # breakpoint()
                     ref_sil = Vector3fD(maks[sensor_id].cuda())
                     render_loss += compute_silheuette_loss(silhouette, ref_sil, args.img_weight) / batch_size                
 
@@ -753,21 +766,25 @@ def opt_task(args):
             # gradV[torch.isinf(gradV)] = 0.0
             gradV = None
             # print("-------------------------A-----------------------------")
-            gradA = ek.gradient(ctx.input2).torch()
-            gradA[torch.isnan(gradA)] = 0.0
-            gradA[torch.isinf(gradA)] = 0.0
-            # gradA= None
+            # gradA = ek.gradient(ctx.input2).torch()
+            # gradA[torch.isnan(gradA)] = 0.0
+            # gradA[torch.isinf(gradA)] = 0.0
+            gradA= None
             # print("-------------------------S-----------------------------")
             gradS = ek.gradient(ctx.input3).torch()
             gradS[torch.isnan(gradS)] = 0.0
             gradS[torch.isinf(gradS)] = 0.0
+            # FIXME: tmp setting
+            # gradS[...,0] = 0.0
+            # gradS[...,1] = 0.0
+
             # print("-------------------------R-----------------------------")
             gradR = ek.gradient(ctx.input4).torch()
             gradR[torch.isnan(gradR)] = 0.0
             gradR[torch.isinf(gradR)] = 0.0
             # print("-------------------------G-----------------------------")
             gradG = ek.gradient(ctx.input5).torch()
-            gradG[torch.isnan(gradG)] = 0.0
+            gradG[torch.isnan(gradG)] = 0.0 
             gradG[torch.isinf(gradG)] = 0.0
 
             result = (gradV, gradA, gradS, gradR, gradG, None, None)
@@ -838,7 +855,7 @@ def opt_task(args):
             Y = torch.from_numpy(target2.transpose(2,0,1)[None]) #torch.zeros((1,3,256,256))
             # calculate ssim & ms-ssim for each image
             ssim_val = ssim( X, Y, data_range=255, size_average=False) # return (N,)
-            wandb.log({
+            wandb_log({
                 "images/gt": wandb.Image(cv2.cvtColor(target2,cv2.COLOR_BGR2RGB)),
                 "images/out" : wandb.Image(cv2.cvtColor(img2,cv2.COLOR_BGR2RGB)),
                 "images/error": wandb.Image(cv2.cvtColor(cv2.imread(outfile_error),cv2.COLOR_BGR2RGB)),              
@@ -854,20 +871,26 @@ def opt_task(args):
         # error = np.concatenate((error_map), axis=1)                
         cv2.imwrite(statsdir + "/iter_{}.exr".format(i+1), output)
         # cv2.imwrite(statsdir + "/error_{}.png".format(i+1), error)
-        wandb.log({
+        wandb_log({
             "loss/rmse_avg_image": sum(rmse_list) / len(rmse_list), #rmse(img2,target2).mean(),
             "loss/ssim_avg_image": sum(ssim_list) / len(rmse_list), #rmse(img2,target2).mean(),
         })
 
+    def wandb_log(wandb_args,):
+        if not args.debug:
+            wandb.log(wandb_args)
+
+
 
     def optTask(args):
 
-        run = wandb.init(
-                # Set the project where this run will be logged
-                project="inverse-learned-sss",
-                # Track hyperparameters and run metadata
-                config=args,
-        )
+        if not args.debug:
+            run = wandb.init(
+                    # Set the project where this run will be logged
+                    project="inverse-learned-sss",
+                    # Track hyperparameters and run metadata
+                    config=args,
+            )
         
         
 
@@ -1003,6 +1026,8 @@ def opt_task(args):
                 del loss_, range_loss_, image_loss_
 
             loss /= args.n_crops
+            image_loss /= args.n_crops
+            range_loss /= args.n_crops
 
         
             # print("------ Iteration ---- ", i, ' image loss: ', loss.item(), ' eta: ', G.detach().cpu().numpy())   
@@ -1019,7 +1044,7 @@ def opt_task(args):
                 print("\n rough: ", R.detach().cpu().numpy())
                 roughhistory.append(R.detach().cpu().numpy())    
             
-            # wandb.log({
+            # wandb_log({
             #     "image loss": loss.item(),
             #     "eta": G.detach().cpu().numpy(),
             #     "albedo" : A.detach().cpu().numpy(),
@@ -1029,7 +1054,10 @@ def opt_task(args):
             log_alb = A.detach().cpu().numpy()[0]
             log_sig = S.detach().cpu().numpy()[0]
 
-            wandb.log({
+            wandb_log({
+                "loss/train_loss": loss,
+                "loss/range_loss": range_loss,
+                "loss/image_loss": image_loss,
                 "loss/rmse_param_alb": rmse(log_alb,params_gt[args.scene]['albedo']),
                 "loss/rmse_param_sig": rmse(np.exp(log_sig), params_gt[args.scene]['sigmat']),
                 "loss/rmse_param_sigT": rmse(log_sig, np.log(params_gt[args.scene]['sigmat'])),
@@ -1055,7 +1083,7 @@ def opt_task(args):
             
         
             if i == 0 or ((i+1) %  args.n_dump) == 0:
-                wandb.log({
+                wandb_log({
                         # "loss/total": loss.item(),
                         # "loss/image": image_loss.item(),
                         "loss/total": loss,
@@ -1078,8 +1106,9 @@ def opt_task(args):
 
                 optimizer.setLearningRate(lrs)
 
-            # if (i==0 and args.n_iters == 1) or ((i+1) %  args.n_dump) == 0:
-            if i == 0 or ((i+1) %  args.n_dump) == 0:
+            # if (i==0 and args.n_iters == 1) or 
+            if (i % args.n_dump == args.n_dump -1):
+            # if i == 0 or ((i+1) %  args.n_dump) == 0:
                 # sensor_indices = active_sensors(1, num_sensors)
                 # renderPreview(i, np.array([0], dtype=np.int32))
                 sc.opts.cropheight = sc.opts.height
@@ -1087,8 +1116,11 @@ def opt_task(args):
                 sc.opts.crop_offset_x = 0 
                 sc.opts.crop_offset_y = 0 
                 sc.configure()
-                renderPreview(i, np.array([0, 1, 3, 6, 20], dtype=np.int32))
-                # renderPreview(i, np.array([0, 1, 4, 10, 19], dtype=np.int32))
+
+                # preview_sensors = np.random.choice(num_sensors,size=5)
+                # renderPreview(i, preview_sensors)
+                # renderPreview(i, np.array([0, 1, 3, 6, 20], dtype=np.int32))
+                renderPreview(i, np.array([0, 1, 4, 10, 19], dtype=np.int32))
                 # renderPreview(i, np.array([0, 1, 25, 3, 35], dtype=np.int32))
                 if args.albedo_texture > 0:
                     albedomap = A.detach().cpu().numpy().reshape((alb_texture_width, alb_texture_width, 3))
@@ -1177,13 +1209,13 @@ def opt_task(args):
         GRAD_DIR = "../../grad"
 
         fd_delta = 5e-2 #2
-        # fd_delta = 5
-        sensor_id = 0
+        fd_delta = 25
+        sensor_id = 1 #0
         idx_param = 2 #0
         param_delta = torch.zeros(3).cuda()
         param_delta[idx_param] = fd_delta
-        isAlbedo = True
-        # isAlbedo = False
+        # isAlbedo = True
+        isAlbedo = False
         
         A,S = None,None
         if isAlbedo:

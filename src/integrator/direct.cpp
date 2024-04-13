@@ -190,7 +190,7 @@ Spectrum<ad> DirectIntegrator::__Li(const Scene &scene, Sampler &sampler, const 
         // std::cout << "bsdf_array " << bsdf_array << std::endl;
 
         // backward(bsdf_val[0]);
-        // auto gradient_ = gradient(bs.po.p);
+        // auto gradient_ = gradient(bs.po.p[0]);
         // int count = 0;
         // int i = 0;
         //
@@ -198,6 +198,7 @@ Spectrum<ad> DirectIntegrator::__Li(const Scene &scene, Sampler &sampler, const 
         // This works as expected
         // bsdf_val = hsum(bs.po.p.x()); 
         // backward(bsdf_val[0]);
+        // std::cout << "gradient_ " << gradient_ << std::endl;
         // std::cout << "gradient(bs.po.p) " << gradient(bs.po.p) << std::endl;
     } else {
         bsdf_val = bsdf_array->eval(its, bs, active1);
@@ -210,6 +211,7 @@ Spectrum<ad> DirectIntegrator::__Li(const Scene &scene, Sampler &sampler, const 
     // std::cout << "bs.po.p[active] " << bs.po.p[active] << std::endl;
     Float<ad> pdfpoint = bsdf_array->pdfpoint(its, bs, active1);
     Spectrum<ad> Le;
+    Spectrum<ad> Le_inv;
 
     if constexpr ( ad ) {
         // IntC cameraIdx = arange<IntC>(slices(its));
@@ -223,7 +225,20 @@ Spectrum<ad> DirectIntegrator::__Li(const Scene &scene, Sampler &sampler, const 
         // set_requires_gradient(bs.po.poly_coeff);
         
         // set_requires_gradient(bs.po.abs_prob);
+        // Le = scene.m_emitters[0]->eval(bs.po, active1);
         Le = scene.m_emitters[0]->eval(bs.po, active1);
+        // Le_inv = scene.m_emitters[0]->eval(bs.po, ~active1);
+        // Spectrum<ad> Le_invv(detach(Le_inv[0]),detach(Le_inv[1]),detach(Le_inv[2]));
+        // set_requires_gradient(Le_inv);
+        // auto tmp = SpectrumD(detach(Le_inv));
+        // auto tmp2 = -Le_inv;
+        // auto tmp3 = tmp + tmp2;
+        // // backward(tmp3[0]);
+        // // std::cout << "gradient(Le_inv) " << gradient(Le_inv) << std::endl;
+        // // std::cout << "tmp3 " << tmp3 << std::endl;
+        // Le = select(active1,Le,tmp3);
+        // Le = select(active1,Le,detach(Le_inv)-Le_inv);
+        // Le = select(active1,Le,detach(Le_invv)-Le_inv);
 
         // // FIXME
         // backward(Le[0]);
@@ -497,6 +512,141 @@ void DirectIntegrator::eval_secondary_edge_bssrdf(const Scene &scene, const Inte
         scatter_add(result, value - detach(value), IntD(rIdx));
     }
 }
+// template <bool ad>
+// std::pair<IntC, Spectrum<ad>> DirectIntegrator::eval_secondary_edge(const Scene &scene, const Sensor &sensor, const Vector3fC &sample3) const {
+//     std::cout << "eval_secondary_edge" << std::endl;
+//     BoundarySegSampleDirect bss = scene.sample_boundary_segment_direct(sample3);
+//     MaskC valid = bss.is_valid;
+
+//     // _p0 on a face edge, _p2 on an emitter
+//     const Vector3fC &_p0    = detach(bss.p0);
+//     Vector3fC       &_p2    = bss.p2,
+//                     _dir    = normalize(_p2 - _p0);                    
+
+//     // check visibility between _p0 and _p2
+//     IntersectionC _its2;
+//     TriangleInfoD tri_info;
+//     // if constexpr ( ad ) {
+//         // _its2 = scene.ray_intersect<false>(RayC(_p0, _dir), valid);
+//     // } else {
+//     _its2 = scene.ray_intersect<false>(RayC(_p0, _dir), valid);
+//     // }
+//     valid &= (~_its2.is_valid());// && norm(_its2.p - _p2) < ShadowEpsilon;
+
+//     // trace another ray in the opposite direction to complete the boundary segment (_p1, _p2)
+//     // IntersectionD its4;
+//      IntersectionC _its1;
+//     if constexpr ( ad ) {
+//         _its1 = scene.ray_intersect<false>(RayC(_p0, -_dir), MaskC(valid), &tri_info);
+//         // its4 = scene.ray_intersect<true, true>(RayD(_p0, normalize(_p0 - bss.p2)), MaskD(valid));
+//     } else {
+//         _its1 = scene.ray_intersect<false>(RayC(_p0, -_dir), MaskC(valid));
+//     }
+//     // IntersectionC _its1 = detach(its1);
+//     valid &= _its1.is_valid();
+//     // std::cout<<" valid : "<<any(valid)<<std::endl;
+//     // Vector3fC &_p1 = _its1.p;
+
+//     // Start: Xi Deng added:  sample a point for bssrdf 
+//     BSDFSampleC bs1, bs2;
+//     BSDFArrayC bsdf_array = _its1.shape->bsdf(valid);
+//     bs1 = bsdf_array->sample(&scene, _its1, scene.m_samplers[2].next_nd<8, false>(), valid);
+//     // std::cout << "direct:400" <<bs1.rgb << std::endl;
+//     Vector3fC &_p1 = bs1.po.p;
+    
+//     // std::cout<<bs1.po.abs_prob<<std::endl;
+//     // End: Xi Deng added
+//     bs2.po = _its1;
+//     // std::cout<<bs2.po.abs_prob<<std::endl;
+//     bs2.wo = _its1.sh_frame.to_local(_dir);
+//     bs2.is_valid = _its1.is_valid();
+//     bs2.pdf = bss.pdf;
+//     bs2.is_sub = bsdf_array->hasbssdf();
+//     bs2.rgb_rv = bs1.rgb_rv;
+//     // TODO: this part needs rgb mapping
+//     valid &= bs1.po.is_valid();
+//     // std::cout<<" valid : "<<any(valid)<<std::endl;
+
+//     // project _p1 onto the image plane and compute the corresponding pixel id
+//     SensorDirectSampleC sds = sensor.sample_direct(_p1);
+//     valid &= sds.is_valid;
+//     // std::cout<<" valid : "<<any(valid)<<std::endl;
+//     // trace a camera ray toward _p1 in a differentiable fashion
+//     Ray<ad> camera_ray;
+//     Intersection<ad> its2;
+//     if constexpr ( ad ) {
+//         camera_ray = sensor.sample_primary_ray(Vector2fD(sds.q));
+//         its2 = scene.ray_intersect<true, false>(camera_ray, valid);
+//         valid &= its2.is_valid() && norm(detach(its2.p) - _p1) < ShadowEpsilon;
+//     } else {
+//         camera_ray = sensor.sample_primary_ray(sds.q);
+//         its2 = scene.ray_intersect<false>(camera_ray, valid);
+//         valid &= its2.is_valid() && norm(its2.p - _p1) < ShadowEpsilon;
+//     }
+//     // std::cout<<" valid : "<<any(valid)<<std::endl;
+//     // calculate base_value
+//     FloatC      dist    = norm(_p2 - _its1.p),
+//                 part_dist    = norm(_p2 - _p0);
+//                 // cos2    = abs(dot(_its1.n, -_dir));
+//     Vector3fC   e       = cross(bss.edge, _dir); // perpendicular to edge and ray
+//     FloatC      sinphi  = norm(e);
+//     Vector3fC   proj    = normalize(cross(e, _its1.n)); // on the light plane
+//     FloatC      sinphi2 = norm(cross(_dir, proj));
+//     FloatC      base_v  = (dist/part_dist)*(sinphi/sinphi2);
+//     valid &= (sinphi > Epsilon) && (sinphi2 > Epsilon);
+//     // std::cout<<" valid : "<<any(valid)<<std::endl;
+//     // evaluate BSDF at _p1
+    
+//     Vector3fC d0;
+//     if constexpr ( ad ) {
+//         d0 = -detach(camera_ray.d);
+//     } else {
+//         d0 = -camera_ray.d;
+//     }
+//     // std::cout<<" print direction : "<<d0<<std::endl;
+//     // std::cout<<" print frame : "<<bs1.po.sh_frame.n<<std::endl;
+//     // std::cout<<" print frame : "<<bs1.wo<<std::endl;
+
+//     bs1.wo =  bs1.po.sh_frame.to_local(d0);
+//     bs1.po.wi =  bs1.po.sh_frame.to_local(d0);
+//     SpectrumC bsdf_val = bsdf_array->eval(bs1.po, bs2, valid);
+//     FloatC pdfpoint = bsdf_array->pdfpoint(bs2.po, bs1, valid);
+//     SpectrumC value0 = (bsdf_val*scene.m_emitters[0]->eval(bs2.po, valid)*(base_v * sds.sensor_val/bss.pdf/pdfpoint)) & valid;
+    
+//     // std::cout << "pdfpoint " << pdfpoint << std::endl;
+//     // std::cout << "value0 " << value0 << std::endl;
+    
+//     if constexpr ( ad ) {
+//         Vector3fC n = normalize(cross(_its1.n, proj));
+//         value0 *= sign(dot(e, bss.edge2))*sign(dot(e, n));
+
+//         // Start Xi Deng modified
+//         const Vector3fD &v0 = tri_info.p0,
+//                         &e1 = tri_info.e1,
+//                         &e2 = tri_info.e2;
+
+//         Vector3fD myp2 = bss.p2 * 0.0f;
+//         set_slices(myp2, slices(bss.p0));
+//         myp2 = myp2 + bss.p2;
+//         Vector2fD uv;
+        
+//         RayD shadow_ray(myp2, normalize(bss.p0 - myp2));
+//         std::tie(uv, std::ignore) = ray_intersect_triangle<true>(v0, e1, e2, shadow_ray);
+//         Vector3fD u2 = bilinear<true>(detach(v0), detach(e1), detach(e2), uv);
+//         // End Xi Deng added
+
+//         // Start: Joon modified
+//         // auto v_b = bsdf_array -> getKernelEps();
+//         // auto v_b = 1/s;
+//         // SpectrumD result = (SpectrumD(value0) * v_b) & valid;
+
+//         // End : Joon modified
+//         SpectrumD result = (SpectrumD(value0) * dot(Vector3fD(n), u2)) & valid;
+//         return { select(valid, sds.pixel_idx, -1), result - detach(result) };
+//     } else {
+//         return { -1, value0 };
+//     }
+// }
 
 
 template <bool ad>
@@ -523,40 +673,55 @@ std::pair<IntC, Spectrum<ad>> DirectIntegrator::eval_secondary_edge(const Scene 
     // trace another ray in the opposite direction to complete the boundary segment (_p1, _p2)
     // IntersectionD its4;
      IntersectionC _its1;
+    //  IntersectionD _its1;
     if constexpr ( ad ) {
         _its1 = scene.ray_intersect<false>(RayC(_p0, -_dir), MaskC(valid), &tri_info);
+        // _its1 = scene.ray_intersect<false>(RayD(_p0, -_dir), MaskD(valid), &tri_info);
         // its4 = scene.ray_intersect<true, true>(RayD(_p0, normalize(_p0 - bss.p2)), MaskD(valid));
     } else {
         _its1 = scene.ray_intersect<false>(RayC(_p0, -_dir), MaskC(valid));
     }
     // IntersectionC _its1 = detach(its1);
-    valid &= _its1.is_valid();
+    // valid &= _its1.is_valid();
+    // std::cout << "_its1.is_valid() " << count(_its1.is_valid()) << std::endl;
+    // std::cout << "_its1.t " << _its1.t << std::endl;
     // std::cout<<" valid : "<<any(valid)<<std::endl;
     // Vector3fC &_p1 = _its1.p;
 
     // Start: Xi Deng added:  sample a point for bssrdf 
     BSDFSampleC bs1, bs2;
     BSDFArrayC bsdf_array = _its1.shape->bsdf(valid);
-    bs1 = bsdf_array->sample(&scene, _its1, scene.m_samplers[2].next_nd<8, false>(), valid);
+    // BSDFSampleD bs1, bs2;
+    // BSDFArrayD bsdf_array = _its1.shape->bsdf(valid);
+    auto bs1_samples = scene.m_samplers[2].next_nd<8, false>();
+    // std::cout << "[1] count(valid) " << count(valid) << std::endl;
+    bs1 = bsdf_array->sample(&scene, _its1, bs1_samples,  valid);
     // std::cout << "direct:400" <<bs1.rgb << std::endl;
     Vector3fC &_p1 = bs1.po.p;
     
     // std::cout<<bs1.po.abs_prob<<std::endl;
     // End: Xi Deng added
     bs2.po = _its1;
-    // std::cout<<bs2.po.abs_prob<<std::endl;
+    
     bs2.wo = _its1.sh_frame.to_local(_dir);
     bs2.is_valid = _its1.is_valid();
     bs2.pdf = bss.pdf;
     bs2.is_sub = bsdf_array->hasbssdf();
     bs2.rgb_rv = bs1.rgb_rv;
+    IntC cameraIdx = arange<IntC>(slices(_its1.p));
+    IntC validRayIdx= cameraIdx.compress_(valid);
     // TODO: this part needs rgb mapping
+    // std::cout << "count(bs1.po.is_valid()) " << count(bs1.po.is_valid()) << std::endl;
     valid &= bs1.po.is_valid();
+    // std::cout << "gather<BoolC>(bs2.is_sub,validRayIdx) " << gather<MaskC>(bs2.is_sub,validRayIdx) << std::endl;
+    // std::cout << "[1.3] count(valid) " << count(valid) << std::endl;
+    // std::cout << "[1.5] count(valid && is_sub)" << count(valid & bs2.is_sub) << std::endl;
     // std::cout<<" valid : "<<any(valid)<<std::endl;
 
     // project _p1 onto the image plane and compute the corresponding pixel id
     SensorDirectSampleC sds = sensor.sample_direct(_p1);
     valid &= sds.is_valid;
+    // std::cout << "[2] count(valid) " << count(valid) << std::endl;
     // std::cout<<" valid : "<<any(valid)<<std::endl;
     // trace a camera ray toward _p1 in a differentiable fashion
     Ray<ad> camera_ray;
@@ -570,6 +735,7 @@ std::pair<IntC, Spectrum<ad>> DirectIntegrator::eval_secondary_edge(const Scene 
         its2 = scene.ray_intersect<false>(camera_ray, valid);
         valid &= its2.is_valid() && norm(its2.p - _p1) < ShadowEpsilon;
     }
+    // std::cout << "[3] count(valid) " << count(valid) << std::endl;
     // std::cout<<" valid : "<<any(valid)<<std::endl;
     // calculate base_value
     FloatC      dist    = norm(_p2 - _its1.p),
@@ -581,7 +747,7 @@ std::pair<IntC, Spectrum<ad>> DirectIntegrator::eval_secondary_edge(const Scene 
     FloatC      sinphi2 = norm(cross(_dir, proj));
     FloatC      base_v  = (dist/part_dist)*(sinphi/sinphi2);
     valid &= (sinphi > Epsilon) && (sinphi2 > Epsilon);
-    // std::cout<<" valid : "<<any(valid)<<std::endl;
+    // std::cout << "[4] count(valid) " << count(valid) << std::endl;
     // evaluate BSDF at _p1
     
     Vector3fC d0;
@@ -594,9 +760,12 @@ std::pair<IntC, Spectrum<ad>> DirectIntegrator::eval_secondary_edge(const Scene 
     // std::cout<<" print frame : "<<bs1.po.sh_frame.n<<std::endl;
     // std::cout<<" print frame : "<<bs1.wo<<std::endl;
 
-    bs1.wo =  bs1.po.sh_frame.to_local(d0);
-    bs1.po.wi =  bs1.po.sh_frame.to_local(d0);
-    SpectrumC bsdf_val = bsdf_array->eval(bs1.po, bs2, valid);
+    // bs1.wo =  bs1.po.sh_frame.to_local(d0);
+    // bs1.po.wi =  bs1.po.sh_frame.to_local(d0);
+    // SpectrumC bsdf_val = bsdf_array->eval(bs1.po, bs2, valid);
+    bs2.wo =  bs2.po.sh_frame.to_local(-_dir);
+    bs2.po.wi =  bs2.po.sh_frame.to_local(-_dir);
+    SpectrumC bsdf_val = bsdf_array->eval(bs2.po, bs1, valid);
     FloatC pdfpoint = bsdf_array->pdfpoint(bs2.po, bs1, valid);
     SpectrumC value0 = (bsdf_val*scene.m_emitters[0]->eval(bs2.po, valid)*(base_v * sds.sensor_val/bss.pdf/pdfpoint)) & valid;
     
@@ -622,6 +791,49 @@ std::pair<IntC, Spectrum<ad>> DirectIntegrator::eval_secondary_edge(const Scene 
         Vector3fD u2 = bilinear<true>(detach(v0), detach(e1), detach(e2), uv);
         // End Xi Deng added
 
+        // Start: Joon modified
+        
+        // Reparameterize xi
+        // xi = xo + x_VAE / scalefactor
+        
+
+        // std::cout << "_its.p " << _its1.p << std::endl;
+        // std::cout << "bs1_samples[5] " << bs1_samples[5] << std::endl;
+
+
+        // auto kernelEps = bsdf_array->getKernelEps(IntersectionD(_its1),bs1_samples[5]);
+        // auto tmp = IntersectionD(_its1);
+        // auto tmp2 = BSDFArrayD(bsdf_array);
+        // auto tmp3 = FloatD(bs1_samples[5]);
+        // auto kernelEps = tmp2 -> getKernelEps(tmp,tmp3);
+        // auto kernelEps = (BSDFArrayD(bsdf_array))->getKernelEps(IntersectionD(_its1),FloatD(bs1_samples[5]));
+        // // set_requires_gradient(kernelEps);
+        // // std::cout << "kernelEps " << kernelEps << std::endl;
+        // auto fitScaleFactor = 1.0f/sqrt(kernelEps);
+        // std::cout << "fitScaleFactor max" << hmin(fitScaleFactor) << std::endl;
+        // std::cout << "fitScaleFactor min" << hmax(fitScaleFactor) << std::endl;
+        // PSDR_ASSERT(!all(kernelEps == 0.0f));
+        // PSDR_ASSERT(!all(value0 == 0.0f));
+        // SpectrumD result;
+        // if(count(detach(valid)) != 0){
+        //     // std::cout << "valid " << valid0 << std::endl;
+        //     // auto values = gather<SpectrumC>(value0,validRayIdx);
+        //     // std::cout << "max(values) " << hmax(values) << std::endl;
+        //     // std::cout << "value0 " << gather<SpectrumC>(value0,validRayIdx);
+        //     // std::cout << "fitScaleFactor " << gather<SpectrumD>(SpectrumD(fitScaleFactor),validRayIdx);
+        //     result = (SpectrumD(value0) * fitScaleFactor) & valid;
+        //     // auto summed = hsum(result);
+        //     // auto summed = hsum(kernelEps); 
+        //     // backward(summed);
+        //     // std::cout << "gradient(kernelEps) " << gradient(kernelEps) << std::endl;
+        //     // std::cout << "result " << hmax(result.z())<< std::endl;
+        // }
+        // else{
+        //     result = (SpectrumD(value0) * fitScaleFactor) & valid;
+        // }
+
+        // End : Joon modified
+        // dot(dx_p,n) = d/dx (dot(xp,n))
         SpectrumD result = (SpectrumD(value0) * dot(Vector3fD(n), u2)) & valid;
         return { select(valid, sds.pixel_idx, -1), result - detach(result) };
     } else {

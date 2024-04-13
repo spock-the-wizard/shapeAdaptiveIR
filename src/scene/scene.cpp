@@ -258,16 +258,23 @@ void Scene::configure() {
             if ( mesh.m_enable_edges ) {
                 PSDR_ASSERT(mesh.m_sec_edge_info != nullptr);
                 const int m = static_cast<int>(slices(*mesh.m_sec_edge_info));
+                
                 const IntD idx = arange<IntD>(m) + edge_offset[i];
+                // std::cout << "idx " << idx << std::endl;
+                // Grammar: target / source / idx
+                // Relocate m_sec_edge info from mesh to variable
                 scatter(m_sec_edge_info, *mesh.m_sec_edge_info, idx);
+                // std::cout << "*mesh.m_sec_edge_info.e1 " << m_sec_edge_info.e1 << std::endl;
             }
         }
+        
 #if 0
         FloatC angle = select(detach(m_sec_edge_info.is_boundary), Pi,
                               safe_acos(dot(detach(m_sec_edge_info.n0), detach(m_sec_edge_info.n1))));
         m_sec_edge_distrb->init(norm(detach(m_sec_edge_info.e1))*angle);
 #else
         m_sec_edge_distrb->init(norm(detach(m_sec_edge_info.e1)));
+        
 #endif
         if ( m_opts.log_level > 0 ) {
             std::stringstream oss;
@@ -278,9 +285,40 @@ void Scene::configure() {
         m_sec_edge_info = empty<SecondaryEdgeInfo>();
     }
 
+    // std::cout << "m_sec_edge_distrb " << m_sec_edge_distrb << std::endl;
+    // std::cout << "m_sec_edge_info " << m_sec_edge_info << std::endl;
     // Initialize OptiX
     cuda_eval();
     m_optix->configure(m_meshes);
+    // TODO: don't want any accidental gradient flow
+    
+    // auto p1 = m_sec_edge_info.p0 + m_sec_edge_info.e1;
+    // // const bool ad = false;
+    // const bool ad = true;
+    
+    // // Trying to make a lightpoint array of length N...
+    // Vector3f<ad> lightpoint = m_sec_edge_info.p0 + (m_emitters[0]->sample_position(Vector3f<ad>(1.0f), Vector2f<ad>(1.0f))).p;
+    // lightpoint = lightpoint - m_sec_edge_info.p0;
+    // // Vector3f<ad> lightpoint = (m_emitters[0]->sample_position(Vector3f<ad>(1.0f), Vector2f<ad>(1.0f),mask)).p;
+    // // std::cout << "lightpoint " << lightpoint << std::endl;
+    
+    // auto light2p0 = normalize(Vector3fD(m_sec_edge_info.p0 - lightpoint));
+    // auto light2p1 = normalize(Vector3fD(p1 - lightpoint));
+
+    // RayD rayP0 = RayD(lightpoint,light2p0);
+    // RayD rayP1 = RayD(lightpoint,light2p1);
+    
+    // auto itsp0 = ray_intersect(rayP0);
+    // auto itsp1 = ray_intersect(rayP1);
+    // // std::cout << "itsp0.is_valid() " << itsp0.is_valid() << std::endl;
+    // // std::cout << "itsp1.is_valid() " << itsp1.is_valid() << std::endl;
+    // auto isShadowRay = itsp0.is_valid() ^ itsp1.is_valid();
+    // // std::cout << "isShadowRay " << isShadowRay << std::endl;
+    // std::cout << "count(isShadowRay) " << count(isShadowRay) << std::endl;
+    // auto edge_length_array = norm(detach(m_sec_edge_info.e1));
+    // edge_length_array[~isShadowRay] = 0.0f;
+    // std::cout << "Re-initialize edge length array " << std::endl;
+    // m_sec_edge_distrb->init(edge_length_array);
 
     // Cleanup
     for ( int i = 0; i < m_num_meshes; ++i ) {
@@ -701,6 +739,10 @@ BoundarySegSampleDirect Scene::sample_boundary_segment_direct(const Vector3fC &s
 
     FloatC sample1 = sample3.x();
     auto [edge_idx, pdf0] = m_sec_edge_distrb->sample_reuse<false>(sample1);
+    // std::cout << "edge_idx " << edge_idx << std::endl;
+    // TODO: Joon: can i use optix now?
+    // Create Rays from emitter to edge.p0 and edge.p1
+    // Discard ones with consistent visibility to light
 
     SecondaryEdgeInfo info = gather<SecondaryEdgeInfo>(m_sec_edge_info, IntD(edge_idx), active);
     result.p0 = fmadd(info.e1, sample1, info.p0); // p0 = info.p0 + info.e1*sample1;
@@ -708,6 +750,7 @@ BoundarySegSampleDirect Scene::sample_boundary_segment_direct(const Vector3fC &s
     result.edge2 = detach(info.p2) - detach(info.p0);
     const Vector3fC &p0 = detach(result.p0);
     pdf0 /= norm(detach(info.e1));
+    // std::cout << "result.p0 " << result.p0.x() << std::endl;
 
     // Sample a point ps2 on a emitter
 

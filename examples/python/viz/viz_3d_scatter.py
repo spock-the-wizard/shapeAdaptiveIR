@@ -559,7 +559,6 @@ class Scatter3DViewer(ViewerApp):
         sc = psdr_cuda.Scene()
         self.mesh_key = "Mesh[id=init]"
         self.material_key = "BSDF[id=opt]"
-        # self.sc = sc
         # TODO
         scene_file = "/sss/InverseTranslucent/examples/scenes/cone4_out.xml"
         
@@ -594,7 +593,7 @@ class Scatter3DViewer(ViewerApp):
 
         
         self.sampler = psdr_cuda.DirectIntegrator()
-        self.scene = sc
+        self.sc = sc
         loaded_scatter_config = load_config(self.scatter_net)
 
         sub_configs = loaded_scatter_config['args']['config'].split('/')
@@ -918,13 +917,12 @@ class Scatter3DViewer(ViewerApp):
             print("its_dir",its_dir)
             # starting point of intersecting ray
             its_loc = Vector3f((self.its_loc-its_dir).reshape(-1,3))
-            # its_loc = Vector3f((self.its_loc-its_dir).reshape(-1,3).repeat(n,0))
-            # its_dir = Vector3f(self.inDirection.reshape(-1,3).repeat(n,0))
-            # its_dir = Vector3f((its_loc-light_pos).reshape(-1,3).repeat(n,0))
             
-            
-            p_proj, p_sampled, p_projdir, poly_coeffs, p_weight = self.sampler.sample_sub(self.scene,its_loc,its_dir)
-            # breakpoint()
+            self.sc.param_map[self.material_key].g.data = self.g
+            self.sc.param_map[self.material_key].sigma_t.data = self.sigma_t
+            self.sc.param_map[self.material_key].albedo.data = self.albedo
+            self.sc.configure()
+            p_proj, p_sampled, p_projdir, poly_coeffs, p_weight = self.sampler.sample_sub(self.sc,its_loc,its_dir)
             print(f"Number of Invalid points: {(np.array(p_proj)[:,0]==0).sum()}/{self.n_scatter_samples}")
             self.sampled_pts = np.array(p_sampled)
             self.sampled_p_proj = np.array(p_proj)

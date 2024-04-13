@@ -347,6 +347,8 @@ BSDFSample<ad> HeterSub::__sample_sub(const Scene *scene, const Intersection<ad>
     bs.wo = warp::square_to_cosine_hemisphere<ad>(tail<2>(sample));
     bs.pdf = pdf_po;
     // TODO: add an id check
+    std::cout << "=======sample_sub======== " << std::endl;
+    std::cout << "count(bs.po.is_valid()) " << count(bs.po.is_valid()) << std::endl;
     bs.is_valid = active && (cos_theta_i > 0.f) && bs.po.is_valid();// && ( == its.shape->m_id);&& 
     bs.is_sub = true;
     

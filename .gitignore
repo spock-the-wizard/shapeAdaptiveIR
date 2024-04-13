@@ -14,11 +14,17 @@ variables/
 data/
 build_*/
 
-viz/
-!examples/python/viz/viz_scatter_3d.py
 wandb/
 *.npy
-*.obj
+!examples/scenes/light/*.npy
+*.dot
+*.png
+core*
+*.ps
+*.svg
+*.mp4
+*.npz
+*.pth
 
 *.cmake
 Makefile

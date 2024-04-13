@@ -262,6 +262,7 @@ Spectrum<ad> VaeSub::__eval_bsdf(const Intersection<ad> &its, const BSDFSample<a
 template <bool ad>
 Spectrum<ad> VaeSub::__eval_sub(const Intersection<ad> &its, const BSDFSample<ad> &bs, Mask<ad> active) const {
     Float<ad> cos_theta_i = Frame<ad>::cos_theta(its.wi);
+    // std::cout << "cos_theta_i " << cos_theta_i << std::endl;
     Float<ad> cos_theta_o = Frame<ad>::cos_theta(bs.wo);
     active &= (cos_theta_i > 0.f);
     active &= (cos_theta_o > 0.f);
@@ -282,6 +283,7 @@ Spectrum<ad> VaeSub::__eval_sub(const Intersection<ad> &its, const BSDFSample<ad
     }
 
     sp = sp * (1-bs.po.abs_prob);
+    // PSDR_ASSERT(!all(bs.po.abs_prob==1.0f));
 
     Spectrum<ad> sw =  __Sw<ad>(bs.po, bs.wo, active);
 
@@ -290,9 +292,17 @@ Spectrum<ad> VaeSub::__eval_sub(const Intersection<ad> &its, const BSDFSample<ad
         value = value * bs.po.J;    
     }
     
+    // std::cout << "========eval_sub======= " << std::endl;
+    // std::cout << "value " << value << std::endl;
+    // std::cout << "sw " << sw << std::endl;
+    // std::cout << "1-F " << 1-F << std::endl;
+    // std::cout << "sp " << sp << std::endl;
+    // std::cout << "cos_theta_o " << cos_theta_o << std::endl;
+    // std::cout << "bs.po.J " << bs.po.J << std::endl;
+    // std::cout << "count(active) " << count(active) << std::endl;
     return value & active;
 }
-
+// 
 BSDFSampleC VaeSub::sample(const Scene *scene, const IntersectionC &its, const Vector8fC &rand, MaskC active) const {
     return __sample<false>(scene, its, rand, active);
 }
@@ -368,7 +378,7 @@ BSDFSample<ad> VaeSub::__sample_bsdf(const Intersection<ad> &its, const Vector8f
 template <bool ad>
 BSDFSample<ad> VaeSub::__sample_sub(const Scene *scene, const Intersection<ad> &its, const Vector8f<ad> &sample, Mask<ad> active) const {
     using namespace std::chrono;
-    auto start_time = high_resolution_clock::now();
+    // auto start_time = high_resolution_clock::now();
     Float<ad> cos_theta_i = Frame<ad>::cos_theta(its.wi);
     BSDFSample<ad> bs;
     Float<ad> pdf_po = Frame<ad>::cos_theta(its.wi);
@@ -382,12 +392,17 @@ BSDFSample<ad> VaeSub::__sample_sub(const Scene *scene, const Intersection<ad> &
     bs.wo = warp::square_to_cosine_hemisphere<ad>(tail<2>(sample));
     bs.pdf = pdf_po;
     // TODO: add and check
+    // std::cout << "========sample_sub========= " << std::endl;
+    // std::cout << "its.wi " << its.wi << std::endl;
+    // std::cout << "count(its.wi) " << count(cos_theta_i > 0.f) << std::endl;
+    // std::cout << "bs.po.is_valid() " << count(bs.po.is_valid()) << std::endl;
+    // std::cout << "count(active) " << count(active) << std::endl;
     bs.is_valid = active && (cos_theta_i > 0.f) && bs.po.is_valid();// && ( == its.shape->m_id);&& 
     bs.is_sub = true;
     
     pdf_po = __pdf_sub<ad>(its, bs, active) * warp::square_to_cosine_hemisphere_pdf<ad>(bs.wo);
     bs.pdf = pdf_po;
-    auto end_time = high_resolution_clock::now();
+    // auto end_time = high_resolution_clock::now();
     // std::cout << "[Time] sample_sub" <<  duration_cast<duration<double>>(end_time - start_time).count() << " seconds." <<std::endl;
     return bs;
 }
@@ -574,6 +589,16 @@ Array<Float<ad>,23> VaeSub::_preprocessFeatures(const Intersection<ad>&its, Floa
     return x;
 }
 
+FloatD VaeSub::getKernelEps(const IntersectionD& its,FloatD idx) const
+{
+    return getKernelEps<true>(its,idx);
+}
+
+FloatC VaeSub::getKernelEps(const IntersectionC& its,FloatC idx) const
+{
+    auto res = getKernelEps<false>(its,idx);
+    return res;
+}
 template <bool ad>
 Float<ad> VaeSub::getKernelEps(const Intersection<ad>& its,Float<ad> rnd) const {
 // Float<ad> VaeSub::getKernelEps(const Intersection<ad>& its,int idx) const {
@@ -588,7 +613,7 @@ Float<ad> VaeSub::getKernelEps(const Intersection<ad>& its,Float<ad> rnd) const 
     auto g_ch = select(rnd < (1.0f / 3.0f), g.x(),g.y());
     g_ch = select(rnd > (2.0f / 3.0f), g.z(),g_ch);
 
-    auto sigma_s = sigma_t_ch * albedo_ch;
+    Float<ad> sigma_s = sigma_t_ch * albedo_ch;
     auto sigma_a = sigma_t_ch - sigma_s;
 
     auto miu_s_p = (1.0f - g_ch) * sigma_s;
@@ -598,11 +623,12 @@ Float<ad> VaeSub::getKernelEps(const Intersection<ad>& its,Float<ad> rnd) const 
     auto effectiveAlbedo = -log(1.0f-alpha_p * (1.0f - exp(-8.0f))) / 8.0f;
     
     auto val = 0.25f * g_ch + 0.25f * alpha_p + 1.0f * effectiveAlbedo;
-    auto res = 4.0f * val * val / (miu_t_p * miu_t_p);
-    // std::cout << "res" << res << std::endl;
+    Float<ad> res = 4.0f * val * val / (miu_t_p * miu_t_p);
 
+    
     return res;
 }
+
 template <bool ad>
 std::tuple<Intersection<ad>,Float<ad>,Vector3f<ad>,Vector3f<ad>> VaeSub::__sample_sp(const Scene *scene, const Intersection<ad> &its, const Vector8f<ad> &sample, Float<ad> &pdf, Mask<ad> active) const {        
         using namespace std::chrono;
@@ -614,8 +640,8 @@ std::tuple<Intersection<ad>,Float<ad>,Vector3f<ad>,Vector3f<ad>> VaeSub::__sampl
         float is_plane = false;
         // FIXME: detach detection
         ///////////////////////////////
-        // float is_light_space = false;
-        float is_light_space = true;
+        float is_light_space = false;
+        // float is_light_space = true;
 
 
 
@@ -626,6 +652,7 @@ std::tuple<Intersection<ad>,Float<ad>,Vector3f<ad>,Vector3f<ad>> VaeSub::__sampl
         // std::cout << "[Time] preprocess" <<  duration_cast<duration<double>>(end_time - start_time).count() << " seconds.";
         auto kernelEps = getKernelEps<ad>(its,rnd);
         auto fitScaleFactor = 1.0f / sqrt(kernelEps);
+        // std::cout << "kernelEps " << kernelEps << std::endl;
         
         Array<Float<ad>,4> latent(sample[2],sample[3],sample[6],sample[7]);
         Spectrum<ad> outPos;
@@ -639,6 +666,7 @@ std::tuple<Intersection<ad>,Float<ad>,Vector3f<ad>,Vector3f<ad>> VaeSub::__sampl
         }
         else
             std::tie(outPos,absorption)= _run<ad>(x,latent);
+        // std::cout << "absorption " << absorption << std::endl;
         // absorption = hsum(shapeFeatures);
         // end_time = high_resolution_clock::now();
         // std::cout << "[Time] _run" <<  duration_cast<duration<double>>(end_time - start_time).count() << " seconds.";
@@ -662,6 +690,7 @@ std::tuple<Intersection<ad>,Float<ad>,Vector3f<ad>,Vector3f<ad>> VaeSub::__sampl
         Frame<ad> local_frame(inNormal);
         outPos = inPos + local_frame.to_world(outPos);
         outPos = inPos + (outPos - inPos) / fitScaleFactor;
+        // std::cout << "outPos " << outPos << std::endl;
 
         if(is_light_space){
             inNormal = local_frame.to_world(its.wi);
@@ -682,7 +711,6 @@ std::tuple<Intersection<ad>,Float<ad>,Vector3f<ad>,Vector3f<ad>> VaeSub::__sampl
 
         // NOTE: useLocalDir should be TRUE when using TS shape features
         // outPos should be in WORLD coords
-        // FIXME: detach detection
         // TODO: Evaluate for each unique shapeFeatures instead of each input
         
         // auto st_t = high_resolution_clock::now();
@@ -703,7 +731,7 @@ std::tuple<Intersection<ad>,Float<ad>,Vector3f<ad>,Vector3f<ad>> VaeSub::__sampl
         // ///////////////////////////
         // auto end_t = high_resolution_clock::now();
         // std::cout << "[Time] evalGradient evaluation" << duration_cast<duration<double>>(end_t - st_t).count() << std::endl;
-        projDir = normalize(projDir);
+        projDir = normalize(detach(projDir));
         projDir = -sign(polyVal) * projDir;
         
         auto rnd_var = sample[2];
@@ -717,13 +745,17 @@ std::tuple<Intersection<ad>,Float<ad>,Vector3f<ad>,Vector3f<ad>> VaeSub::__sampl
         // tmax = kernelEps;
         // std::cout << "tmax " << tmax << std::endl;
 
+        // std::cout << "=======sample_sp======== " << std::endl;
         Intersection<ad> its3;
         float eps = 0.05f;
         Mask<ad> msk;
         if(true){
             // Ray<ad> ray3(detach(outPos) - eps*detach(projDir), projDir,detach(tmax)); //1.0f); //- 0.5f*tmax*projDir,projDir, tmax);
+            // std::cout << "outPos " << outPos << std::endl;
+            // std::cout << "count(active) " << count(active) << std::endl;
             Ray<ad> ray3(outPos- eps*projDir, projDir); //,tmax);
             Intersection<ad> its3_front = scene->ray_intersect<ad, ad>(ray3, active);
+            
 
             Ray<ad> ray_back(outPos+ eps*projDir,-projDir); //tmax);
             // Ray<ad> ray_back(outPos+ eps*projDir,-projDir);
@@ -744,6 +776,11 @@ std::tuple<Intersection<ad>,Float<ad>,Vector3f<ad>,Vector3f<ad>> VaeSub::__sampl
             its3.t = select(msk,its3_front.t,its3_back.t);
             its3.shape = select(msk,its3_front.shape,its3_back.shape);
             its3.poly_coeff = shapeFeatures;
+        // std::cout << "[sample_sp] count(its3_front.is_valid()) " << count(its3_front.is_valid()) << std::endl;
+        // std::cout << "[sample_sp] count(its3_back.is_valid()) " << count(its3_back.is_valid()) << std::endl;
+        // std::cout << "count(its3.is_valid()) " << count(its3.is_valid()) << std::endl;
+        // std::cout << "its3.t " << its3.t << std::endl;
+        // std::cout << "its3.shape " << its3.shape << std::endl;
         }
         else{
             // Ray<ad> ray3(its.p + r * (vx * cos(phi) + vy * sin(phi)) - vz * 0.5f * l, vz, l);
@@ -756,18 +793,21 @@ std::tuple<Intersection<ad>,Float<ad>,Vector3f<ad>,Vector3f<ad>> VaeSub::__sampl
         // std::cout << "[Time] projection" <<  duration_cast<duration<double>>(end_time - start_time).count() << " seconds.";
 
         its3.abs_prob = absorption;
-        // if constexpr(ad){
-        //     // Reparameterization to allow gradient flow
-        //     auto ray_dir = select(msk,projDir,-projDir);
-        //     // std::cout << "[bef] its3.p " << its3.p << std::endl;
-        //     // its3.p = outPos-eps*ray_dir + detach(its3.t) * ray_dir;
-        //     // std::cout << "[aft] its3.p " << its3.p << std::endl;
-        //     its3.p = outPos-eps*detach(ray_dir) + detach(its3.t) * detach(ray_dir);
-        // }
-        // else{
-        //     auto ray_dir = select(msk,projDir,-projDir);
-        //     its3.p = outPos-eps*ray_dir + its3.t * ray_dir;
-        // }
+        if constexpr(ad){
+            // Reparameterization to allow gradient flow
+            auto ray_dir = select(msk,projDir,-projDir);
+            // std::cout << "[bef] its3.p " << its3.p << std::endl;
+            // its3.p = outPos-eps*ray_dir + detach(its3.t) * ray_dir;
+            // std::cout << "[aft] its3.p " << its3.p << std::endl;
+            its3.p = outPos-eps*detach(ray_dir) + detach(its3.t) * detach(ray_dir);
+        }
+        else{
+            auto ray_dir = select(msk,projDir,-projDir);
+            its3.p = outPos-eps*ray_dir + its3.t * ray_dir;
+        }
+        
+        // std::cout << "its3.p " << its3.p << std::endl;
+        // std::cout << "count(its3.is_valid()) " << count(its3.is_valid()) << std::endl;
 
         rnd = sample[5];
 

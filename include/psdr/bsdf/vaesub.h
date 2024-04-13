@@ -74,6 +74,9 @@ public:
     FloatC pdf(const IntersectionC &its, const Vector3fC &wo, MaskC active = true) const override;
     FloatD pdf(const IntersectionD &its, const Vector3fD &wo, MaskD active = true) const override;
 
+    FloatD getKernelEps(const IntersectionD& its,FloatD idx) const override;
+    FloatC getKernelEps(const IntersectionC& its,FloatC idx) const override;
+
     FloatC pdfpoint(const IntersectionC &its, const BSDFSampleC &bs, MaskC active) const override;
     FloatD pdfpoint(const IntersectionD &its, const BSDFSampleD &bs, MaskD active) const override;
 
@@ -109,6 +112,8 @@ public:
 
     bool anisotropic() const override { return m_anisotropic; }
     bool hasbssdf() const override { return true; }
+    template <bool ad>
+    Float<ad> getKernelEps(const Intersection<ad>& its,Float<ad> idx) const;
 
     std::string to_string() const override { return std::string("VaeSub[id=") + m_id + "]"; }
 
@@ -198,11 +203,6 @@ protected:
     template <bool ad>
     Array<Float<ad>,23> _preprocessFeatures(const Intersection<ad>&its, Float<ad> idx, bool isPlane, Array<Float<ad>,3> wi, bool light_space = false) const;
 
-    template <bool ad>
-    Float<ad> getKernelEps(const Intersection<ad>& its,int idx) const;
-
-    template <bool ad>
-    Float<ad> getKernelEps(const Intersection<ad>& its,Float<ad> idx) const;
     // Xi Deng added
     //
     template <bool ad>
