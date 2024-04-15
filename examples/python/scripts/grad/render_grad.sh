@@ -17,7 +17,8 @@ python3.8 /sss/InverseTranslucent/examples/python/learn_real_data_2.py \
         --albedo_laplacian 0 \
         --rough_laplacian 0 \
         --no_init "no" \
-        --spp 4 \
+        --spp 128 \
+        --n_crops 8 \
         --sppe 0 \
         --sppse 0 \
         --ref_spp $3 \
@@ -26,3 +27,4 @@ python3.8 /sss/InverseTranslucent/examples/python/learn_real_data_2.py \
         --sigma_texture 0 \
         --scene_file $4 \
         --render_gradient \
+        --debug \

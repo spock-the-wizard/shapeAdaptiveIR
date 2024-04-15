@@ -620,9 +620,9 @@ def opt_task(args):
         return loss
 
 
-    def compute_forward_derivative(A,S,sensor_id,idx_param=0,FD=False,poly_fit=False):
+    def compute_forward_derivative(A,S,sensor_id,idx_param=0,FD=False,):
 
-        if poly_fit and not isBaseline:
+        if not isBaseline:
             precompute_mesh_polys()
         seed = 2
         # Create single differentiable variable
@@ -643,8 +643,8 @@ def opt_task(args):
         npixels = ro.cropheight * ro.cropwidth
         sc.opts.spp = args.spp if not FD else 1
         sc.setseed(seed*npixels)
-        sc.setlightposition(Vector3fD(lights[sensor_id][0], lights[sensor_id][1], lights[sensor_id][2]))
         sc.configure()
+        sc.setlightposition(Vector3fD(lights[sensor_id][0], lights[sensor_id][1], lights[sensor_id][2]))
 
         # Forward-propagate gradients from single input to multi-outputs
         # ek.set_label(a,"sigma_t")
@@ -655,43 +655,11 @@ def opt_task(args):
         #     f.write(ek.graphviz(img))
     
         if not FD:
-            grad_imgs = []
-            for batch_idx in range(args.n_crops*args.n_crops):
-                ix = batch_idx // args.n_crops
-                iy = batch_idx % args.n_crops
-                
-                # image_loss = renderV, A, S, R, G, render_batch, i)
-                sc.opts.crop_offset_x = ix * sc.opts.cropwidth
-                sc.opts.crop_offset_y = iy * sc.opts.cropheight
-                sc.configure()
-
-                img = myIntegrator.renderD(sc, sensor_id)
-                ek.forward(a[idx_param])
-                try:
-                    grad_for = ek.gradient(img)
-                    grad_img = grad_for.numpy().reshape(sc.opts.cropheight,sc.opts.cropwidth,-1)
-                    # del img, grad_for
-                except:
-                    print(f"Zero gradient for {batch_idx}")
-                    grad_img = np.zeros((sc.opts.cropheight,sc.opts.cropwidth,3))
-                grad_imgs.append(grad_img)
-
-            # (16,w,h) in column major order
-            img = np.array(grad_imgs)
-            img = img.reshape((args.n_crops,args.n_crops,sc.opts.cropheight,sc.opts.cropwidth,-1))
-            img = img.transpose((1,0,2,3,4))
-            # (4,4,w,h) 
-            img = img.transpose((0,2,1,3,4))
-            # (4,w,4,h)
-            img = img.reshape((sc.opts.height,sc.opts.width,-1))
-            # (4w, 4h)
-            return img
+            img = myIntegrator.renderD(sc, sensor_id)
+            ek.forward(a[idx_param])
+            grad_for = ek.gradient(img)
+            return grad_for
         else:
-            sc.opts.crop_offset_x = 0
-            sc.opts.crop_offset_y = 0
-            sc.opts.cropheight = sc.opts.height
-            sc.opts.cropwidth = sc.opts.width
-            sc.configure()
             img = renderNtimes(sc, myIntegrator, args.ref_spp, sensor_id)
             # img = myIntegrator.renderC(sc, sensor_id)
             # img_np = img.numpy().reshape(512,512,-1)
@@ -699,7 +667,6 @@ def opt_task(args):
             return img 
             # return img_np
         
-    isMonochrome = sc.param_map[material_key].monochrome
     class Renderer(torch.autograd.Function):
         @staticmethod
         def forward(ctx, V, A, S, R, G, batch_size, seed,crop_idx=0):
@@ -736,7 +703,6 @@ def opt_task(args):
             sc.param_map[material_key].sigma_t.data  = sigma_t
             sc.param_map[material_key].alpha_u.data  = roughness
             sc.param_map[material_key].eta.data      = eta
-            ctx.mono = sc.param_map[material_key].monochrome
             
             print("------------------------------------seed----------",seed)
             npixels = ro.cropheight * ro.cropwidth
@@ -756,15 +722,14 @@ def opt_task(args):
                 # tar_img = Vector3fD(tars[sensor_id].cuda())
                 # weight_img = Vector3fD(tmeans[sensor_id].cuda()f)
                 our_imgA = myIntegrator.renderD(sc, sensor_id)
-                # tmp = our_imgA.numpy().reshape(ro.cropheight,ro.cropwidth,3)
-                # debug_dir = "patch"
-                # os.makedirs(debug_dir,exist_ok=True)
-                # cv2.imwrite(f"{debug_dir}/{args.scene}_{sensor_id}.png",tmp*255)
-                # print(tmp.max())
+                tmp = our_imgA.numpy().reshape(ro.cropheight,ro.cropwidth,3)
+                debug_dir = "patch"
+                os.makedirs(debug_dir,exist_ok=True)
+                cv2.imwrite(f"{debug_dir}/{args.scene}_{sensor_id}.png",tmp*255)
+                print(tmp.max())
                 if isBaseline:
                     our_imgB = myIntegrator.renderD(sc, sensor_id)
                 else:
-                    # our_imgB = myIntegrator.renderD(sc, sensor_id)
                     our_imgB = our_imgA
                 render_loss += compute_render_loss(our_imgA, our_imgB, tar_img, args.img_weight) / batch_size
                 # render_loss += compute_render_loss(our_imgA, our_imgA, tar_img, args.img_weight) / batch_size
@@ -777,6 +742,7 @@ def opt_task(args):
                 sc.configure()
                 for sensor_id in sensor_indices:
                     silhouette = silhouetteIntegrator.renderD(sc, sensor_id)
+                    # breakpoint()
                     ref_sil = Vector3fD(maks[sensor_id].cuda())
                     render_loss += compute_silheuette_loss(silhouette, ref_sil, args.img_weight) / batch_size                
 
@@ -803,15 +769,11 @@ def opt_task(args):
             gradA = ek.gradient(ctx.input2).torch()
             gradA[torch.isnan(gradA)] = 0.0
             gradA[torch.isinf(gradA)] = 0.0
-            if ctx.mono:
-                gradA[...,:] = torch.mean(gradA,dim=-1)
             # gradA= None
             # print("-------------------------S-----------------------------")
             gradS = ek.gradient(ctx.input3).torch()
             gradS[torch.isnan(gradS)] = 0.0
             gradS[torch.isinf(gradS)] = 0.0
-            if ctx.mono:
-                gradS[...,:] = torch.mean(gradS,dim=-1)
 
             # print("-------------------------R-----------------------------")
             gradR = ek.gradient(ctx.input4).torch()
@@ -1019,65 +981,37 @@ def opt_task(args):
         optimizer = UAdam(params)                        
 
         for i in range(args.n_iters):
-            # NOTE: added chunk training
             loss = 0
-            image_loss = 0
-            range_loss = 0
+            # image_loss = 0
+            # range_loss = 0
+
+            # Randomly select center patch
             sc.opts.cropheight = sc.opts.height // args.n_crops
             sc.opts.cropwidth = sc.opts.width // args.n_crops
-            batch_idxs = torch.randperm(args.n_crops*args.n_crops)
             
-            n_crops = 0
-            for batch_idx in batch_idxs:
-                ix = batch_idx // args.n_crops
-                iy = batch_idx % args.n_crops
-                
-                if args.n_crops > 2:
-                    if ix ==0 or ix == args.n_crops -1:
-                    # if ix < (args.n_crops //4) or ix >= (args.n_crops // 4 * 3):
-                        print(f"idx: {ix}, skipping")
-                        continue
-                    if iy ==0 or iy == args.n_crops -1:
-                    # if iy < (args.n_crops //4) or iy >= (args.n_crops // 4 * 3):
-                        print(f"idx: {iy}, skipping")
-                        continue
-                    
-                
-                optimizer.zero_grad()
-                # image_loss = renderV, A, S, R, G, render_batch, i)
-                sc.opts.crop_offset_x = ix * sc.opts.cropwidth
-                sc.opts.crop_offset_y = iy * sc.opts.cropheight
+            sc.opts.crop_offset_x = torch.randint(0,sc.opts.width - sc.opts.cropwidth,(1,))
+            sc.opts.crop_offset_y = torch.randint(0,sc.opts.height - sc.opts.cropheight,(1,))
+            optimizer.zero_grad()
 
-                image_loss_ = render(V, A, torch.exp(S), R, G, render_batch, i,)
-                range_loss_ = texture_range_loss(A, S, R, G, args.range_weight)
-                loss_ = image_loss_ + range_loss_
+            image_loss = render(V, A, S, R, G, render_batch, i)
+            range_loss = texture_range_loss(A, S, R, G, args.range_weight)
+            loss = image_loss + range_loss
 
-                # total variation loss_
-                if args.albedo_texture > 0:
-                    loss_ += total_variation_loss(A, args.tot_weight, args.albedo_texture, 3)
-                if args.sigma_texture > 0:
-                    print(S.shape)
-                    loss_ += total_variation_loss(S, args.tot_weight,  args.sigma_texture, 3)
-                if args.rough_texture > 0:
-                    print(R.shape)
-                    loss_ += total_variation_loss(R, args.tot_weight, args.rough_texture, 1)
+            # total variation loss_
+            if args.albedo_texture > 0:
+                loss += total_variation_loss(A, args.tot_weight, args.albedo_texture, 3)
+            if args.sigma_texture > 0:
+                print(S.shape)
+                loss += total_variation_loss(S, args.tot_weight,  args.sigma_texture, 3)
+            if args.rough_texture > 0:
+                print(R.shape)
+                loss += total_variation_loss(R, args.tot_weight, args.rough_texture, 1)
 
-                loss_.backward()
-                optimizer.step()
-                loss += loss_.item()
-                image_loss += image_loss_.item()
-                range_loss += range_loss_.item()
-                n_crops += 1
+            loss.backward()
+            optimizer.step()
 
-                del loss_, range_loss_, image_loss_
-
-            loss /= n_crops
-            image_loss /= n_crops
-            range_loss /= n_crops
-
-        
-            # print("------ Iteration ---- ", i, ' image loss: ', loss.item(), ' eta: ', G.detach().cpu().numpy())   
-            print("------ Iteration ---- ", i, ' image loss: ', loss, ' eta: ', G.detach().cpu().numpy())   
+            print("------ Iteration ---- ", i, ' image loss: ', loss.item(), ' eta: ', G.detach().cpu().numpy())   
+            # print("------ Iteration ---- ", i, ' image loss: ', loss, ' eta: ', G.detach().cpu().numpy())   
             
             if args.albedo_texture == 0:
                 print("\n albedo: ", A.detach().cpu().numpy()) 
@@ -1090,20 +1024,13 @@ def opt_task(args):
                 print("\n rough: ", R.detach().cpu().numpy())
                 roughhistory.append(R.detach().cpu().numpy())    
             
-            # wandb_log({
-            #     "image loss": loss.item(),
-            #     "eta": G.detach().cpu().numpy(),
-            #     "albedo" : A.detach().cpu().numpy(),
-            #     "sigmaT" : S.detach().cpu().numpy(),
-            #     "rough": R.detach().cpu().numpy(),
-            # })
             log_alb = A.detach().cpu().numpy()[0]
             log_sig = S.detach().cpu().numpy()[0]
 
             wandb_log({
-                "loss/train_loss": loss,
-                "loss/range_loss": range_loss,
-                "loss/image_loss": image_loss,
+                "loss/train_loss": loss.item(),
+                "loss/range_loss": range_loss.item(),
+                "loss/image_loss": image_loss.item(),
                 "loss/rmse_param_alb": rmse(log_alb,params_gt[args.scene]['albedo']),
                 "loss/rmse_param_sig": rmse(np.exp(log_sig), params_gt[args.scene]['sigmat']),
                 "loss/rmse_param_sigT": rmse(log_sig, np.log(params_gt[args.scene]['sigmat'])),
@@ -1124,16 +1051,16 @@ def opt_task(args):
             # losshistory.append([loss.detach().cpu().numpy()]) 
             losshistory.append([loss])
             
+            torch.cuda.empty_cache()
+            ek.cuda_malloc_trim()
             
         
             if i == 0 or ((i+1) %  args.n_dump) == 0:
                 wandb_log({
-                        # "loss/total": loss.item(),
-                        # "loss/image": image_loss.item(),
-                        "loss/total": loss,
-                        "loss/image": image_loss,
+                        "loss/total": loss.item(),
+                        "loss/image": image_loss.item(),
                 })
-            # del loss, range_loss, image_loss
+            del loss, range_loss, image_loss
             
             if ((i+1) % args.n_reduce_step) == 0:
                 lrs = []
@@ -1149,20 +1076,16 @@ def opt_task(args):
                 lrs.append(args.eta_lr)
 
                 optimizer.setLearningRate(lrs)
-            torch.cuda.empty_cache()
-            ek.cuda_malloc_trim()
 
             # if (i==0 and args.n_iters == 1) or 
             # if (i % args.n_dump == args.n_dump -1):
-            if (i % args.n_dump == 0):
-            # if i == 0 or ((i+1) %  args.n_dump) == 0:
+            if i == 0 or ((i+1) %  args.n_dump) == 0:
                 # sensor_indices = active_sensors(1, num_sensors)
                 # renderPreview(i, np.array([0], dtype=np.int32))
                 sc.opts.cropheight = sc.opts.height
                 sc.opts.cropwidth = sc.opts.width
                 sc.opts.crop_offset_x = 0 
                 sc.opts.crop_offset_y = 0 
-                sc.opts.spp = 1
                 sc.configure()
 
                 # preview_sensors = np.random.choice(num_sensors,size=5)
@@ -1190,7 +1113,7 @@ def opt_task(args):
                     # roughmap = 1.0 / np.power(roughmap, 2.0)
                     cv2.imwrite(statsdir + "/rough_{}.exr".format(i+1), roughmap)
 
-                saveHistory(statsdir)
+                # saveHistory(statsdir)
                 sc.param_map[mesh_key].dump(statsdir+"obj_%d.obj" % (i+1))
                 # dumpPly(statsdir+"obj_%d" % (i+1), V, F)
                 if not isBaseline:
@@ -1257,34 +1180,30 @@ def opt_task(args):
         GRAD_DIR = "../../grad"
 
         fd_delta = 5e-2 #2
-        # fd_delta = 5
-        sensor_id = 3 #0 #1 #0
+        fd_delta = 25
+        sensor_id = 1 #0
         idx_param = 2 #0
-        param_delta = torch.ones(3).cuda()
-        param_delta = param_delta * fd_delta
-        # param_delta[idx_param] = fd_delta
-        isAlbedo = True
-        # isAlbedo = False
+        param_delta = torch.zeros(3).cuda()
+        param_delta[idx_param] = fd_delta
+        # isAlbedo = True
+        isAlbedo = False
         
         A,S = None,None
         if isAlbedo:
             A = Variable(sc.param_map[material_key].albedo.data.torch(), requires_grad=True)
-            filename = os.path.join(GRAD_DIR,f"{args.scene}_sensor{sensor_id}_albedo{sc.param_map[material_key].albedo.data}_param{idx_param}_{sc.param_map[material_key].type_name()}_delta{fd_delta}_deriv.png")
+            filename = os.path.join(GRAD_DIR,f"{args.scene}_sensor{sensor_id}_albedo{sc.param_map[material_key].albedo.data}_param{idx_param}_{sc.param_map[material_key].type_name()}_deriv.png")
         else:
             S = Variable(sc.param_map[material_key].sigma_t.data.torch(), requires_grad=True)
-            filename = os.path.join(GRAD_DIR,f"{args.scene}_sensor{sensor_id}_sigma_t{sc.param_map[material_key].sigma_t.data}_param{idx_param}_{sc.param_map[material_key].type_name()}_delta{fd_delta}_deriv.png")
+            filename = os.path.join(GRAD_DIR,f"{args.scene}_sensor{sensor_id}_sigma_t{sc.param_map[material_key].sigma_t.data}_param{idx_param}_{sc.param_map[material_key].type_name()}_deriv.png")
         
-        result = compute_forward_derivative(A=A, S=S, sensor_id=sensor_id,idx_param=idx_param,poly_fit=True)
-        # img = result[...,idx_param]
-        # img = torch.mean(result,dim=-1)
-        img = np.mean(result,axis=-1)
-        # img = result.numpy().reshape(sc.opts.cropheight,sc.opts.cropwidth,-1)[...,idx_param]
+        result = compute_forward_derivative(A=A, S=S, sensor_id=sensor_id,idx_param=idx_param)
+        img = result.numpy().reshape(sc.opts.cropheight,sc.opts.cropwidth,-1)[...,idx_param]
 
         # norm = MidpointNormalize(midpoint=0.0)
         # plt.imshow(img, cmap='RdBu',norm=norm)
         cmax = max(img.max(),abs(img.min()))
         # FIXME: tmp setting
-        # cmax = min(cmax,0.002)
+        cmax = 0.002
         norm = MidpointNormalize(vmin=-cmax,vmax=cmax,midpoint=0.0)
         plt.imshow(img, cmap='RdBu_r',norm=norm)
         plt.tight_layout()
@@ -1296,6 +1215,7 @@ def opt_task(args):
         plt.close()
 
         del result, img
+        return 1
         
         filename = filename.replace("deriv","FD",)
         ## Gradient estimate using finite differences
@@ -1321,8 +1241,7 @@ def opt_task(args):
         cv2.imwrite(f"{filename.replace('FD','FD_0')}",img0)
         cv2.imwrite(f"{filename.replace('FD','FD_1')}",img1)
         result_fd = (result1 - result0) / (2*fd_delta)
-        # img = result_fd[...,idx_param]
-        img = np.mean(result_fd,axis=-1)
+        img = result_fd[...,idx_param]
 
         cmax = max(img.max(),abs(img.min()))
         norm = MidpointNormalize(vmin=-cmax,vmax=cmax,midpoint=0.0)

@@ -265,6 +265,7 @@ PYBIND11_MODULE(psdr_cuda, m) {
     // Linking new VaeBSDF
     py::class_<VaeSub, BSDF>(m, "VaesubBSDF")
         .def_readwrite("alpha_u", &VaeSub::m_alpha_u)
+        .def_readwrite("monochrome", &VaeSub::m_monochrome)
         .def_readwrite("alpha_v", &VaeSub::m_alpha_v)
         .def_readwrite("eta", &VaeSub::m_eta)
         .def_readwrite("g", &VaeSub::m_g)

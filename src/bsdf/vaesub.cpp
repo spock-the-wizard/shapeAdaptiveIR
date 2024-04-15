@@ -604,6 +604,9 @@ Float<ad> VaeSub::getKernelEps(const Intersection<ad>& its,Float<ad> rnd) const 
 // Float<ad> VaeSub::getKernelEps(const Intersection<ad>& its,int idx) const {
     
     Spectrum<ad> albedo = m_albedo.eval<ad>(its.uv);
+    // if constexpr(ad){
+    //     set_requires_gradient(albedo);
+    // }
     Float<ad> albedo_ch = select(rnd < (1.0f / 3.0f), albedo.x(),albedo.y());
     albedo_ch = select(rnd > (2.0f / 3.0f), albedo.z(),albedo_ch);
     Spectrum<ad> sigma_t = m_sigma_t.eval<ad>(its.uv);
@@ -621,10 +624,9 @@ Float<ad> VaeSub::getKernelEps(const Intersection<ad>& its,Float<ad> rnd) const 
     auto alpha_p = miu_s_p / miu_t_p;
 
     auto effectiveAlbedo = -log(1.0f-alpha_p * (1.0f - exp(-8.0f))) / 8.0f;
-    
     auto val = 0.25f * g_ch + 0.25f * alpha_p + 1.0f * effectiveAlbedo;
-    Float<ad> res = 4.0f * val * val / (miu_t_p * miu_t_p);
 
+    Float<ad> res = 4.0f * val * val / (miu_t_p * miu_t_p);
     
     return res;
 }
@@ -640,9 +642,17 @@ std::tuple<Intersection<ad>,Float<ad>,Vector3f<ad>,Vector3f<ad>> VaeSub::__sampl
         float is_plane = false;
         // FIXME: detach detection
         ///////////////////////////////
-        float is_light_space = false;
-        // float is_light_space = true;
+        // float is_light_space = false;
+        float is_light_space = true;
 
+        // FIXME: tmp
+        Spectrum<ad> albedo,sigma_t;
+        // if constexpr(ad){
+        //     albedo = m_albedo.eval<ad>(its.uv);
+        //     set_requires_gradient(albedo);
+        //     sigma_t = m_sigma_t.eval<ad>(its.uv);
+        //     set_requires_gradient(sigma_t);
+        // }
 
 
         // std::cout << its.p << std::endl;
@@ -652,13 +662,11 @@ std::tuple<Intersection<ad>,Float<ad>,Vector3f<ad>,Vector3f<ad>> VaeSub::__sampl
         // std::cout << "[Time] preprocess" <<  duration_cast<duration<double>>(end_time - start_time).count() << " seconds.";
         auto kernelEps = getKernelEps<ad>(its,rnd);
         auto fitScaleFactor = 1.0f / sqrt(kernelEps);
-        // std::cout << "kernelEps " << kernelEps << std::endl;
         
         Array<Float<ad>,4> latent(sample[2],sample[3],sample[6],sample[7]);
         Spectrum<ad> outPos;
         Float<ad> absorption;;
 
-        // start_time = high_resolution_clock::now();
         outPos = its.p;
         absorption = 1.0f;
         if constexpr(ad){
@@ -666,13 +674,6 @@ std::tuple<Intersection<ad>,Float<ad>,Vector3f<ad>,Vector3f<ad>> VaeSub::__sampl
         }
         else
             std::tie(outPos,absorption)= _run<ad>(x,latent);
-        // std::cout << "absorption " << absorption << std::endl;
-        // absorption = hsum(shapeFeatures);
-        // end_time = high_resolution_clock::now();
-        // std::cout << "[Time] _run" <<  duration_cast<duration<double>>(end_time - start_time).count() << " seconds.";
-
-        // Vector3f<ad> vx = its.sh_frame.s;
-        // Vector3f<ad> vy = its.sh_frame.t;
         Vector3f<ad> vz = its.sh_frame.n;
 
         pdf = 1.0f;
@@ -688,8 +689,23 @@ std::tuple<Intersection<ad>,Float<ad>,Vector3f<ad>,Vector3f<ad>> VaeSub::__sampl
         Spectrum<ad> tangent1, tangent2;
         auto inPos = its.p;
         Frame<ad> local_frame(inNormal);
-        outPos = inPos + local_frame.to_world(outPos);
-        outPos = inPos + (outPos - inPos) / fitScaleFactor;
+        if constexpr(ad){
+            outPos = inPos + local_frame.to_world(outPos);
+            outPos = inPos + (outPos - inPos) / fitScaleFactor;
+            // backward(fitScaleFactor);
+            // forward(sigma_t[0]);
+            // std::cout << "gradient(outPos[0]) " << gradient(outPos[0]) << std::endl;
+            // std::cout << "gradient(fitScaleFactor) " << gradient(fitScaleFactor) << std::endl;
+            // std::cout << "gradient(kernelEps) " << gradient(kernelEps) << std::endl;
+            
+            // backward(kernelEps);
+            // std::cout << "gradient(albedo) " << gradient(albedo) << std::endl;
+            // std::cout << "gradient(sigma_t) " << gradient(sigma_t) << std::endl;
+        }
+        else{
+            outPos = inPos + local_frame.to_world(outPos);
+            outPos = inPos + (outPos - inPos) / fitScaleFactor;
+        }
         // std::cout << "outPos " << outPos << std::endl;
 
         if(is_light_space){
@@ -698,8 +714,6 @@ std::tuple<Intersection<ad>,Float<ad>,Vector3f<ad>,Vector3f<ad>> VaeSub::__sampl
         else {
             inNormal = vz;
         }
-        
-        // std::cout << "inNormal" << inNormal << std::endl;
 
         auto shapeFeatures = select(rnd < (1.0f / 3.0f), its.poly_coeff.x(), its.poly_coeff.y());
         shapeFeatures = select(rnd > (2.0f / 3.0f), its.poly_coeff.z(), shapeFeatures);

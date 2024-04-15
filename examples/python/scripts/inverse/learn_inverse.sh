@@ -6,7 +6,7 @@ python3.8 ../learn_real_data_2.py \
         --n_dump 25 \
         --ref_folder "exr_ref" \
         --mesh_lr 0.00 \
-        --sigma_lr 0.02 \
+        --sigma_lr 0.001 \
         --albedo_lr 0.005 \
         --rough_lr 0.05 \
         --eta_lr 0.001 \

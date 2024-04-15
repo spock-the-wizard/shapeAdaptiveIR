@@ -23,6 +23,9 @@
 #include <string>
 #include <cstdlib>
 
+#include <iostream>
+#include <fstream>
+
 namespace psdr
 {
 
@@ -227,35 +230,6 @@ Spectrum<ad> DirectIntegrator::__Li(const Scene &scene, Sampler &sampler, const 
         // set_requires_gradient(bs.po.abs_prob);
         // Le = scene.m_emitters[0]->eval(bs.po, active1);
         Le = scene.m_emitters[0]->eval(bs.po, active1);
-        // Le_inv = scene.m_emitters[0]->eval(bs.po, ~active1);
-        // Spectrum<ad> Le_invv(detach(Le_inv[0]),detach(Le_inv[1]),detach(Le_inv[2]));
-        // set_requires_gradient(Le_inv);
-        // auto tmp = SpectrumD(detach(Le_inv));
-        // auto tmp2 = -Le_inv;
-        // auto tmp3 = tmp + tmp2;
-        // // backward(tmp3[0]);
-        // // std::cout << "gradient(Le_inv) " << gradient(Le_inv) << std::endl;
-        // // std::cout << "tmp3 " << tmp3 << std::endl;
-        // Le = select(active1,Le,tmp3);
-        // Le = select(active1,Le,detach(Le_inv)-Le_inv);
-        // Le = select(active1,Le,detach(Le_invv)-Le_inv);
-
-        // // FIXME
-        // backward(Le[0]);
-        // std::cout << "bs.po.abs_prob " << bs.po.abs_prob << std::endl;
-        // auto grad_Le = gradient(bs.po.abs_prob);
-        // std::cout << "[GRAD] grad_Le_abs" << grad_Le << std::endl;
-
-
-        // auto grad_Le = gradient(bs.po.p);
-        // auto grad_Le = gradient(bs.po.poly_coeff);
-        // auto grad_Le = gradient((((VaeSub*&)bsdf_array[0])->m_albedo(bs.po.uv)).m_data);
-        // bsdf_array[0]->sample()
-
-        // Spectrum<ad> masked_grad_Le = gather<Spectrum<ad>>(grad_Le,IntD(validRayIdx));
-        // std::cout << "[Grad] Le " << masked_grad_Le << std::endl;
-        // Array<Vectorf<20,ad>,3> masked_grad_Le = gather<Array<Vectorf<20,ad>,3>>(grad_Le,IntD(validRayIdx));
-        // std::cout << "[Grad] Le " << masked_grad_Le << std::endl;
     }
     else{
         Le = scene.m_emitters[0]->eval(bs.po, active1);
@@ -690,16 +664,29 @@ std::pair<IntC, Spectrum<ad>> DirectIntegrator::eval_secondary_edge(const Scene 
 
     // Start: Xi Deng added:  sample a point for bssrdf 
     BSDFSampleC bs1, bs2;
+    BSDFSampleD bs1D;
+    Spectrum<ad> albedo, sigma_t;
+    // FloatD bs1_samplesD; 
     BSDFArrayC bsdf_array = _its1.shape->bsdf(valid);
-    // BSDFSampleD bs1, bs2;
-    // BSDFArrayD bsdf_array = _its1.shape->bsdf(valid);
     auto bs1_samples = scene.m_samplers[2].next_nd<8, false>();
-    // std::cout << "[1] count(valid) " << count(valid) << std::endl;
-    bs1 = bsdf_array->sample(&scene, _its1, bs1_samples,  valid);
-    // std::cout << "direct:400" <<bs1.rgb << std::endl;
+    if constexpr(ad){
+        BSDFArrayD bsdf_arrayD = BSDFArrayD(bsdf_array);
+        // VaeSub* vaesub_bsdf = bsdf_arrayD[0]
+        auto vaesub_bsdf = reinterpret_cast<VaeSub*>(bsdf_arrayD[0]);
+        // albedo = vaesub_bsdf->m_albedo.eval<ad>(_its1.uv);
+        // set_requires_gradient(albedo);
+        // sigma_t = vaesub_bsdf->m_sigma_t.eval<ad>(_its1.uv);
+        // set_requires_gradient(sigma_t);
+        
+        bs1D = bsdf_arrayD->sample(&scene, IntersectionD(_its1), Vector8fD(bs1_samples),  MaskD(valid));
+        bs1 = detach(bs1D);
+    }
+    else{
+        bs1 = bsdf_array->sample(&scene, _its1, bs1_samples,  valid);
+    }
+    
     Vector3fC &_p1 = bs1.po.p;
     
-    // std::cout<<bs1.po.abs_prob<<std::endl;
     // End: Xi Deng added
     bs2.po = _its1;
     
@@ -776,66 +763,65 @@ std::pair<IntC, Spectrum<ad>> DirectIntegrator::eval_secondary_edge(const Scene 
         Vector3fC n = normalize(cross(_its1.n, proj));
         value0 *= sign(dot(e, bss.edge2))*sign(dot(e, n));
 
-        // Start Xi Deng modified
-        const Vector3fD &v0 = tri_info.p0,
-                        &e1 = tri_info.e1,
-                        &e2 = tri_info.e2;
+        // // Start Xi Deng modified
+        // const Vector3fD &v0 = tri_info.p0,
+        //                 &e1 = tri_info.e1,
+        //                 &e2 = tri_info.e2;
 
-        Vector3fD myp2 = bss.p2 * 0.0f;
-        set_slices(myp2, slices(bss.p0));
-        myp2 = myp2 + bss.p2;
-        Vector2fD uv;
+        // Vector3fD myp2 = bss.p2 * 0.0f;
+        // set_slices(myp2, slices(bss.p0));
+        // myp2 = myp2 + bss.p2;
+        // Vector2fD uv;
         
-        RayD shadow_ray(myp2, normalize(bss.p0 - myp2));
-        std::tie(uv, std::ignore) = ray_intersect_triangle<true>(v0, e1, e2, shadow_ray);
-        Vector3fD u2 = bilinear<true>(detach(v0), detach(e1), detach(e2), uv);
+        // RayD shadow_ray(myp2, normalize(bss.p0 - myp2));
+        // std::tie(uv, std::ignore) = ray_intersect_triangle<true>(v0, e1, e2, shadow_ray);
+        // Vector3fD u2 = bilinear<true>(detach(v0), detach(e1), detach(e2), uv);
         // End Xi Deng added
 
         // Start: Joon modified
-        
         // Reparameterize xi
         // xi = xo + x_VAE / scalefactor
+        // xi = xi + detach(xo) - xo
+        auto outPos = detach(bs1D.po.p);
+
+        // auto tmp = Vector3fD(outPos);
+        auto tmp = bs1D.po.p;
+        // set_requires_gradient(tmp); 
         
+        // Vector3fD xi = -bs1D.po.p + tmp;
+        Vector3fD xi = -tmp + Vector3fD(outPos + detach(_its1.p));
+        
+        // Check forward gradients 
+        // forward(albedo[0]);
+        // forward(albedo[1]);
+        // forward(albedo[2]);
+        // forward(sigma_t[0]);
+        // forward(sigma_t[1]);
+        // forward(sigma_t[2]);
+        // std::cout << "gradient(bs1D.po.p) " << gradient(xi) << std::endl;
+        // // Check backward gradients 
+        // backward(xi[0]);
+        // std::cout << "gradient(albedo) " << gradient(albedo) << std::endl;
+        // std::cout << "gradient(sigma_t) " << gradient(sigma_t) << std::endl;
+        
+        // forward(tmp[0]);
+        // forward(tmp[1]);
+        // forward(tmp[2]);
+        // forward(sigma_t[0]);
+        // backward(xi[0]);
 
-        // std::cout << "_its.p " << _its1.p << std::endl;
-        // std::cout << "bs1_samples[5] " << bs1_samples[5] << std::endl;
-
-
-        // auto kernelEps = bsdf_array->getKernelEps(IntersectionD(_its1),bs1_samples[5]);
-        // auto tmp = IntersectionD(_its1);
-        // auto tmp2 = BSDFArrayD(bsdf_array);
-        // auto tmp3 = FloatD(bs1_samples[5]);
-        // auto kernelEps = tmp2 -> getKernelEps(tmp,tmp3);
-        // auto kernelEps = (BSDFArrayD(bsdf_array))->getKernelEps(IntersectionD(_its1),FloatD(bs1_samples[5]));
-        // // set_requires_gradient(kernelEps);
-        // // std::cout << "kernelEps " << kernelEps << std::endl;
-        // auto fitScaleFactor = 1.0f/sqrt(kernelEps);
-        // std::cout << "fitScaleFactor max" << hmin(fitScaleFactor) << std::endl;
-        // std::cout << "fitScaleFactor min" << hmax(fitScaleFactor) << std::endl;
-        // PSDR_ASSERT(!all(kernelEps == 0.0f));
-        // PSDR_ASSERT(!all(value0 == 0.0f));
-        // SpectrumD result;
-        // if(count(detach(valid)) != 0){
-        //     // std::cout << "valid " << valid0 << std::endl;
-        //     // auto values = gather<SpectrumC>(value0,validRayIdx);
-        //     // std::cout << "max(values) " << hmax(values) << std::endl;
-        //     // std::cout << "value0 " << gather<SpectrumC>(value0,validRayIdx);
-        //     // std::cout << "fitScaleFactor " << gather<SpectrumD>(SpectrumD(fitScaleFactor),validRayIdx);
-        //     result = (SpectrumD(value0) * fitScaleFactor) & valid;
-        //     // auto summed = hsum(result);
-        //     // auto summed = hsum(kernelEps); 
-        //     // backward(summed);
-        //     // std::cout << "gradient(kernelEps) " << gradient(kernelEps) << std::endl;
-        //     // std::cout << "result " << hmax(result.z())<< std::endl;
-        // }
-        // else{
-        //     result = (SpectrumD(value0) * fitScaleFactor) & valid;
-        // }
+        // auto grad_scale = enoki::gradient(xi); //bs1D.po.p);
+        // std::cout << "gradient(bs1D.po.p) " << grad_scale << std::endl;
+        // std::cout << "gradient(bs1D.po.p) " << grad_scale[0] << std::endl;
+        // std::cout << "slices(grad_scale) " << slices(grad_scale) << std::endl;
 
         // End : Joon modified
+        
         // dot(dx_p,n) = d/dx (dot(xp,n))
-        SpectrumD result = (SpectrumD(value0) * dot(Vector3fD(n), u2)) & valid;
+        SpectrumD result = (SpectrumD(value0) * dot(Vector3fD(n), xi)) & valid;
         return { select(valid, sds.pixel_idx, -1), result - detach(result) };
+        // SpectrumD result(1.0f);
+        // return { select(valid, sds.pixel_idx, -1), SpectrumD(1.0f)};
     } else {
         return { -1, value0 };
     }
