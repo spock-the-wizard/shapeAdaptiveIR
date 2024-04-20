@@ -41,9 +41,9 @@ do
     # # Exp 4. Inverse Rendering experiment
     # exp_name="exp3/var112"
     # # exp_name="exp3/var109"
-    # # exp_name="test/monochrom"
+    # exp_name="test/boundary_detection"
     # name="duck" #head1" #sphere1"
-    # # name="sphere1"
+    # name="sphere1"
     # # name="kettle1" #sphere1"
     # # name="head1" #sphere1"
     # # name="cone4" #sphere1"
@@ -56,8 +56,8 @@ do
     # # sigma_t="54.0, 72.0, 98.0" # sphere1
     # # sigma_t="109.0, 109.0, 52.0" # head1
     # sigma_t="80.0, 80.0, 80.0" # init
-    # # sigma_t="50.0, 80.0, 60.0" # init
-    # sigma_t="40.0, 40.0, 40.0" # init
+    # sigma_t="50.0, 80.0, 60.0" # init
+    # # sigma_t="40.0, 40.0, 40.0" # init
     
     # albedo="0.9, 0.9, 0.9" #sphere1
     # # albedo="0.88305, 0.183, 0.011" # duck
@@ -70,16 +70,19 @@ do
     # --in_xml "$xml_file" \
     # --out_xml "$out_file" \
     # # --is_baseline
-    # spp_inv=128
-    # n_crops=8
+    # spp_inv=1 #128
+    # n_crops=1
+    # spp=1
+    # # spp_inv=1
+    # # n_crops=1
     # # bash $root/inverse/learn_inverse_2.sh $exp_name $name $spp $out_file $spp_inv $n_crops
     # bash $root/inverse/learn_inverse.sh $exp_name $name $spp $out_file $spp_inv $n_crops
 
     # Exp 5. Render Gradient Image
     exp_name="test/grad2"
     name="sphere1"
-    # name="head1"
-    # name="duck"
+    name="head1"
+    name="duck"
     # name="cylinder4"
     echo $exp_name
     xml_file=$root/../../scenes/inverse/${name}_out.xml
@@ -93,7 +96,7 @@ do
     --in_xml "$xml_file" \
     --out_xml "$out_file" \
     # --is_baseline
-    spp=128
+    spp=64
 
     bash $root/grad/render_grad.sh $exp_name $name $spp $out_file
     

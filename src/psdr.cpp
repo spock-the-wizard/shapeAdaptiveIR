@@ -366,6 +366,10 @@ PYBIND11_MODULE(psdr_cuda, m) {
         .def("renderD_shape", &Integrator::renderD_shape, "scene"_a, "intersection"_a, "sensor_id"_a = 0)
         .def("renderD", &Integrator::renderD, "scene"_a, "sensor_id"_a = 0)
         .def("preprocess_secondary_edges", &Integrator::preprocess_secondary_edges, "scene"_a, "sensor_id"_a, "resolution"_a, "nrounds"_a = 1)
+        .def("sample_boundaryC", &Integrator::sample_boundary<false>, "scene"_a, "camera_ray"_a)
+        .def("sample_boundaryD", &Integrator::sample_boundary<true>, "scene"_a, "camera_ray"_a)
+        .def("sample_boundary", &Integrator::sample_boundary_, "scene"_a, "pts"_a,"dir"_a)
+// IntersectionC Integrator::sample_boundary(const Scene &scene, Vector3fC pts, Vector3fD dir){
         .def("sample_sub", &Integrator::sample_sub, "scene"_a, "pts"_a,"dir"_a);
 
     py::class_<FieldExtractionIntegrator, Integrator>(m, "FieldExtractionIntegrator")

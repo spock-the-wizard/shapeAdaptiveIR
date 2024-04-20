@@ -260,11 +260,9 @@ void Scene::configure() {
                 const int m = static_cast<int>(slices(*mesh.m_sec_edge_info));
                 
                 const IntD idx = arange<IntD>(m) + edge_offset[i];
-                // std::cout << "idx " << idx << std::endl;
                 // Grammar: target / source / idx
                 // Relocate m_sec_edge info from mesh to variable
                 scatter(m_sec_edge_info, *mesh.m_sec_edge_info, idx);
-                // std::cout << "*mesh.m_sec_edge_info.e1 " << m_sec_edge_info.e1 << std::endl;
             }
         }
         
@@ -731,8 +729,180 @@ Float<ad> Scene::emitter_position_pdf(const Vector3f<ad> &ref_p, const Intersect
     return its.shape->emitter(active)->sample_position_pdf(ref_p, its, active);
 }
 
+template <bool ad>
+Vector3f<ad> interpolate(Vector3f<ad> p0, Vector3f<ad> p1){
+    return (p0 + p1) / 2;
+}
+Vector3fD interpolate(Vector3fD p0, Vector3fD p1){
+    return (p0 + p1) / 2;
+}
+
+template <bool ad>
+Intersection<ad> Scene::bounding_edge(Scene scene, Intersection<ad> its, Vectorf<1,ad> r, Vector8f<ad> sample) const {
+    
+    auto phi = 2.0f * Pi * sample.x();
+    auto vx = its.sh_frame.t;
+    auto vy = its.sh_frame.s;
+    auto vz = its.sh_frame.n;
+
+    // Make bounding sphere
+    // Float<ad> maxDist
+    // TODO: set with variable
+    // auto maxDist = 0.05f; 
+    Float<ad> maxDist(0.05f);
+    // set_slices(maxDist,slices(sample));
+
+    // set_slices(vz,slices(sample));
+    Ray<ad> ray(its.p + maxDist * (cos(phi)*vx + vy*sin(phi)),-vz,maxDist);
+    Intersection<ad> its_curve;
+    Mask<ad> active = its.p.x() != 0.0f;
+    its_curve = this->ray_intersect<ad>(ray,active);
+            // Intersection<ad> its3_back = scene->ray_intersect<ad, ad>(ray_back,active);
+    // its_curve = ray_all_intersect<ad, ad>(ray, ray.o!=0.0f, sample, 5);
+    IntC cameraIdx = arange<IntC>(slices(its_curve));
+    IntC validRayIdx= cameraIdx.compress_(its_curve.is_valid());
+    Intersection<ad> masked_its = gather<Intersection<ad>>(its_curve,Int<ad>(validRayIdx));
+
+    return masked_its;
+    // return its_curve;
+    
+}
+
+template <bool ad>
+Vector3fD Scene::crossing_edge(Vector3f<ad> _p,Vectorf<1,ad> sphereRadius, Vector2f<ad> sample) const {
+    // Iterate through each edge
+    // auto threshold = Vectorf<1,true>(sphereRadius);
+    
+    Vectorf<1,true> threshold = sphereRadius;
+    Vector3fD p = _p; 
+    if constexpr(!ad)
+        {
+        threshold = Vectorf<1,true>(sphereRadius);
+        p = Vector3fD(_p);
+        }
+    // auto sensor = scene.m_sensors[sensor_id];
+    
+    // Create dynamic list of Boundary curve segments
+    
+    // For each triangle
+    // Are there two crossing edges?
+    // Connect the intersections
+    auto p0 = m_triangle_info.p0;
+    auto p1 = p0 + m_triangle_info.e1;
+    auto p2 = p0 + m_triangle_info.e2;
+    // std::cout << "p0 " << p0 << std::endl;
+    // std::cout << "p1 " << p1 << std::endl;
+    // std::cout << "p2 " << p2 << std::endl;
+    
+    // auto its_p = Vector3fD(p); //[N,3]
+    // auto its_p = p;
+    
+    // List of curves!
+    // TODO: which data structure should be use?
+    // TODO: get the for loop out of my sight. Maybe use enoki::vectorize()
+    // Fixed size? (dense) or dynamic arrays? (sparse)
+    // Sample in advance?
+    
+
+    // TODO: vectorized version
+    
+    // For each intersection
+    // Return a point on the boundary curve
+    Vector3fD curve = enoki::zero<Vector3fD>(slices(p));
+    std::cout << "slices(p) " << slices(p) << std::endl;
+    
+    for(int i=0;i<slices(p);i++){
+        auto its_p = slice(p,i);
+        
+        auto dist0 = norm(p0-its_p);
+        // std::cout << "blah" << std::endl;
+        auto dist1 = norm(p1-its_p);
+        auto dist2 = norm(p2-its_p);
+        // std::cout << "blah" << std::endl;
+        
+        // Discarding indexing causes (I'm assuming) broadcasting errors
+        auto d0 = dist0 < threshold[0];
+        auto d1 = dist1 < threshold[0];
+        auto d2 = dist2 < threshold[0]; 
+        // std::cout << "blah" << std::endl;
+        // std::cout << "d0 " << d0 << std::endl;
+        // std::cout << "d1 " << d1 << std::endl;
+        // std::cout << "d2 " << d2 << std::endl;
+        
+        auto valid = !(d0 && d1 && d2) && !(!d0 && !d1 && !d2);
+        // std::cout << "blah" << std::endl;
+        // std::cout << "count(valid) " << count(valid) << std::endl;
+        
+        // std::cout << "valid? " << std::endl;
+        if (any(valid)){
+            // TODO: fix
+            set_slices(curve,count(valid)); //resize(curve,count(valid));
+            // std::cout << "valid!" << std::endl;
+            // std::cout << "count(valid) " << count(valid) << std::endl;
+            Vector3fD cp0, cp1;
+            IntC triIdx = arange<IntC>(slices(valid));
+            auto validTriIdx = IntD(triIdx.compress_(valid));
+            Vector3fD pp0 = gather<Vector3fD>(p0,validTriIdx);
+            Vector3fD pp1 = gather<Vector3fD>(p1,validTriIdx);
+            Vector3fD pp2 = gather<Vector3fD>(p2,validTriIdx);
+            Vector3fD n = gather<Vector3fD>(m_triangle_info.face_normal,validTriIdx);
+            auto dist00 = gather<FloatD>(dist0,validTriIdx);
+            auto dist11 = gather<FloatD>(dist1,validTriIdx);
+            auto dist22 = gather<FloatD>(dist2,validTriIdx);
+            auto d00 = gather<MaskD>(d0,validTriIdx);
+            auto d11 = gather<MaskD>(d1,validTriIdx);
+            auto d22 = gather<MaskD>(d2,validTriIdx);
+            // std::cout << "validTriIdx " << validTriIdx << std::endl;
+            
+            // TODO: change interpolation function
+            cp0 = select(d00==d11,interpolate(pp0,pp2),interpolate(pp0,pp1));
+            cp1 = select(d11==d22,interpolate(pp0,pp2),interpolate(pp1,pp2));
+
+            // Connect cross points to get curve edge
+            BoundaryCurveSampleDirect result;
+            result.p0 = cp0;
+            result.edge = cp1 - cp0;
+            result.n = n;
+            auto curveEdgeLength =norm(detach(result.edge));
+
+            // Sample proportional to edge length
+            DiscreteDistribution curve_distrb;
+            curve_distrb.init(curveEdgeLength);
+
+            // auto sample_single = FloatC(slice(sample.x(),i));
+            // auto sample_single2 = FloatD(slice(sample.y(),i));
+            // auto [edge_idx, pdf0] = curve_distrb.sample(sample_single); //sample.x());
+            // Vector3fD curveP0 = gather<Vector3fD>(result.p0,IntD(edge_idx));
+            // Vector3fD curvePedge = gather<Vector3fD>(result.edge,IntD(edge_idx));
+            // Vector3fD curveP = curveP0 + sample_single2 * curvePedge;
+            // scatter_add(curve, curveP, IntD(i));
+            //
+            auto sample_single = detach(sample.x()); //detach(sample.x());
+            auto sample_single2 = sample.y();
+            auto [edge_idx, pdf0] = curve_distrb.sample(sample_single);
+                                                                        
+            Vector3fD curveP0 = gather<Vector3fD>(result.p0,IntD(edge_idx));
+            Vector3fD curvePedge = gather<Vector3fD>(result.edge,IntD(edge_idx));
+            Vector3fD curveP = curveP0 + sample_single2 * curvePedge; // normalize(detach(curvePedge));
+                                                                    
+            // std::cout << "norm(curveP - p) " << norm(curveP - its_p) << std::endl;
+                                                                
+            // std::cout << "norm(curveP) " << norm(curveP) << std::endl;
+            scatter_add(curve, curveP, arange<IntD>(slices(sample)));
+            
+        }
+    }
+        
+    if constexpr(!ad){
+        return detach(curve);
+    }
+    else{
+        return curve;
+    }
+}
 
 BoundarySegSampleDirect Scene::sample_boundary_segment_direct(const Vector3fC &sample3, MaskC active) const {
+
     BoundarySegSampleDirect result;
 
     // Sample a point p0 on a face edge
@@ -796,5 +966,12 @@ template PositionSampleD Scene::sample_emitter_position<true >(const Vector3fD&,
 
 template FloatC Scene::emitter_position_pdf<false>(const Vector3fC&, const IntersectionC&, MaskC) const;
 template FloatD Scene::emitter_position_pdf<true >(const Vector3fD&, const IntersectionD&, MaskD) const;
+
+template Vector3fD Scene::crossing_edge<true>(Vector3fD p, Vectorf<1,true> r, Vector2f<true> sample) const;
+template Vector3fD Scene::crossing_edge<false>(Vector3fC p, Vectorf<1,false> r, Vector2f<false> sample) const;
+
+template IntersectionD Scene::bounding_edge<true>(Scene scene, IntersectionD p, Vectorf<1,true> r, Vector8f<true> sample) const;
+template IntersectionC Scene::bounding_edge<false>(Scene scene, IntersectionC p, Vectorf<1,false> r, Vector8f<false> sample) const;
+
 
 } // namespace psdr

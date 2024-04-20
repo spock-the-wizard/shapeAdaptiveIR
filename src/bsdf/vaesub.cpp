@@ -261,8 +261,10 @@ Spectrum<ad> VaeSub::__eval_bsdf(const Intersection<ad> &its, const BSDFSample<a
 
 template <bool ad>
 Spectrum<ad> VaeSub::__eval_sub(const Intersection<ad> &its, const BSDFSample<ad> &bs, Mask<ad> active) const {
+    // Incident angle of camera ray 
+
     Float<ad> cos_theta_i = Frame<ad>::cos_theta(its.wi);
-    // std::cout << "cos_theta_i " << cos_theta_i << std::endl;
+    // Outgoing angle of light ray
     Float<ad> cos_theta_o = Frame<ad>::cos_theta(bs.wo);
     active &= (cos_theta_i > 0.f);
     active &= (cos_theta_o > 0.f);
@@ -390,6 +392,7 @@ BSDFSample<ad> VaeSub::__sample_sub(const Scene *scene, const Intersection<ad> &
     // std::tie(bs.po, bs.rgb_rv,dummy,dummy) = __sample_sp<ad>(scene, its, sample, pdf_po, active);
     // std::cout << "[DEBUG] __sample_sub" << bs.po.abs_prob << std::endl;
     bs.wo = warp::square_to_cosine_hemisphere<ad>(tail<2>(sample));
+
     bs.pdf = pdf_po;
     // TODO: add and check
     // std::cout << "========sample_sub========= " << std::endl;
@@ -734,7 +737,8 @@ std::tuple<Intersection<ad>,Float<ad>,Vector3f<ad>,Vector3f<ad>> VaeSub::__sampl
             // projDir = vz;
             /////////////////////////////
             // std::tie(polyVal,projDir) = evalGradient<ad>(detach(its.p),detach(shapeFeatures),outPos,3,fitScaleFactor,true,vz);
-            std::tie(polyVal,projDir) = evalGradient<ad>(detach(its.p),detach(shapeFeatures),detach(outPos),3,detach(fitScaleFactor),true,vz);
+            std::tie(polyVal,projDir) = evalGradient<ad>(its.p,shapeFeatures,outPos,3,fitScaleFactor,true,vz);
+            // std::tie(polyVal,projDir) = evalGradient<ad>(detach(its.p),detach(shapeFeatures),detach(outPos),3,detach(fitScaleFactor),true,vz);
         }
         else{
             std::tie(polyVal,projDir) = evalGradient<ad>(detach(its.p),detach(shapeFeatures),detach(outPos),3,detach(fitScaleFactor),true,vz);
@@ -813,7 +817,9 @@ std::tuple<Intersection<ad>,Float<ad>,Vector3f<ad>,Vector3f<ad>> VaeSub::__sampl
             // std::cout << "[bef] its3.p " << its3.p << std::endl;
             // its3.p = outPos-eps*ray_dir + detach(its3.t) * ray_dir;
             // std::cout << "[aft] its3.p " << its3.p << std::endl;
-            its3.p = outPos-eps*detach(ray_dir) + detach(its3.t) * detach(ray_dir);
+            // its3.p = outPos-eps*detach(ray_dir) + detach(its3.t) * detach(ray_dir);
+            its3.p = outPos-eps*ray_dir + its3.t * ray_dir;
+            // its3.p = outPos-eps*detach(ray_dir) + detach(its3.t) * detach(ray_dir);
         }
         else{
             auto ray_dir = select(msk,projDir,-projDir);

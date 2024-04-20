@@ -19,6 +19,13 @@ public:
     // std::tuple<Vector3fC,Vector3fC,Vector3fC,Array<Array<Float<false>,20>,3>> sample_sub(const Scene &scene, Vector3f<false> pts, Vector3f<false> dir);
     // std::tuple<Vector3fC,Vector3fC,Vector3fC,Array<Array<float,20>,3>> sample_sub(const Scene &scene, Vector3f<false> pts, Vector3f<false> dir);
     std::tuple<Vector3fC,Vector3fC,Vector3fC,Vector20fC,Float<false>> sample_sub(const Scene &scene, Vector3f<false> pts, Vector3f<false> dir);
+    template <bool ad>
+    std::tuple<BSDFSampleC,BSDFSampleC,Float<ad>> sample_boundary(const Scene &scene, const Ray<ad> &camera_ray) const;
+    IntersectionC sample_boundary_(const Scene &scene, const Vector3fC &pts, const Vector3fC &dir); 
+// template FloatC Scene::emitter_position_pdf<false>(const Vector3fC&, const IntersectionC&, MaskC) const;
+// template FloatD Scene::emitter_position_pdf<true >(const Vector3fD&, const IntersectionD&, MaskD) const;
+    // std::tuple<BSDFSampleC,BSDFSampleC,FloatC> sample_boundary(const Scene &scene, const RayC &camera_ray) const;
+    // std::tuple<BSDFSampleD,BSDFSampleD,FloatD> sample_boundary(const Scene &scene, const RayD &camera_ray)const ;
     // std::tuple<Vector3fC,Vector3fC,Vector3fC,Array<Array<float,20>,3>> sample_sub(const Scene &scene, Vector3f<false> pts, Vector3f<false> dir);
     // Vector3f<false> sample_sub(const Scene &scene, Vector3f<false> pts, Vector3f<false> dir);
     

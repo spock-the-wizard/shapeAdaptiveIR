@@ -94,6 +94,7 @@ namespace psdr
     using SensorDirectSampleD   = SensorDirectSample<true>;
 
     struct BoundarySegSampleDirect;
+    struct BoundaryCurveSampleDirect;
 
     // Main classes
     class BSDF;

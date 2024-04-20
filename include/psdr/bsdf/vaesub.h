@@ -77,6 +77,9 @@ public:
     FloatD getKernelEps(const IntersectionD& its,FloatD idx) const override;
     FloatC getKernelEps(const IntersectionC& its,FloatC idx) const override;
 
+    FloatD absorption(const IntersectionD& its,Vector8fD sample) const;
+    FloatC absorption(const IntersectionC& its,Vector8fC sample) const;
+
     FloatC pdfpoint(const IntersectionC &its, const BSDFSampleC &bs, MaskC active) const override;
     FloatD pdfpoint(const IntersectionD &its, const BSDFSampleD &bs, MaskD active) const override;
 
@@ -114,6 +117,17 @@ public:
     bool hasbssdf() const override { return true; }
     template <bool ad>
     Float<ad> getKernelEps(const Intersection<ad>& its,Float<ad> idx) const;
+    template <bool ad>
+    Float<ad> absorption(const Intersection<ad> &its, const Vector8f<ad> &sample) const{
+        Float<ad> absorption;;
+        Float<ad> rnd = sample[5];
+        float is_plane = false;
+        float is_light_space = true;
+        auto x = _preprocessFeatures<ad>(its,rnd,is_plane,its.wi,is_light_space);
+        Array<Float<ad>,4> latent(sample[2],sample[3],sample[6],sample[7]);
+        std::tie(std::ignore,absorption)= _run<ad>(x,latent);
+        return absorption;
+    } 
 
     std::string to_string() const override { return std::string("VaeSub[id=") + m_id + "]"; }
 

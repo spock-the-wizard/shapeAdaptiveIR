@@ -252,18 +252,24 @@ Spectrum<ad> HeterSub::__eval_sub(const Intersection<ad> &its, const BSDFSample<
     Spectrum<ad> sp = sqrt(__Sp<ad>(bs.po, its)) * sqrt(__Sp<ad>(its, bs.po));
     Spectrum<ad> sw =  __Sw<ad>(bs.po, bs.wo, active);
     
-    // std::cout << "[DEBUG] Active rate: " << 100*count(active)/slices(active) << std::endl;
-    Spectrum<ad> value = sp * sw * (1.0f - F) * cos_theta_o;
-    // std::cout << "cos_theta_o " << cos_theta_o << std::endl;
+    Spectrum<ad> value;
+    if constexpr(ad){
+        // auto sigma_t = m_sigma_t.eval<ad>(its.uv);
+        // set_requires_gradient(sigma_t);
+        // auto albedo = m_albedo.eval<ad>(its.uv);
+        // set_requires_gradient(albedo);
+        value = sp * sw * (1.0f - F) * cos_theta_o;
+    //     forward(albedo[0]);
+    //     forward(albedo[1]);
+    //     forward(albedo[2]);
+    // std::cout << "gradient(value[0]) " << gradient(value) << std::endl;
+        
+    }
+    else{
+        value = sp * sw * (1.0f - F) * cos_theta_o;
+    }
     if constexpr ( ad ) {
-        
         value = value * bs.po.J;    
-
-        // backward(value[0]);
-        // Spectrum<ad> albedo = m_albedo.eval<ad>(its.uv);
-        // auto grad_alb = gradient(albedo);
-        // std::cout << "grad_alb" << grad_alb <<std::endl;
-        
     }
     return value & active;
 }
@@ -347,8 +353,8 @@ BSDFSample<ad> HeterSub::__sample_sub(const Scene *scene, const Intersection<ad>
     bs.wo = warp::square_to_cosine_hemisphere<ad>(tail<2>(sample));
     bs.pdf = pdf_po;
     // TODO: add an id check
-    std::cout << "=======sample_sub======== " << std::endl;
-    std::cout << "count(bs.po.is_valid()) " << count(bs.po.is_valid()) << std::endl;
+    // std::cout << "=======sample_sub======== " << std::endl;
+    // std::cout << "count(bs.po.is_valid()) " << count(bs.po.is_valid()) << std::endl;
     bs.is_valid = active && (cos_theta_i > 0.f) && bs.po.is_valid();// && ( == its.shape->m_id);&& 
     bs.is_sub = true;
     

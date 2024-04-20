@@ -33,6 +33,8 @@ protected:
 
     template <bool ad>
     std::pair<IntC, Spectrum<ad>> eval_secondary_edge(const Scene &scene, const Sensor &sensor, const Vector3fC &sample3) const;
+    template <bool ad>
+    std::pair<IntC, Spectrum<ad>> eval_boundary_edge(const Scene &scene, const Sensor &sensor, const Vector3fC &sample3) const;
 
     template <bool ad>
     void eval_secondary_edge_bssrdf(const Scene &scene, const IntersectionC &its, const Sensor &sensor, const Vector3fC &sample3, SpectrumD &result) const;

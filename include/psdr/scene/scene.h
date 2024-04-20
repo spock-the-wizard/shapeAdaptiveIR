@@ -28,6 +28,12 @@ public:
 
     void load_file(const char *file_name, bool auto_configure = true);
     void load_string(const char *scene_xml, bool auto_configure = true);
+    
+    template <bool ad>
+    Vector3fD crossing_edge(Vector3f<ad> p,Vectorf<1,ad> r, Vector2f<ad> sample) const;
+    template <bool ad>
+    Intersection<ad> bounding_edge(Scene scene, Intersection<ad> its, Vectorf<1,ad> r, Vector8f<ad> sample) const;
+    // Vector3fD bounding_edge(Intersection<ad> _p, Vectorf<1,ad> sphereRadius, Vector2f<ad> sample) const;
 
     void configure();
     bool is_ready() const;

@@ -27,6 +27,7 @@ import wandb
 import time
 
 import pytorch_ssim
+from enoki import *
 
 
 # from largesteps.optimize import AdamUnifom
@@ -67,6 +68,7 @@ sys.path.append('../viz/vae')
 # from viz import vae.config
 # from viz import extract_shape_features
 
+os.chdir("/sss/InverseTranslucent/examples/python/scripts")
 import vae.config
 import vae.config_abs
 # import vae.config_angular
@@ -82,6 +84,7 @@ from utils.gui import (FilteredListPanel, FilteredPopupListPanel,
                        LabeledSlider, add_checkbox)
 from vae.global_config import (DATADIR3D, FIT_REGULARIZATION, OUTPUT3D,
                                RESOURCEDIR, SCENEDIR3D, DATADIR)
+
 
 import vae.model
 # import vae.predictors
@@ -167,11 +170,11 @@ class Scatter3DViewer:
 
 
 parser = argparse.ArgumentParser()
-parser.add_argument('--scene',              type=str,      default='soap')
-parser.add_argument('--stats_folder',       type=str,      default="joint_sss_temp")
+parser.add_argument('--scene',              type=str,      default='sphere1')
+parser.add_argument('--stats_folder',       type=str,      default="test/debug")
 parser.add_argument('--light_file',         type=str,      default="seal")
 parser.add_argument('--ref_folder',         type=str,      default="exr_ref")
-parser.add_argument('--scene_file',         type=str,    default=None)
+parser.add_argument('--scene_file',         type=str,    default="../../scenes/inverse/sphere1_out.xml")
 
 parser.add_argument('--sigma_lr',           type=float,    default=0.04)
 parser.add_argument('--eta_lr',             type=float,    default=0.01)
@@ -195,9 +198,9 @@ parser.add_argument('--n_crops',             type=int,      default=1)
 
 parser.add_argument('--seed',               type=int,      default=4)
 
-parser.add_argument('--spp',                type=int,      default=32)
-parser.add_argument('--sppe',               type=int,      default=32)
-parser.add_argument('--sppse',              type=int,     default=500)
+parser.add_argument('--spp',                type=int,      default=4)
+parser.add_argument('--sppe',               type=int,      default=0)
+parser.add_argument('--sppse',              type=int,     default=0)
 
 parser.add_argument('--integrator',         type=str,      default='direct')
 
@@ -207,11 +210,11 @@ parser.add_argument('--rough_texture',      type=int,      default=256)
 
 parser.add_argument('--ref_spp',            type=int,      default=50)
 parser.add_argument('--no_init',            type=str,     default="yes")
-parser.add_argument('--d_type',             type=str,     default="real")
-parser.add_argument('--silhouette',         type=str,     default="yes")
+parser.add_argument('--d_type',             type=str,     default="custom")
+parser.add_argument('--silhouette',         type=str,     default="no")
 
 parser.add_argument('--render_gradient', action="store_true")
-parser.add_argument('--debug', action="store_true")
+parser.add_argument('--debug', action="store_true", default=False)
 
 os.environ["OPENCV_IO_ENABLE_OPENEXR"]="1"
 
@@ -666,7 +669,8 @@ def opt_task(args):
                 sc.configure()
 
                 img = myIntegrator.renderD(sc, sensor_id)
-                ek.forward(a[idx_param])
+                for i in range(3):
+                    ek.forward(a[i])
                 try:
                     grad_for = ek.gradient(img)
                     grad_img = grad_for.numpy().reshape(sc.opts.cropheight,sc.opts.cropwidth,-1)
@@ -699,7 +703,7 @@ def opt_task(args):
             return img 
             # return img_np
         
-    isMonochrome = sc.param_map[material_key].monochrome
+    # isMonochrome = sc.param_map[material_key].monochrome
     class Renderer(torch.autograd.Function):
         @staticmethod
         def forward(ctx, V, A, S, R, G, batch_size, seed,crop_idx=0):
@@ -756,11 +760,11 @@ def opt_task(args):
                 # tar_img = Vector3fD(tars[sensor_id].cuda())
                 # weight_img = Vector3fD(tmeans[sensor_id].cuda()f)
                 our_imgA = myIntegrator.renderD(sc, sensor_id)
-                # tmp = our_imgA.numpy().reshape(ro.cropheight,ro.cropwidth,3)
-                # debug_dir = "patch"
-                # os.makedirs(debug_dir,exist_ok=True)
-                # cv2.imwrite(f"{debug_dir}/{args.scene}_{sensor_id}.png",tmp*255)
-                # print(tmp.max())
+                tmp = our_imgA.numpy().reshape(ro.cropheight,ro.cropwidth,3)
+                debug_dir = "bound2"
+                os.makedirs(debug_dir,exist_ok=True)
+                cv2.imwrite(f"{debug_dir}/{args.scene}_{sensor_id}.png",tmp*255)
+                print(tmp.max())
                 if isBaseline:
                     our_imgB = myIntegrator.renderD(sc, sensor_id)
                 else:
@@ -1153,8 +1157,8 @@ def opt_task(args):
             ek.cuda_malloc_trim()
 
             # if (i==0 and args.n_iters == 1) or 
-            # if (i % args.n_dump == args.n_dump -1):
-            if (i % args.n_dump == 0):
+            if (i % args.n_dump == args.n_dump -1):
+            # if (i % args.n_dump == 0):
             # if i == 0 or ((i+1) %  args.n_dump) == 0:
                 # sensor_indices = active_sensors(1, num_sensors)
                 # renderPreview(i, np.array([0], dtype=np.int32))
@@ -1257,14 +1261,14 @@ def opt_task(args):
         GRAD_DIR = "../../grad"
 
         fd_delta = 5e-2 #2
-        # fd_delta = 5
-        sensor_id = 3 #0 #1 #0
+        fd_delta = 5
+        sensor_id = 0 #0
         idx_param = 2 #0
         param_delta = torch.ones(3).cuda()
         param_delta = param_delta * fd_delta
         # param_delta[idx_param] = fd_delta
         isAlbedo = True
-        # isAlbedo = False
+        isAlbedo = False
         
         A,S = None,None
         if isAlbedo:
@@ -1284,7 +1288,7 @@ def opt_task(args):
         # plt.imshow(img, cmap='RdBu',norm=norm)
         cmax = max(img.max(),abs(img.min()))
         # FIXME: tmp setting
-        # cmax = min(cmax,0.002)
+        cmax = min(cmax,0.002)
         norm = MidpointNormalize(vmin=-cmax,vmax=cmax,midpoint=0.0)
         plt.imshow(img, cmap='RdBu_r',norm=norm)
         plt.tight_layout()

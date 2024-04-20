@@ -24,6 +24,7 @@ import pygalmesh
 
 import vae.config
 from enoki.cuda import Float32 as FloatD, Vector3f, Vector20f
+from psdr_cuda import RayC
 # from psdr_cuda import Vector20f
 # from enoki.cuda import Float32 as FloatD, Vectorf
 # import vae.config_abs
@@ -68,6 +69,7 @@ class Mode(Enum):
     RECONSTRUCTION = 2
     POLYREF = 3
     POLYTRAIN = 4
+    BOUNDARY = 5
 
 
 class Scatter3DViewer(ViewerApp):
@@ -80,6 +82,7 @@ class Scatter3DViewer(ViewerApp):
         # NOTE: added for projectionvisualization
         self.sampled_p_proj, self.sampled_dir = None, None
         self.sampled_pts = None
+        self.sampled_boundary = None
         self.shape = self.scene.getShapes()[0]
         self.picked_point = PointCloud(np.zeros((1, 3)))
         self.picked_point2 = PointCloud(np.zeros((1, 3)))
@@ -365,6 +368,7 @@ class Scatter3DViewer(ViewerApp):
         self.tangent_x, self.tangent_y = 0, 0
         # self.mode= Mode.REF
         self.mode= Mode.RECONSTRUCTION
+        # self.mode= Mode.BOUNDARY
       
         # self.mode= Mode.PREDICTION
 
@@ -381,6 +385,10 @@ class Scatter3DViewer(ViewerApp):
             self.set_mesh(self.mesh_file)  # reset mesh to regen constraint kdtree
             self.its_loc, self.its_loc2 = its_loc, its_loc2
             self.face_normal = face_normal
+            self.sc.param_map[self.material_key].g.data = self.g
+            self.sc.param_map[self.material_key].sigma_t.data = self.sigma_t
+            self.sc.param_map[self.material_key].albedo.data = self.albedo
+            self.sc.configure()
             self.update_displayed_scattering()
             return True
 
@@ -414,7 +422,8 @@ class Scatter3DViewer(ViewerApp):
         LabeledSlider(self, tools, 'n_scatter_samples', 32, 2 ** 19, int, self.update_displayed_scattering, slider_width=160,
                       warp_fun=np.log2, inv_warp_fun=lambda x: 2 ** x)
 
-        add_checkbox(self, tools, 'show_samples', False, label='Show Samples')
+        add_checkbox(self, tools, 'show_samples', True, label='Show Samples')
+        add_checkbox(self, tools, 'show_boundary', True, label='Show Boundary')
         add_checkbox(self, tools, 'project_samples', False, label='Project Points')
         self.show_rec_mesh_checkbox = add_checkbox(self, tools, 'show_rec_mesh', False, label='Show Reconstructed Mesh')
         self.show_rec_mesh2_checkbox = add_checkbox(self, tools, 'show_rec_mesh2', False, label='Show Reconstructed Mesh')
@@ -501,14 +510,14 @@ class Scatter3DViewer(ViewerApp):
 
         def cb(value):
             self.mode = [Mode.REF, Mode.PREDICTION, Mode.RECONSTRUCTION,
-                         Mode.POLYREF, Mode.POLYTRAIN][value]
+                         Mode.POLYREF, Mode.POLYTRAIN, Mode.BOUNDARY][value]
             print(self.mode)
             self.update_displayed_scattering()
 
         Label(tools, 'Mode')
         self.mode_combobox = ComboBox(tools)
         self.mode_combobox.setItems(['Reference', 'Prediction', 'Reconstruction',
-                                     'Poly Reference', 'Poly Train'])
+                                     'Poly Reference', 'Poly Train', 'Boundary'])
         self.mode_combobox.setCallback(cb)
 
         # Label(tools, 'Data Set')
@@ -547,6 +556,12 @@ class Scatter3DViewer(ViewerApp):
         self.thread_count = 0
         self.t = None
         self.sampling_task = None
+
+        # self.its_loc = np.array([0,0,1])
+        # self.its_dir = np.array([0,0,1])
+        # self.face_normal = self.its_dir
+
+        # self.update_displayed_scattering()
 
     def exitEvent(self):
         if self.sampling_task:
@@ -862,6 +877,31 @@ class Scatter3DViewer(ViewerApp):
                                         unproj_points=result['outPosUnproj'],
                                         normals=result['outNormal'],
                                         out_dirs=result['outDir'])
+        elif self.mode == Mode.BOUNDARY:
+            t0 = time.time()
+            self.viewer_data = ViewerState(self)
+            seed = int(np.random.randint(10000))
+
+            n = 100
+            its_dir = Vector3f(self.inDirection.reshape(-1,3).repeat(n,0))
+            its_loc = Vector3f((self.its_loc-its_dir).reshape(-1,3))
+            
+            # camera_ray = RayC(its_loc,its_dir)
+            its = self.sampler.sample_boundary(self.sc,its_loc,its_dir)
+            self.sampled_pts = its.p.numpy()
+            
+            # import vae.utils 
+            # def mts_to_np(data):
+            #     if type(data) is list:
+            #         return np.array([np.array([p[0], p[1], p[2]]) for p in data])
+            #     else:
+            #         return np.array([data[0], data[1], data[2]])
+            # self.viewer_data.append(reconstructed_samples,
+            #                         # normals=np.array(tmp_result['outNormal']),
+            #                         # out_dirs=np.array(tmp_result['outDir']))
+            #                         normals=mts_to_np(tmp_result['outNormal']),
+            #                         out_dirs=mts_to_np(tmp_result['outDir']))
+
         elif self.mode == Mode.RECONSTRUCTION:
             # breakpoint()
             t0 = time.time()
@@ -907,10 +947,11 @@ class Scatter3DViewer(ViewerApp):
             # 2. Try to reconstruct them using the VAE: Are they far from the surface?
            
             n = self.n_scatter_samples
-            light_pos = np.ones_like(self.its_loc)
             # incident direction in world coordinate system
-            its_dir = (self.its_loc-light_pos)
-            its_dir /= np.linalg.norm(its_dir)
+            # light_pos = np.ones_like(self.its_loc)
+            # its_dir = (self.its_loc-light_pos)
+            # its_dir /= np.linalg.norm(its_dir)
+            its_dir = self.inDirection
 
             its_dir = Vector3f(its_dir.reshape(-1,3).repeat(n,0))
             print("self.inDirection",self.inDirection)
@@ -964,6 +1005,16 @@ class Scatter3DViewer(ViewerApp):
                                     # out_dirs=np.array(tmp_result['outDir']))
                                     normals=mts_to_np(tmp_result['outNormal']),
                                     out_dirs=mts_to_np(tmp_result['outDir']))
+            if self.show_boundary:
+
+                n = 100
+                # its_dir = Vector3f(self.inDirection.reshape(-1,3).repeat(n,0))
+                # its_loc = Vector3f((self.its_loc-its_dir).reshape(-1,3))
+                
+                # camera_ray = RayC(its_loc,its_dir)
+                its = self.sampler.sample_boundary(self.sc,its_loc,its_dir)
+                self.sampled_boundary = its.p.numpy()
+                
 
         elif self.mode == Mode.POLYREF:
 
@@ -1200,6 +1251,7 @@ class Scatter3DViewer(ViewerApp):
                 else:
                     self.mesh.draw_contents(self.camera, self.render_context, None,
                                             (1.0,1.0,1.0,0.5))
+                        
 
         if self.training_points is not None:
             self.training_points.draw_contents(self.camera, self.render_context, None, [0, 1, 0])
@@ -1257,6 +1309,10 @@ class Scatter3DViewer(ViewerApp):
                                             #  color, disable_ztest=True, use_depth=True, depth_map=self.fb.depth())
                                              [0.0,1.0,0.0], disable_ztest=True, use_depth=True, depth_map=self.fb.depth())
                                             #  color, disable_ztest=True, use_depth=True, depth_map=self.fb.depth())
+        if self.sampled_boundary is not None and self.show_boundary:
+            test1 = PointCloud(self.sampled_boundary)
+            test1.draw_contents(self.camera, self.render_context, None,
+                                             [1, 0.5, 0], disable_ztest=True, use_depth=True, depth_map=self.fb.depth())
         if self.sampled_pts is not None and self.show_samples:
             test1 = PointCloud(self.sampled_pts) #[[0,1.5,0]])
             # breakpoint()

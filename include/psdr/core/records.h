@@ -43,6 +43,22 @@ struct BoundarySegSampleDirect : public SampleRecord_<FloatC> {
     Vector3fC           p2, n;
 };
 
+struct BoundaryCurveSampleDirect : public SampleRecord_<FloatC> {
+    PSDR_IMPORT_BASE(SampleRecord_<FloatC>, pdf, is_valid)
+    
+    
+    Vector3fD p0, edge;
+    Vector3fD n; // face normal
+    Vector3fD e; // cross(edge,n) 
+    // p1, p2; // vertices of the curve element
+    // n; // face normal including the curve
+    // TODO: Sample point on a face edge
+    // Vector3fD           p0;
+    // Vector3fC           edge, edge2;
+
+    // Sample point on an emitter
+    // Vector3fC           p2, n;
+};
 } // namespace psdr
 
 ENOKI_STRUCT_SUPPORT(psdr::SampleRecord_, pdf, is_valid)
