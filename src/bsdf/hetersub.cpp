@@ -361,8 +361,6 @@ BSDFSample<ad> HeterSub::__sample_sub(const Scene *scene, const Intersection<ad>
     pdf_po = __pdf_sub<ad>(its, bs, active) * warp::square_to_cosine_hemisphere_pdf<ad>(bs.wo);
     bs.pdf = pdf_po;
     bs.rgb_rv = 1.0f;
-    // auto end_time = high_resolution_clock::now();
-    // std::cout << "[Time] sample_sub" <<  duration_cast<duration<double>>(end_time - start_time).count() << " seconds.";
 
     return bs;
 }

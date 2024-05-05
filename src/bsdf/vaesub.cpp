@@ -162,7 +162,10 @@ Spectrum<ad> VaeSub::__Sp(const Intersection<ad>&its, const Intersection<ad>&bs)
 
 template <bool ad>
 Spectrum<ad> VaeSub::__Sw(const Intersection<ad>&its, const Vector3f<ad>&wo, Mask<ad >active) const {
+
     Spectrum<ad> c = 1.0f - 2.0f * __FresnelMoment1<ad>(1.0f/m_eta.eval<ad>(its.uv)); 
+    // std::cout << "hsum(hsum(its.uv)) " << hsum(hsum(its.uv)) << std::endl;
+    // std::cout << "hsum(hsum(c)) " << hsum(hsum(c)) << std::endl;
     Spectrum<ad> value = (1.0f - __FersnelDi<ad>(1.0f, m_eta.eval<ad>(its.uv), Frame<ad>::cos_theta(wo))) / (c * Pi);
     return value & active;
 }
@@ -226,13 +229,7 @@ template <bool ad>
 
 template <bool ad>
 Spectrum<ad> VaeSub::__eval(const Intersection<ad> &its, const BSDFSample<ad> &bs, Mask<ad> active) const {
-    using namespace std::chrono;
-    auto start_time = high_resolution_clock::now();
-
     auto res = select(bs.is_sub, __eval_sub<ad>(its, bs, active), __eval_bsdf<ad>(its, bs, active));
-
-    auto end_time = high_resolution_clock::now();
-    // std::cout << "[Time] __eval" <<  duration_cast<duration<double>>(end_time - start_time).count() << " seconds.";
     return res;
 }
 
@@ -253,6 +250,9 @@ Spectrum<ad> VaeSub::__eval_bsdf(const Intersection<ad> &its, const BSDFSample<a
     Float<ad> G = m_distr.G<ad>(its.wi, bs.wo, H);
     Spectrum<ad> F = __FersnelDi<ad>(1.0f, m_eta.eval<ad>(its.uv), dot(its.wi, H));
     Spectrum<ad> result = F * D * G / (4.f * Frame<ad>::cos_theta(its.wi));
+    // std::cout << "bs.wo " << bs.wo << std::endl;
+    // std::cout << "its.wi " << its.wi << std::endl;
+    // std::cout << "ends bsdf " << std::endl;
     
     Spectrum<ad> specular_reflectance = m_specular_reflectance.eval<ad>(its.uv);
 
@@ -265,9 +265,12 @@ Spectrum<ad> VaeSub::__eval_sub(const Intersection<ad> &its, const BSDFSample<ad
 
     Float<ad> cos_theta_i = Frame<ad>::cos_theta(its.wi);
     // Outgoing angle of light ray
+    std::cout << "here " << std::endl;
     Float<ad> cos_theta_o = Frame<ad>::cos_theta(bs.wo);
     active &= (cos_theta_i > 0.f);
     active &= (cos_theta_o > 0.f);
+    // std::cout << "hsum(cos_theta_o) " << hsum(cos_theta_o) << std::endl;
+    // std::cout << "count(hsum(bs.wo) != 0.0f) " << count(hsum(bs.wo) != 0.0f) << std::endl;
 
     Spectrum<ad> F = __FersnelDi<ad>(1.0f, m_eta.eval<ad>(its.uv), cos_theta_i);
     // std::cout << "active " << active << std::endl;
@@ -283,25 +286,27 @@ Spectrum<ad> VaeSub::__eval_sub(const Intersection<ad> &its, const BSDFSample<ad
         sp = select(bs.rgb_rv < (1.0f/3.0f),r,g);
         sp = select(bs.rgb_rv > (2.0f/3.0f),b,sp);
     }
-
     sp = sp * (1-bs.po.abs_prob);
-    // PSDR_ASSERT(!all(bs.po.abs_prob==1.0f));
 
     Spectrum<ad> sw =  __Sw<ad>(bs.po, bs.wo, active);
 
+    // std::cout << "count(active) " << count(active) << std::endl;
+    // std::cout << "hsum(hsum(sw)) " << hsum(hsum(sw)) << std::endl;
     Spectrum<ad> value = sp* (1.0f - F) *sw * cos_theta_o;
+    // std::cout << "cos_theta_o " << cos_theta_o << std::endl;
+    // std::cout << "sp " << sp << std::endl;
+    // std::cout << "bs.po.abs_prob " << bs.po.abs_prob << std::endl;
+    // std::cout << "hsum(hsum(value) " << hsum(hsum(value))<< std::endl;
+    // std::cout << "hsum(hsum(bs.po.J) " << hsum(hsum(bs.po.J)) << std::endl;
+    // std::cout << "hsum(hsum(1.0f-F) " << hsum(hsum(1.0f-F)) << std::endl;
     if constexpr ( ad ) {
         value = value * bs.po.J;    
     }
+    // std::cout << "hsum(hsum(sw) " << hsum(hsum(sw)) << std::endl;
+    // std::cout << "hsum(hsum(value) " << hsum(hsum(value)) << std::endl;
+    std::cout << "count(!isnan(value)) " << count((~isnan(hsum(value))) & (hsum(value) != 0.0f))<< std::endl;
     
-    // std::cout << "========eval_sub======= " << std::endl;
-    // std::cout << "value " << value << std::endl;
-    // std::cout << "sw " << sw << std::endl;
-    // std::cout << "1-F " << 1-F << std::endl;
-    // std::cout << "sp " << sp << std::endl;
-    // std::cout << "cos_theta_o " << cos_theta_o << std::endl;
-    // std::cout << "bs.po.J " << bs.po.J << std::endl;
-    // std::cout << "count(active) " << count(active) << std::endl;
+    
     return value & active;
 }
 // 
@@ -316,18 +321,22 @@ BSDFSampleD VaeSub::sample(const Scene *scene, const IntersectionD &its, const V
 template <bool ad>
 BSDFSample<ad> VaeSub::__sample(const Scene *scene, const Intersection<ad> &its, const Vector8f<ad> &sample, Mask<ad> active) const {
     // NOTE: Mask active is 100% True
+    
+    std::cout << "reaches sample " << std::endl;
     BSDFSample<ad> bs = __sample_sub<ad>(scene, its, sample, active);
     BSDFSample<ad> bsdf_bs =  __sample_bsdf<ad>(its, sample, active);
 
     FloatC cos_theta_i = Frame<false>::cos_theta(detach(its.wi));
     SpectrumC probv = __FersnelDi<false>(1.0f, m_eta.eval<false>(detach(its.uv)), cos_theta_i);
     FloatC prob = probv.x();
+    // std::cout << "prob " << prob << std::endl;
     
     bs.wo = select(sample.x() > prob, bs.wo, bsdf_bs.wo);
     bs.is_sub = select(sample.x() > prob, bs.is_sub, bsdf_bs.is_sub);
     bs.pdf = select(sample.x() > prob, bs.pdf, bsdf_bs.pdf);
     bs.is_valid = select(sample.x() > prob, bs.is_valid, bsdf_bs.is_valid);
 
+    // std::cout << "count(bs.is_sub) " << count(bs.is_sub) << std::endl;
     // std::cout << "[sample] bsdf_bs.po.p " << bsdf_bs.po.p << std::endl;
 
     bs.po.num = select(sample.x() > prob, bs.po.num, bsdf_bs.po.num);
@@ -379,34 +388,19 @@ BSDFSample<ad> VaeSub::__sample_bsdf(const Intersection<ad> &its, const Vector8f
 
 template <bool ad>
 BSDFSample<ad> VaeSub::__sample_sub(const Scene *scene, const Intersection<ad> &its, const Vector8f<ad> &sample, Mask<ad> active) const {
-    using namespace std::chrono;
-    // auto start_time = high_resolution_clock::now();
     Float<ad> cos_theta_i = Frame<ad>::cos_theta(its.wi);
     BSDFSample<ad> bs;
     Float<ad> pdf_po = Frame<ad>::cos_theta(its.wi);
     Vector3f<ad> dummy;
     std::tie(bs.po, bs.rgb_rv,dummy,dummy) = __sample_sp<ad>(scene, its, sample, pdf_po, active);
-    // std::cout << its.poly_coeff << std::endl;
-    // std::cout << "[sample_sub] bs.po.p " << bs.po.p << std::endl;
-
-    // std::tie(bs.po, bs.rgb_rv,dummy,dummy) = __sample_sp<ad>(scene, its, sample, pdf_po, active);
-    // std::cout << "[DEBUG] __sample_sub" << bs.po.abs_prob << std::endl;
     bs.wo = warp::square_to_cosine_hemisphere<ad>(tail<2>(sample));
-
     bs.pdf = pdf_po;
-    // TODO: add and check
-    // std::cout << "========sample_sub========= " << std::endl;
-    // std::cout << "its.wi " << its.wi << std::endl;
-    // std::cout << "count(its.wi) " << count(cos_theta_i > 0.f) << std::endl;
-    // std::cout << "bs.po.is_valid() " << count(bs.po.is_valid()) << std::endl;
-    // std::cout << "count(active) " << count(active) << std::endl;
     bs.is_valid = active && (cos_theta_i > 0.f) && bs.po.is_valid();// && ( == its.shape->m_id);&& 
     bs.is_sub = true;
     
-    pdf_po = __pdf_sub<ad>(its, bs, active) * warp::square_to_cosine_hemisphere_pdf<ad>(bs.wo);
-    bs.pdf = pdf_po;
-    // auto end_time = high_resolution_clock::now();
-    // std::cout << "[Time] sample_sub" <<  duration_cast<duration<double>>(end_time - start_time).count() << " seconds." <<std::endl;
+    // Joon addedThis won't be used with point lights
+    // Use pdfpoint instead
+    bs.pdf = __pdf_sub<ad>(its, bs, active) * warp::square_to_cosine_hemisphere_pdf<ad>(bs.wo);
     return bs;
 }
 
@@ -457,7 +451,6 @@ Float<ad> VaeSub::__pdf_bsdf(const Intersection<ad> &its, const BSDFSample<ad> &
 template <bool ad>
 Float<ad> VaeSub::__pdf_sub(const Intersection<ad> &its, const BSDFSample<ad> &bs, Mask<ad> active) const {
 
-
     Float<ad> pdf = 0.0f;
     if(m_monochrome)
         pdf = 1.0f;
@@ -468,7 +461,13 @@ Float<ad> VaeSub::__pdf_sub(const Intersection<ad> &its, const BSDFSample<ad> &b
     Spectrum<ad> Fersnelterm = __FersnelDi<ad>(1.0f, m_eta.eval<ad>(its.uv), cos_theta_i);
     Float<ad> F = Fersnelterm.x();
 
+    // if constexpr(!ad){
+
+    // std::cout << "pdf_sub F term hmax" << hmax(F) << std::endl;
+    // std::cout << "pdf_sub F term hmin" << hmin(F) << std::endl;
+    // }
     Float<ad> value = (1.0f - F) * pdf;
+
 
     return value;
 }
@@ -535,6 +534,9 @@ Array<Float<ad>,23> VaeSub::_preprocessFeatures(const Intersection<ad>&its, Floa
     Spectrum<ad> miu_s_p = (1.0f - g) * sigma_s;
     Spectrum<ad> miu_t_p = miu_s_p + sigma_a;
     Spectrum<ad> alpha_p = miu_s_p / miu_t_p;
+    auto sigma_t = m_sigma_t.eval<ad>(its.uv);
+    auto sigma_t_ch = select(rnd < (1.0f / 3.0f), sigma_t.x(), sigma_t.y());
+    sigma_t_ch = select(rnd > (2.0f / 3.0f),sigma_t.z(),sigma_t_ch);
 
     std::cout << "m_sigma_t" << m_sigma_t.eval<ad>(its.uv)  << std::endl;
     std::cout << "m_albedo" << m_albedo.eval<ad>(its.uv)  << std::endl;
@@ -556,8 +558,12 @@ Array<Float<ad>,23> VaeSub::_preprocessFeatures(const Intersection<ad>&its, Floa
         shapeFeatures[3] = 1.0;
     }
     else{
-        shapeFeatures = select(rnd < (1.0f / 3.0f), its.poly_coeff.x(), its.poly_coeff.y());
-        shapeFeatures = select(rnd > (2.0f / 3.0f), its.poly_coeff.z(), shapeFeatures);
+        // TODO: apply reparameteriztion to shape desc.
+        // auto shape_coeff = its.poly_coeff + exp(-sigma_t_ch) - exp(-detach(sigma_t_ch));
+        // shape_coeff[3] = its.poly_coeff[3] + (-exp(sigma_t_ch)) - (-exp(detach(sigma_t_ch)));
+        auto shape_coeff = its.poly_coeff;
+        shapeFeatures = select(rnd < (1.0f / 3.0f), shape_coeff.x(), shape_coeff.y());
+        shapeFeatures = select(rnd > (2.0f / 3.0f), shape_coeff.z(), shapeFeatures);
     }
     
     // std::cout << "shapeFeatures[3]" << shapeFeatures[3] << std::endl;
@@ -604,20 +610,27 @@ FloatC VaeSub::getKernelEps(const IntersectionC& its,FloatC idx) const
 }
 template <bool ad>
 Float<ad> VaeSub::getKernelEps(const Intersection<ad>& its,Float<ad> rnd) const {
-// Float<ad> VaeSub::getKernelEps(const Intersection<ad>& its,int idx) const {
+    // std::cout << "rnd" << rnd <<std::endl;
     
     Spectrum<ad> albedo = m_albedo.eval<ad>(its.uv);
-    // if constexpr(ad){
-    //     set_requires_gradient(albedo);
-    // }
     Float<ad> albedo_ch = select(rnd < (1.0f / 3.0f), albedo.x(),albedo.y());
     albedo_ch = select(rnd > (2.0f / 3.0f), albedo.z(),albedo_ch);
     Spectrum<ad> sigma_t = m_sigma_t.eval<ad>(its.uv);
     auto sigma_t_ch = select(rnd < (1.0f / 3.0f), sigma_t.x(),sigma_t.y());
     sigma_t_ch = select(rnd > (2.0f / 3.0f), sigma_t.z(),sigma_t_ch);
+    // if constexpr(ad){
+    //     set_requires_gradient(sigma_t[2]);
+    // }
     Spectrum<ad> g = m_g.eval<ad>(its.uv);
     auto g_ch = select(rnd < (1.0f / 3.0f), g.x(),g.y());
     g_ch = select(rnd > (2.0f / 3.0f), g.z(),g_ch);
+    // std::cout << "albedo_ch" << albedo_ch <<std::endl;
+    // std::cout << "mean albedo_ch" << hmean(albedo_ch) <<std::endl;
+    // std::cout << "sigma_t_ch" << sigma_t_ch <<std::endl;
+    // std::cout << "mean sigma_t_ch" << hmean(sigma_t_ch) <<std::endl;
+    // std::cout << "g_ch" << g_ch <<std::endl;
+    // std::cout << "mean g_ch" << hmean(g_ch) <<std::endl;
+
 
     Float<ad> sigma_s = sigma_t_ch * albedo_ch;
     auto sigma_a = sigma_t_ch - sigma_s;
@@ -630,6 +643,11 @@ Float<ad> VaeSub::getKernelEps(const Intersection<ad>& its,Float<ad> rnd) const 
     auto val = 0.25f * g_ch + 0.25f * alpha_p + 1.0f * effectiveAlbedo;
 
     Float<ad> res = 4.0f * val * val / (miu_t_p * miu_t_p);
+    // if constexpr(ad){
+
+    // backward(res);
+    // std::cout << "grad" << gradient(sigma_t.z());
+    // }
     
     return res;
 }
@@ -637,7 +655,7 @@ Float<ad> VaeSub::getKernelEps(const Intersection<ad>& its,Float<ad> rnd) const 
 template <bool ad>
 std::tuple<Intersection<ad>,Float<ad>,Vector3f<ad>,Vector3f<ad>> VaeSub::__sample_sp(const Scene *scene, const Intersection<ad> &its, const Vector8f<ad> &sample, Float<ad> &pdf, Mask<ad> active) const {        
         using namespace std::chrono;
-        
+        std::cout << "enter sample_sp " << std::endl;
     
         Float<ad> rnd = sample[5];
 
@@ -807,19 +825,17 @@ std::tuple<Intersection<ad>,Float<ad>,Vector3f<ad>,Vector3f<ad>> VaeSub::__sampl
             msk = true;
         }
 
-        // end_time = high_resolution_clock::now();
-        // std::cout << "[Time] projection" <<  duration_cast<duration<double>>(end_time - start_time).count() << " seconds.";
 
         its3.abs_prob = absorption;
         if constexpr(ad){
             // Reparameterization to allow gradient flow
             auto ray_dir = select(msk,projDir,-projDir);
-            // std::cout << "[bef] its3.p " << its3.p << std::endl;
-            // its3.p = outPos-eps*ray_dir + detach(its3.t) * ray_dir;
-            // std::cout << "[aft] its3.p " << its3.p << std::endl;
-            // its3.p = outPos-eps*detach(ray_dir) + detach(its3.t) * detach(ray_dir);
+            // FloatD scale_factor = 1.0f/fitScaleFactor;
+            // Vector3fC relative = (detach(its3.p) - detach(its.p)) / detach(scale_factor);
+            // its3.p = its.p + Vector3fD(relative) * scale_factor;
+            
             its3.p = outPos-eps*ray_dir + its3.t * ray_dir;
-            // its3.p = outPos-eps*detach(ray_dir) + detach(its3.t) * detach(ray_dir);
+            // its3.p = outPos-eps*ray_dir + its3.t * ray_dir;
         }
         else{
             auto ray_dir = select(msk,projDir,-projDir);

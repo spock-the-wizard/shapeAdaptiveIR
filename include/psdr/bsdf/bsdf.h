@@ -70,7 +70,13 @@ public:
         return full<FloatC>(1.0f);
     }
     virtual FloatD getKernelEps(const IntersectionD& its,FloatD idx) const { 
-        return full<FloatC>(1.0f);
+        return full<FloatD>(1.0f);
+    }
+    // virtual FloatC absorption(const IntersectionC& its,FloatC rnd) const {
+    //     return full<FloatC>(1.0f);
+    // }
+    virtual FloatD absorption(const IntersectionD& its,Vector8fD x) const { 
+        return full<FloatD>(1.0f);
     }
     virtual bool hasbssdf() const = 0;
 PSDR_CLASS_DECL_END(BSDF)
@@ -88,5 +94,6 @@ ENOKI_CALL_SUPPORT_BEGIN(psdr::BSDF)
     ENOKI_CALL_SUPPORT_METHOD(anisotropic)
     // ENOKI_CALL_SUPPORT_METHOD(getKernelEps<true>)
     ENOKI_CALL_SUPPORT_METHOD(getKernelEps)
+    ENOKI_CALL_SUPPORT_METHOD(absorption)
     ENOKI_CALL_SUPPORT_METHOD(hasbssdf)
 ENOKI_CALL_SUPPORT_END(psdr::BSDF)

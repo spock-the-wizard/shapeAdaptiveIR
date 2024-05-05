@@ -22,6 +22,7 @@ public:
     template <bool ad>
     std::tuple<BSDFSampleC,BSDFSampleC,Float<ad>> sample_boundary(const Scene &scene, const Ray<ad> &camera_ray) const;
     IntersectionC sample_boundary_(const Scene &scene, const Vector3fC &pts, const Vector3fC &dir); 
+    std::tuple<Vector3fC,Vector3fC,Vector3fC,Vector3fC,Vector3fC,Vector3fC> sample_boundary_2(Scene &scene, int edge_idx);
 // template FloatC Scene::emitter_position_pdf<false>(const Vector3fC&, const IntersectionC&, MaskC) const;
 // template FloatD Scene::emitter_position_pdf<true >(const Vector3fD&, const IntersectionD&, MaskD) const;
     // std::tuple<BSDFSampleC,BSDFSampleC,FloatC> sample_boundary(const Scene &scene, const RayC &camera_ray) const;
@@ -49,6 +50,7 @@ protected:
     virtual void render_primary_edges(const Scene &scene, int sensor_id, SpectrumD &result) const;
 
     virtual void render_secondary_edges(const Scene &scene, int sensor_id, SpectrumD &result) const {}
+    virtual void render_secondary_edgesC(const Scene &scene, int sensor_id, SpectrumC &result) const {}
 
     template <bool ad>
     Spectrum<ad> __render(const Scene &scene, int sensor_id) const;

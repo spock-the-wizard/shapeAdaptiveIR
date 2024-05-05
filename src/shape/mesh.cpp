@@ -405,7 +405,13 @@ void Mesh::configure() {
     if ( m_enable_edges ) {
         if ( m_sec_edge_info == nullptr ) m_sec_edge_info = new SecondaryEdgeInfo();
 
+        // indices [0,1] :vertex positions of p0 and p1
+        // indices[4] vertex position of p2 (same triangle as n0)
+        // indices[2] : face index of n0
+        // indices[3] : face index of n1
         SecondaryEdgeInfo secEdgeInfo;
+        // std::cout << "m_edge_indices[3] " << m_edge_indices[3] << std::endl;
+        // std::cout << "count(m_edge_indices[3]<0) " << count(m_edge_indices[3]<0) << std::endl;
         secEdgeInfo.is_boundary = (m_edge_indices[3] < 0);
         secEdgeInfo.p0 = gather<Vector3fD>(m_vertex_positions, m_edge_indices[0]);
         secEdgeInfo.e1 = gather<Vector3fD>(m_vertex_positions, m_edge_indices[1]) - secEdgeInfo.p0;

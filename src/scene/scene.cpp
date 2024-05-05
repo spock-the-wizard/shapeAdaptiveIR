@@ -271,7 +271,21 @@ void Scene::configure() {
                               safe_acos(dot(detach(m_sec_edge_info.n0), detach(m_sec_edge_info.n1))));
         m_sec_edge_distrb->init(norm(detach(m_sec_edge_info.e1))*angle);
 #else
-        m_sec_edge_distrb->init(norm(detach(m_sec_edge_info.e1)));
+
+        // Joon addded: debugging edge sampling
+        FloatC edge_lengths = norm(detach(m_sec_edge_info.e1));
+        edge_lengths = select(edge_lengths > 0.005f,edge_lengths,0.0f);
+        m_sec_edge_distrb->init(edge_lengths);
+        // IntC edge_idx = arange<IntC>(slices(edge_lengths));
+        // // int num = 40450;
+        // int num = 10;
+        // edge_lengths = select(edge_idx > num && edge_idx < num+10 ,edge_lengths,0.0f);
+        // // edge_lengths = select(edge_idx > 8000,edge_lengths,0.0f);
+        // // edge_lengths = select(edge_idx < 40450 && edge_idx > 40440,edge_lengths,0.0f);
+        // std::cout << "edge_lengths " << edge_lengths << std::endl;
+        // m_sec_edge_distrb->init(edge_lengths);
+
+        // m_sec_edge_distrb->init(norm(detach(m_sec_edge_info.e1)));
         
 #endif
         if ( m_opts.log_level > 0 ) {
@@ -291,27 +305,33 @@ void Scene::configure() {
     // TODO: don't want any accidental gradient flow
     
     // auto p1 = m_sec_edge_info.p0 + m_sec_edge_info.e1;
-    // // const bool ad = false;
-    // const bool ad = true;
-    
-    // // Trying to make a lightpoint array of length N...
-    // Vector3f<ad> lightpoint = m_sec_edge_info.p0 + (m_emitters[0]->sample_position(Vector3f<ad>(1.0f), Vector2f<ad>(1.0f))).p;
-    // lightpoint = lightpoint - m_sec_edge_info.p0;
-    // // Vector3f<ad> lightpoint = (m_emitters[0]->sample_position(Vector3f<ad>(1.0f), Vector2f<ad>(1.0f),mask)).p;
-    // // std::cout << "lightpoint " << lightpoint << std::endl;
-    
-    // auto light2p0 = normalize(Vector3fD(m_sec_edge_info.p0 - lightpoint));
-    // auto light2p1 = normalize(Vector3fD(p1 - lightpoint));
+    // auto p0 = m_sec_edge_info.p0;
+    // const bool ad = false;
+    // MaskC active(1.0f);
+    // set_slices(active,slices(p0));
+    // Vector2fC samples(1.0f);
+    // set_slices(samples,slices(p0));
+    // PositionSampleC ps2 = sample_emitter_position<false>(detach(p0), samples, active);
+    // Vector3fC lightpoint = ps2.p;
+    // set_slices(lightpoint, slices(p0)); 
 
-    // RayD rayP0 = RayD(lightpoint,light2p0);
-    // RayD rayP1 = RayD(lightpoint,light2p1);
+    // // Vector3fC lightpoint = (m_emitters[0]->sample_position(Vector3fC(1.0f), Vector2fC(1.0f),active)).p;
+    // // std::cout << "valid " << valid << std::endl;
+    // // std::cout << "m_emitters[0]->m_position " << m_emitters[0]->m_position << std::endl;
+    // std::cout << "lightpoint " << lightpoint << std::endl;
     
+    // auto light2p0 = normalize(detach(p0) - lightpoint);
+    // auto light2p1 = normalize(detach(p1)- lightpoint);
+
+    // RayC rayP0 = RayC(lightpoint,light2p0);
+    // RayC rayP1 = RayC(lightpoint,light2p1);
     // auto itsp0 = ray_intersect(rayP0);
     // auto itsp1 = ray_intersect(rayP1);
-    // // std::cout << "itsp0.is_valid() " << itsp0.is_valid() << std::endl;
-    // // std::cout << "itsp1.is_valid() " << itsp1.is_valid() << std::endl;
+    // std::cout << "itsp0.p " << itsp0.p << std::endl;
+    // std::cout << "itsp1.p " << itsp1.p << std::endl;
     // auto isShadowRay = itsp0.is_valid() ^ itsp1.is_valid();
-    // // std::cout << "isShadowRay " << isShadowRay << std::endl;
+
+    // std::cout << "isShadowRay " << isShadowRay << std::endl;
     // std::cout << "count(isShadowRay) " << count(isShadowRay) << std::endl;
     // auto edge_length_array = norm(detach(m_sec_edge_info.e1));
     // edge_length_array[~isShadowRay] = 0.0f;
@@ -900,6 +920,117 @@ Vector3fD Scene::crossing_edge(Vector3f<ad> _p,Vectorf<1,ad> sphereRadius, Vecto
         return curve;
     }
 }
+std::tuple<BoundarySegSampleDirect,SecondaryEdgeInfo> Scene::sample_boundary_segment_v3(const Vector3fC &sample3, MaskC active, int edge_num) const {
+    // Sample a point p0 on a face edge
+    BoundarySegSampleDirect result;
+
+    FloatC sample1 = sample3.x();
+    // auto [edge_idx, pdf0] = m_sec_edge_distrb->sample_reuse<false>(sample1);
+    auto edge_length = norm(detach(m_sec_edge_info.e1));
+    std::cout << "Edge length is " << slice(edge_length,edge_num) <<std::endl;
+    active &= slice(edge_length, edge_num) >= 0.005f;
+    std::cout << "ACTIVE"  <<active <<std::endl;
+    
+    IntC edge_idx(edge_num);
+    FloatC pdf0(1.0f);
+    set_slices(edge_idx,slices(sample1));
+    set_slices(pdf0,slices(sample1));
+    std::cout << "edge_idx " << edge_idx << std::endl;
+    std::cout << "slices(m_sec_edge_info.e1) " << slices(m_sec_edge_info.e1) << std::endl;
+
+    SecondaryEdgeInfo info = gather<SecondaryEdgeInfo>(m_sec_edge_info, IntD(edge_idx), active);
+    result.p0 = fmadd(info.e1, sample1, info.p0); // p0 = info.p0 + info.e1*sample1;
+    result.edge = normalize(detach(info.e1));
+    result.edge2 = detach(info.p2) - detach(info.p0);
+    const Vector3fC &p0 = detach(result.p0);
+    pdf0 /= norm(detach(info.e1));
+    // std::cout << "result.p0 " << result.p0.x() << std::endl;
+
+    // Sample a point ps2 on a emitter
+
+    PositionSampleC ps2 = sample_emitter_position<false>(p0, tail<2>(sample3), active);
+    result.p2 = ps2.p;
+    result.n = ps2.n;
+
+    // Construct the edge "ray" and check if it is valid
+
+    Vector3fC e = result.p2 - p0;
+    const FloatC distSqr = squared_norm(e);
+    e /= safe_sqrt(distSqr);
+    const FloatC cosTheta = dot(result.n, -e);
+
+    // IntC sgn0 = sign<false>(dot(detach(info.n0), e), EdgeEpsilon),
+    //      sgn1 = sign<false>(dot(detach(info.n1), e), EdgeEpsilon);
+    // result.is_valid = active && (cosTheta > Epsilon) && (
+    //     (detach(info.is_boundary) && neq(sgn0, 0)) || (~detach(info.is_boundary) && (sgn0*sgn1 < 0))
+    // );
+    // std::cout << "count(active) " << count(active) << std::endl;
+    // std::cout << "count(cosTheta > Epsilon) " << count(cosTheta > Epsilon) << std::endl;
+    // std::cout << "count(sgn0*sgn1 <0) " << count(sgn0*sgn1 <0) << std::endl;
+    // Joon: modified to sample arbitrary edges.
+    result.is_valid = active && (cosTheta > Epsilon);
+
+    result.pdf = (pdf0) & result.is_valid; //ps2.pdf*(distSqr/cosTheta)
+    return std::tie(result,info);
+}
+
+
+std::tuple<BoundarySegSampleDirect,SecondaryEdgeInfo> Scene::sample_boundary_segment_v2(const Vector3fC &sample3, MaskC active) const {
+    // Sample a point p0 on a face edge
+    BoundarySegSampleDirect result;
+
+    FloatC sample1 = sample3.x();
+    auto [edge_idx, pdf0] = m_sec_edge_distrb->sample_reuse<false>(sample1);
+    // auto [edge_idx, pdf0] = m_sec_edge_distrb->sample(sample1);
+    // std::cout << "edge_idx " << edge_idx << std::endl;
+    // Create Rays from emitter to edge.p0 and edge.p1
+    // Discard ones with consistent visibility to light
+
+    SecondaryEdgeInfo info = gather<SecondaryEdgeInfo>(m_sec_edge_info, IntD(edge_idx), active);
+    result.p0 = fmadd(info.e1, sample1, info.p0); // p0 = info.p0 + info.e1*sample
+    result.edge = normalize(detach(info.e1));
+    result.edge2 = detach(info.p2) - detach(info.p0);
+    const Vector3fC &p0 = detach(result.p0);
+    pdf0 /= norm(detach(info.e1));
+    // std::cout << "result.p0 " << result.p0.x() << std::endl;
+    // std::cout << "ssmallest info.e1" << norm(info.e1) <<std::endl;
+    // std::cout << "count" << count(norm(info.e1)<= 0.0f) <<std::endl;
+    // std::cout << "count" << hmax(norm(info.e1)) <<std::endl;
+    // std::cout << "count" << hmin(norm(info.e1)) <<std::endl;
+    // std::cout << "count" << hmax(sample1) <<std::endl;
+    // std::cout << "count" << hmax(sample1) <<std::endl;
+
+    
+
+    // Sample a point ps2 on a emitter
+
+    PositionSampleC ps2 = sample_emitter_position<false>(p0, tail<2>(sample3), active);
+    result.p2 = ps2.p;
+    result.n = ps2.n;
+
+    // Construct the edge "ray" and check if it is valid
+
+    Vector3fC e = result.p2 - p0;
+    const FloatC distSqr = squared_norm(e);
+    e /= safe_sqrt(distSqr);
+    const FloatC cosTheta = dot(result.n, -e);
+
+    // IntC sgn0 = sign<false>(dot(detach(info.n0), e), EdgeEpsilon),
+    //      sgn1 = sign<false>(dot(detach(info.n1), e), EdgeEpsilon);
+    // result.is_valid = (cosTheta > Epsilon) && (
+    //     (detach(info.is_boundary) && neq(sgn0, 0)) || (~detach(info.is_boundary) && (sgn0*sgn1 < 0))
+    // );
+    // std::cout << "count(active) " << count(active) << std::endl;
+    // std::cout << "count(cosTheta > Epsilon) " << count(cosTheta > Epsilon) << std::endl;
+    // std::cout << "count(sgn0*sgn1 <0) " << count(sgn0*sgn1 <0) << std::endl;
+    // Joon: modified to sample arbitrary edges.
+    result.is_valid = active && (cosTheta > Epsilon);
+    // std::cout << result.is_valid << std::endl;
+    // result.is_valid = active && (cosTheta > Epsilon);
+
+    result.pdf = (pdf0) & result.is_valid; //ps2.pdf*(distSqr/cosTheta)
+    return std::tie(result,info);
+}
 
 BoundarySegSampleDirect Scene::sample_boundary_segment_direct(const Vector3fC &sample3, MaskC active) const {
 
@@ -909,8 +1040,6 @@ BoundarySegSampleDirect Scene::sample_boundary_segment_direct(const Vector3fC &s
 
     FloatC sample1 = sample3.x();
     auto [edge_idx, pdf0] = m_sec_edge_distrb->sample_reuse<false>(sample1);
-    // std::cout << "edge_idx " << edge_idx << std::endl;
-    // TODO: Joon: can i use optix now?
     // Create Rays from emitter to edge.p0 and edge.p1
     // Discard ones with consistent visibility to light
 

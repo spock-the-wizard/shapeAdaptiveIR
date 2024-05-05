@@ -34,7 +34,7 @@ from psdr_cuda import RayC
 
 from matplotlib import colormaps
 cmap = colormaps.get('inferno')
-from viewer.utils import setup_mesh_for_viewer,intersect_mesh,tangent_components_to_world
+from viewer.utils import setup_mesh_for_viewer,find_closest_edge,intersect_mesh,tangent_components_to_world
 import vae.utils 
 
 from mitsuba.core import *
@@ -46,6 +46,8 @@ from utils.gui import (FilteredListPanel, FilteredPopupListPanel,
                        LabeledSlider, add_checkbox)
 from vae.global_config import (DATADIR3D, FIT_REGULARIZATION, OUTPUT3D,
                                RESOURCEDIR, SCENEDIR3D)
+from OpenGL.GL import *
+from OpenGL.GLU import *
 
 import psdr_cuda
 # import vae.model
@@ -82,6 +84,7 @@ class Scatter3DViewer(ViewerApp):
         # NOTE: added for projectionvisualization
         self.sampled_p_proj, self.sampled_dir = None, None
         self.sampled_pts = None
+        self.boundary_debug = None
         self.sampled_boundary = None
         self.shape = self.scene.getShapes()[0]
         self.picked_point = PointCloud(np.zeros((1, 3)))
@@ -368,7 +371,8 @@ class Scatter3DViewer(ViewerApp):
         self.tangent_x, self.tangent_y = 0, 0
         # self.mode= Mode.REF
         self.mode= Mode.RECONSTRUCTION
-        # self.mode= Mode.BOUNDARY
+        self.mode= Mode.BOUNDARY
+        # self.mode= Mode.BOUNDARY_DEBUG
       
         # self.mode= Mode.PREDICTION
 
@@ -388,6 +392,9 @@ class Scatter3DViewer(ViewerApp):
             self.sc.param_map[self.material_key].g.data = self.g
             self.sc.param_map[self.material_key].sigma_t.data = self.sigma_t
             self.sc.param_map[self.material_key].albedo.data = self.albedo
+
+            self.sc.setlightposition(Vector3f([0.34, 1.391, 1.395]))
+            # self.sc.setlightposition(Vector3f([1.0,1.0,1.0]))
             self.sc.configure()
             self.update_displayed_scattering()
             return True
@@ -402,10 +409,10 @@ class Scatter3DViewer(ViewerApp):
                                       update_medium, slider_width=160)
         self.eta_slider = LabeledSlider(self, tools, 'eta', 1.0, 3.5, float,
                                         update_medium, slider_width=160)
-        self.tangent_x_slider = LabeledSlider(self, tools, 'tangent_x', -1, 1, float,
-                                              self.update_displayed_scattering, slider_width=160)
-        self.tangent_y_slider = LabeledSlider(self, tools, 'tangent_y', -1, 1, float,
-                                              self.update_displayed_scattering, slider_width=160)
+        # self.tangent_x_slider = LabeledSlider(self, tools, 'tangent_x', -1, 1, float,
+        #                                       self.update_displayed_scattering, slider_width=160)
+        # self.tangent_y_slider = LabeledSlider(self, tools, 'tangent_y', -1, 1, float,
+        #                                       self.update_displayed_scattering, slider_width=160)
 
         def cb_compute_poly():
             self.computed_poly = False
@@ -416,7 +423,10 @@ class Scatter3DViewer(ViewerApp):
         self.fit_regularization = FIT_REGULARIZATION
         self.fit_regularization_slider = LabeledSlider(self, tools, 'fit_regularization', 0.0, 100.0, float,
                                                        cb_compute_poly, slider_width=160)
-        self.mesh_idx_slider = LabeledSlider(self, tools, 'mesh_idx', 0, 100, int, update_mesh_idx, slider_width=160)
+        self.boundary_edge_idx = 0 
+        edge_count = 461 #16000 #
+        edge_count = len(self.mesh.mesh.edges)
+        self.edge_idx_slider = LabeledSlider(self, tools, 'boundary_edge_idx', 0,edge_count, int, callback=self.update_displayed_scattering,slider_width=160)
 
         self.n_scatter_samples = 512
         LabeledSlider(self, tools, 'n_scatter_samples', 32, 2 ** 19, int, self.update_displayed_scattering, slider_width=160,
@@ -432,6 +442,7 @@ class Scatter3DViewer(ViewerApp):
         add_checkbox(self, tools, 'show_outgoing_dir', False, label='Show Outgoing Directions')
         self.poly_coeff_to_show = 0
         self.poly_coeff_show_slider = LabeledSlider(self, tools, 'poly_coeff_to_show', 0, 20, int, slider_width=160)
+        # self.mesh_idx_slider = LabeledSlider(self, tools, 'mesh_idx', 0, 100, int, update_mesh_idx, slider_width=160)
 
         add_checkbox(self, tools, 'show_fit_kernel', False, label='Show Fit Kernel')
         add_checkbox(self, tools, 'use_legacy_epsilon', False,
@@ -594,6 +605,8 @@ class Scatter3DViewer(ViewerApp):
                 scene_file = "/sss/InverseTranslucent/examples/scenes/buddha1_out.xml"
             elif "sphere" in mesh_name:
                 scene_file = "/sss/InverseTranslucent/examples/scenes/sphere1_out.xml"
+            elif "cylinder" in mesh_name:
+                scene_file = "/sss/InverseTranslucent/examples/scenes/cylinder4_out.xml"
             else: #if "cube_subdiv" in self.mesh_file:
                 scene_file = "/sss/InverseTranslucent/examples/scenes/cone4_out.xml"
                 scene_file = scene_file.replace('cone',mesh_name)
@@ -887,8 +900,31 @@ class Scatter3DViewer(ViewerApp):
             its_loc = Vector3f((self.its_loc-its_dir).reshape(-1,3))
             
             # camera_ray = RayC(its_loc,its_dir)
-            its = self.sampler.sample_boundary(self.sc,its_loc,its_dir)
-            self.sampled_pts = its.p.numpy()
+
+            # self.its_loc, self.face_normal = intersect_mesh(p, self.camera, self.mesh)
+
+            xi,xo,its_p,its_n,delta,grad = self.sampler.sample_boundary_2(self.sc,self.boundary_edge_idx)
+            # glPolygonMode(GL_FRONT_AND_BACK,GL_LINE)
+            self.sampled_pts = xi
+            print(xi)
+            print("xo",xo)
+            # self.sampled_pts = xo
+            # print(its_p)
+            # print(its_n)
+            # print(f"delta",delta)
+            
+            self.boundary_debug = {
+                "xo": xo,
+                "xi": xi,
+                "its_p": its_p,
+                "its_n": its_n,
+                "grad": grad,
+                "delta": delta,
+            }
+        
+            
+            # its = self.sampler.sample_boundary(self.sc,its_loc,its_dir)
+            # self.sampled_pts = its.p.numpy()
             
             # import vae.utils 
             # def mts_to_np(data):
@@ -1187,6 +1223,10 @@ class Scatter3DViewer(ViewerApp):
                 self.picked_point.points = np.atleast_2d(self.its_loc.astype(np.float32)).T
                 self.update_displayed_scattering()
                 self.camera_controller.selectedPoint = self.its_loc
+                # breakpoint()
+                # self.boundary_edge_idx = find_closest_edge(p, self.camera, self.mesh)
+                # self.boundary_edge_idx = 10
+                # print(self.boundary_edge_idx)
 
             return True
 
@@ -1313,7 +1353,45 @@ class Scatter3DViewer(ViewerApp):
             test1 = PointCloud(self.sampled_boundary)
             test1.draw_contents(self.camera, self.render_context, None,
                                              [1, 0.5, 0], disable_ztest=True, use_depth=True, depth_map=self.fb.depth())
-        if self.sampled_pts is not None and self.show_samples:
+        if self.boundary_debug is not None:
+            itsxi = self.boundary_debug['xi']
+            test1 = PointCloud(self.boundary_debug['xi'])
+            test1.draw_contents(self.camera, self.render_context, None,
+                                             [1.0,0.0,0.0], disable_ztest=True, use_depth=True, depth_map=self.fb.depth())
+            test_xo = PointCloud(self.boundary_debug['xo'])
+            # TODO: apply cmap
+            cmap = colormaps.get('RdBu')
+            color = (self.boundary_debug['grad'][0]).numpy() #[...,0]
+            # print(color)
+            # cmax = max(color.max(),abs(color.min()))
+            # color /= cmax
+            # print(color.max(),color.min())
+            # breakpoint()
+            color[np.isnan(color)] = 0.0
+            # print(color)
+            color = cmap(color)
+            # print(color)
+            test_xo.draw_contents(self.camera, self.render_context, None,
+                                             color, disable_ztest=True, use_depth=False,) #, depth_map=self.fb.depth())
+            
+            itsp = self.boundary_debug['its_p']
+            itsn = self.boundary_debug['its_n']
+            itsp[np.isnan(itsp)] = 0.0
+            itsn[np.isnan(itsn)] = 0.0
+            # print(itsp)
+            # print(itsn)
+            testp= PointCloud(itsp)
+            testp.draw_contents(self.camera, self.render_context, None,
+                                             [0.0,1.0,0.0], disable_ztest=True, use_depth=True, depth_map=self.fb.depth())
+            testn= PointCloud(itsn)
+            testn.draw_contents(self.camera, self.render_context, None,
+                                             [0.0,0.0,1.0], disable_ztest=True, use_depth=True, depth_map=self.fb.depth())
+            # test_dir = VectorCloud(itsxi, itsp - itsxi)
+            # test_dir.draw_contents(self.camera, self.render_context)
+            # test_dir2= VectorCloud(itsxi, itsn - itsxi)
+            # test_dir2.draw_contents(self.camera, self.render_context)
+            
+        if not self.boundary_debug and self.sampled_pts is not None and self.show_samples:
             test1 = PointCloud(self.sampled_pts) #[[0,1.5,0]])
             # breakpoint()
             test1.draw_contents(self.camera, self.render_context, None,

@@ -28,6 +28,7 @@ public:
 
     void load_file(const char *file_name, bool auto_configure = true);
     void load_string(const char *scene_xml, bool auto_configure = true);
+
     
     template <bool ad>
     Vector3fD crossing_edge(Vector3f<ad> p,Vectorf<1,ad> r, Vector2f<ad> sample) const;
@@ -45,6 +46,36 @@ public:
 
     void setlightposition(Vector3fD p){
         m_emitters[0]->setposition(p);
+    }
+
+    void setEdgeDistr(int edge_num) {
+        // FloatC edge_lengths = zero<FloatC>();
+        // set_slices(edge_lengths,slices(m_sec_edge_info.e1));
+        // edge_lengths = select(edge_idx)
+        // edge_lengths[edge_num] = norm(detach(m_sec_edge_info.e1[edge_num]));
+        IntC num(edge_num);
+        set_slices(num,slices(m_sec_edge_info.e1));
+        FloatC ones(1.0f);
+        set_slices(ones,slices(m_sec_edge_info.e1));
+        
+        FloatC edge_lengths = zero<FloatC>(slices(m_sec_edge_info.e1));
+        IntC edge_idx = arange<IntC>(slices(edge_lengths));
+        // slice(edge_lengths,edge_num) = ones;
+        // edge_lengths.slice(edge_num) = 1.0f;
+        // std::cout << "num " << num << std::endl;
+         edge_lengths = select(edge_idx < 1,ones,0.0f);
+        // std::cout << "edge_idpx " << edge_idx << std::endl;
+        // std::cout << "edge_num " << edge_num << std::endl;
+
+        // std::cout << "count(edge_idx == num) " << count(edge_idx == num) << std::endl;
+        // std::cout << "num " << num << std::endl;
+        // std::cout << "ones " << ones << std::endl;
+        std::cout << "edge_lengths " << edge_lengths << std::endl;
+        std::cout << "sum(edge_lengths) " << hsum(edge_lengths) << std::endl;
+        std::cout << "count(edge_lengths != 0.0f) " << count(edge_lengths != 0.0f) << std::endl;
+
+        std::cout << "Reset edge distribution to only sample  " << edge_num << std::endl;
+        m_sec_edge_distrb->init(edge_lengths);
     }
 
     template <bool ad, bool path_space = false>
@@ -66,6 +97,8 @@ public:
     Float<ad> emitter_position_pdf(const Vector3f<ad> &ref_p, const Intersection<ad> &its, Mask<ad> active = true) const;
 
     BoundarySegSampleDirect sample_boundary_segment_direct(const Vector3fC &sample3, MaskC active = true) const;
+    std::tuple<BoundarySegSampleDirect,SecondaryEdgeInfo> sample_boundary_segment_v2(const Vector3fC &sample3, MaskC active = true) const;
+    std::tuple<BoundarySegSampleDirect,SecondaryEdgeInfo> sample_boundary_segment_v3(const Vector3fC &sample3, MaskC active = true, int edge_num =0) const;
     
     std::string to_string() const override;
 

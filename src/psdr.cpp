@@ -349,6 +349,7 @@ PYBIND11_MODULE(psdr_cuda, m) {
         .def("load_string", &Scene::load_string, "scene_xml"_a, "auto_configure"_a = true)
         .def("configure", &Scene::configure)
         .def("setseed", &Scene::setseed, "seed"_a)
+        .def("setEdgeDistr", &Scene::setEdgeDistr, "edge_num"_a)
         .def("setlightposition", &Scene::setlightposition, "p"_a)
         .def("sample_boundary_segment_direct", &Scene::sample_boundary_segment_direct, "sample3"_a, "active"_a = true)
         .def_readwrite("opts", &Scene::m_opts, "Render options")
@@ -369,7 +370,7 @@ PYBIND11_MODULE(psdr_cuda, m) {
         .def("sample_boundaryC", &Integrator::sample_boundary<false>, "scene"_a, "camera_ray"_a)
         .def("sample_boundaryD", &Integrator::sample_boundary<true>, "scene"_a, "camera_ray"_a)
         .def("sample_boundary", &Integrator::sample_boundary_, "scene"_a, "pts"_a,"dir"_a)
-// IntersectionC Integrator::sample_boundary(const Scene &scene, Vector3fC pts, Vector3fD dir){
+        .def("sample_boundary_2", &Integrator::sample_boundary_2, "scene"_a, "edge_idx"_a)
         .def("sample_sub", &Integrator::sample_sub, "scene"_a, "pts"_a,"dir"_a);
 
     py::class_<FieldExtractionIntegrator, Integrator>(m, "FieldExtractionIntegrator")

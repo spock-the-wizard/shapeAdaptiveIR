@@ -43,6 +43,7 @@ template <int channels>
 template <bool ad>
 typename Bitmap<channels>::template Value<ad> Bitmap<channels>::eval(Vector2f<ad> uv, bool flip_v) const {
     const int width = m_resolution.x(), height = m_resolution.y();
+    // std::cout << "bitmap resolution" << width << height<< std::endl;
 
     if ( static_cast<int>(slices(m_data)) != width*height )
         throw Exception("Bitmap: invalid data size!");
@@ -53,6 +54,7 @@ typename Bitmap<channels>::template Value<ad> Bitmap<channels>::eval(Vector2f<ad
         else
             return detach(m_data);
     } else {
+        PSDR_ASSERT(false);
         if ( width < 2 || height < 2 )
             throw Exception("Bitmap: invalid resolution!");
 
