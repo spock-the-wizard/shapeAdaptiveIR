@@ -82,25 +82,6 @@ Intersection<ad> Integrator::getIntersection(const Scene &scene, int sensor_id) 
     return its;
 }
 
-SpectrumC Integrator::renderC_shape(const Scene &scene, const IntersectionC &its, int sensor_id) const {
-    using namespace std::chrono;
-    auto start_time = high_resolution_clock::now();
-
-    // std::cout << "[renderC_shape]  its.poly_coeff " << its.poly_coeff << std::endl;
-    SpectrumC result = __render_shape<false>(scene, its, sensor_id);
-
-    cuda_eval(); cuda_sync();
-
-    auto end_time = high_resolution_clock::now();
-    if ( scene.m_opts.log_level ) {
-        std::stringstream oss;
-        oss << "Rendered in " << duration_cast<duration<double>>(end_time - start_time).count() << " seconds.";
-        LOG(oss.str().c_str());
-    }
-
-    return result;
-}
-
 SpectrumC Integrator::renderC(const Scene &scene, int sensor_id) const {
     using namespace std::chrono;
     auto start_time = high_resolution_clock::now();
@@ -626,33 +607,6 @@ std::tuple<Vector3fC, Vector3fC, Vector3fC, Vector20fC, FloatC> Integrator::samp
 
     return std::make_tuple(its_sub.p,outPos,projDir,poly_coeffs,color);
 }
-SpectrumD Integrator::renderD_shape(const Scene &scene, const IntersectionD &its, int sensor_id) const {
-    // Interior integral
-
-    // std::cout << "its.poly_coeff " << its.poly_coeff << std::endl;
-    SpectrumD result = __render_shape<true>(scene, its,sensor_id);
-
-    // Boundary integral
-    if ( likely(scene.m_opts.sppe > 0) ) {
-        render_primary_edges(scene, sensor_id, result);
-    }
-
-    if ( likely(scene.m_opts.sppse > 0) ) {
-        // std::cout<<" secondary edge "<<std::endl;
-        render_secondary_edges(scene, sensor_id, result);
-    }
-    
-    cuda_eval(); cuda_sync();
-
-    if ( scene.m_opts.log_level ) {
-        std::stringstream oss;
-        // oss << "Rendered in " << duration_cast<duration<double>>(end_time - start_time).count() << " seconds.";
-        // LOG(oss.str().c_str());
-    }
-
-    return result;
-}
-
 
 SpectrumD Integrator::renderD(const Scene &scene, int sensor_id) const {
     using namespace std::chrono;
@@ -660,15 +614,17 @@ SpectrumD Integrator::renderD(const Scene &scene, int sensor_id) const {
     // Interior integral
     SpectrumD result = __render<true>(scene, sensor_id);
     
+    // TODO: testing WAS-based boundary term
+    __render_boundary(scene,sensor_id,result);
 
     // Boundary integral
-    if ( likely(scene.m_opts.sppe > 0) ) {
-        render_primary_edges(scene, sensor_id, result);
-    }
+    // if ( likely(scene.m_opts.sppe > 0) ) {
+    //     render_primary_edges(scene, sensor_id, result);
+    // }
 
-    if ( likely(scene.m_opts.sppse > 0) ) {
-        render_secondary_edges(scene, sensor_id, result);
-    }
+    // if ( likely(scene.m_opts.sppse > 0) ) {
+    //     render_secondary_edges(scene, sensor_id, result);
+    // }
     
     cuda_eval(); cuda_sync();
 
@@ -740,7 +696,7 @@ Spectrum<ad> Integrator::__render(const Scene &scene, int sensor_id) const {
         masked(value, ~enoki::isfinite<Spectrum<ad>>(value)) = 0.f;
         // FIXME: tmp setting
         // scatter_add(result, value, idx);
-        scatter_add(result, detach(value), idx);
+        // scatter_add(result, detach(value), idx);
         // std::cout << "max(value) " << count(value!=0.0f) << std::endl;
         }
 

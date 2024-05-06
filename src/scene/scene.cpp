@@ -73,11 +73,8 @@ void Scene::configure() {
     std::cout<<"configure sampler"<<std::endl;
     if ( m_opts.spp  > 0 ) {
         int64_t sample_count = static_cast<int64_t>(m_opts.cropheight)*m_opts.cropwidth*m_opts.spp;
-        // NOTE: Joon added. Reduced sample count for batch procesing
-        // int64_t sample_count = static_cast<int64_t>(m_opts.cropheight)*m_opts.cropwidth; //*m_opts.spp;
         std::cout << sample_count << std::endl;
         if ( m_samplers[0].m_sample_count != sample_count )
-            // m_samplers[0].seed(arange<UInt64C>(sample_count));
             m_samplers[0].seed(arange<UInt64C>(sample_count) + m_seed);
     }
     if ( m_opts.sppe > 0 ) {
@@ -86,9 +83,16 @@ void Scene::configure() {
             m_samplers[1].seed(arange<UInt64C>(sample_count) + m_seed);
     }
     if ( m_opts.sppse > 0 ) {
-        int64_t sample_count = static_cast<int64_t>(m_opts.sppse);
-        if ( m_samplers[2].m_sample_count != sample_count )
+        // int64_t sample_count = static_cast<int64_t>(m_opts.sppse);
+        // if ( m_samplers[2].m_sample_count != sample_count )
+        //     m_samplers[2].seed(arange<UInt64C>(sample_count) + m_seed);
+        // Joon added: tmp setting as m_samplers
+        int64_t sample_count = static_cast<int64_t>(m_opts.cropheight)*m_opts.cropwidth*m_opts.sppse;
+        std::cout << sample_count << std::endl;
+        if ( m_samplers[2].m_sample_count != sample_count ){
             m_samplers[2].seed(arange<UInt64C>(sample_count) + m_seed);
+
+        }
             
         // int64_t sample_count_2 = static_cast<int64_t>(m_opts.cropheight)*m_opts.cropheight*m_opts.sppsce;
         // if ( m_samplers[3].m_sample_count != sample_count_2)

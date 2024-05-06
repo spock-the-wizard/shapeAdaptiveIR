@@ -29,6 +29,7 @@ protected:
     template <bool ad>
     Spectrum<ad> __Li(const Scene &scene, Sampler &sampler, const Ray<ad> &ray, Mask<ad> active) const;
 
+    void __render_boundary(const Scene &scene, int sensor_id, SpectrumD &result) const override;
     void render_secondary_edges(const Scene &scene, int sensor_id, SpectrumD &result) const override;
     void render_secondary_edgesC(const Scene &scene, int sensor_id, SpectrumC &result) const override;
 

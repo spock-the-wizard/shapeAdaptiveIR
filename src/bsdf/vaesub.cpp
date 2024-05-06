@@ -520,6 +520,7 @@ std::pair<Vector3f<ad>,Float<ad>> VaeSub::_run(Array<Float<ad>,23> x,Array<Float
 
         return std::pair(outPos2,absorption);
 }
+
 template <bool ad>
 // Array<Float<ad>,size> VaeSub::_preprocessFeatures(const Intersection<ad>&its, int ch_idx, bool isPlane) const {
 Array<Float<ad>,23> VaeSub::_preprocessFeatures(const Intersection<ad>&its, Float<ad> rnd, bool isPlane,

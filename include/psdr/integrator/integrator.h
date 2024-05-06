@@ -13,8 +13,8 @@ public:
 
     SpectrumC renderC(const Scene &scene, int sensor_id = 0) const;
     SpectrumD renderD(const Scene &scene, int sensor_id = 0) const;
-    SpectrumC renderC_shape(const Scene &scene, const IntersectionC &its, int sensor_id) const; 
-    SpectrumD renderD_shape(const Scene &scene, const IntersectionD &its, int sensor_id) const;
+    SpectrumC renderC_shape(const Scene &scene, const IntersectionC &its, int sensor_id) const {} 
+    SpectrumD renderD_shape(const Scene &scene, const IntersectionD &its, int sensor_id) const {}
     // Vector3f<false> sample_sub(const Scene &scene, Vector3f<false> pts, Vector3f<false> dir);
     // std::tuple<Vector3fC,Vector3fC,Vector3fC,Array<Array<Float<false>,20>,3>> sample_sub(const Scene &scene, Vector3f<false> pts, Vector3f<false> dir);
     // std::tuple<Vector3fC,Vector3fC,Vector3fC,Array<Array<float,20>,3>> sample_sub(const Scene &scene, Vector3f<false> pts, Vector3f<false> dir);
@@ -49,6 +49,7 @@ protected:
 
     virtual void render_primary_edges(const Scene &scene, int sensor_id, SpectrumD &result) const;
 
+    virtual void __render_boundary(const Scene &scene, int sensor_id, SpectrumD &result) const {}
     virtual void render_secondary_edges(const Scene &scene, int sensor_id, SpectrumD &result) const {}
     virtual void render_secondary_edgesC(const Scene &scene, int sensor_id, SpectrumC &result) const {}
 
