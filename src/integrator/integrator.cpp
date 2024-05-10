@@ -105,7 +105,6 @@ SpectrumC Integrator::renderC(const Scene &scene, int sensor_id) const {
     return result;
 }
 
-//TODO: visualizer for boundary term
 std::tuple<Vector3fC,Vector3fC,Vector3fC,Vector3fC,Vector3fC,Vector3fC> Integrator::sample_boundary_2(Scene &scene, int edge_idx) {
     /*
     * Debug boundary integral computation
@@ -542,6 +541,24 @@ IntersectionC Integrator::sample_boundary_(const Scene &scene, const Vector3fC &
 
     return bs.po;
 } 
+
+//TODO: visualizer for boundary term
+// std::tuple<Vector3fC,Vector3fC,Vector3fC,Vector3fC,Vector3fC,Vector3fC> Integrator::sample_boundary_3(Scene &scene, int edge_idx) {
+std::tuple<Vector3fD,Vector3fD,FloatD,Vector3fD> Integrator::sample_boundary_3(const Scene &scene, const Vector3fC &pts, const Vector3fC &dir){
+    // IntersectionC tmp;
+    // return tmp;
+    // auto camera_ray = RayC(pts,dir);
+    Ray<false> camera_ray(pts,dir);
+    IntC idx(0);
+    BSDFSampleC bs;
+    FloatD weight;
+    Vector3fD its_p, value, vDis;
+    std::tie(its_p,value,weight,vDis) = _sample_boundary_3(scene,camera_ray,idx,true);
+    std::cout << "weight " << weight << std::endl;
+
+    return std::tie(its_p,value,weight,vDis);
+} 
+
 std::tuple<Vector3fC, Vector3fC, Vector3fC, Vector20fC, FloatC> Integrator::sample_sub(const Scene &scene, Vector3f<false> pts, Vector3f<false> dir) {
     constexpr bool ad = false;
     auto active = full<Mask<ad>>(true); //~isnan(pts[0]);
@@ -696,7 +713,7 @@ Spectrum<ad> Integrator::__render(const Scene &scene, int sensor_id) const {
         masked(value, ~enoki::isfinite<Spectrum<ad>>(value)) = 0.f;
         // FIXME: tmp setting
         // scatter_add(result, value, idx);
-        // scatter_add(result, detach(value), idx);
+        scatter_add(result, detach(value), idx);
         // std::cout << "max(value) " << count(value!=0.0f) << std::endl;
         }
 

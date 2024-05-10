@@ -898,45 +898,30 @@ class Scatter3DViewer(ViewerApp):
             n = 100
             its_dir = Vector3f(self.inDirection.reshape(-1,3).repeat(n,0))
             its_loc = Vector3f((self.its_loc-its_dir).reshape(-1,3))
-            
-            # camera_ray = RayC(its_loc,its_dir)
 
-            # self.its_loc, self.face_normal = intersect_mesh(p, self.camera, self.mesh)
-
-            xi,xo,its_p,its_n,delta,grad = self.sampler.sample_boundary_2(self.sc,self.boundary_edge_idx)
-            # glPolygonMode(GL_FRONT_AND_BACK,GL_LINE)
-            self.sampled_pts = xi
-            print(xi)
-            print("xo",xo)
-            # self.sampled_pts = xo
-            # print(its_p)
-            # print(its_n)
-            # print(f"delta",delta)
-            
+            its_p,value,weight,vdis = self.sampler.sample_boundary_3(self.sc,its_loc,its_dir)
+            print("value.mean()",value.numpy().mean())
+            print("weight.mean()",weight.numpy().mean())
+            # breakpoint()
             self.boundary_debug = {
-                "xo": xo,
-                "xi": xi,
                 "its_p": its_p,
-                "its_n": its_n,
-                "grad": grad,
-                "delta": delta,
+                "weight": weight,
+                "value":value,
+                "vdis": vdis
             }
+
+            # xi,xo,its_p,its_n,delta,grad = self.sampler.sample_boundary_2(self.sc,self.boundary_edge_idx)
+            # glPolygonMode(GL_FRONT_AND_BACK,GL_LINE)
+            # self.sampled_pts = xi
+            # self.boundary_debug = {
+            #     "xo": xo,
+            #     "xi": xi,
+            #     "its_p": its_p,
+            #     "its_n": its_n,
+            #     "grad": grad,
+            #     "delta": delta,
+            # }
         
-            
-            # its = self.sampler.sample_boundary(self.sc,its_loc,its_dir)
-            # self.sampled_pts = its.p.numpy()
-            
-            # import vae.utils 
-            # def mts_to_np(data):
-            #     if type(data) is list:
-            #         return np.array([np.array([p[0], p[1], p[2]]) for p in data])
-            #     else:
-            #         return np.array([data[0], data[1], data[2]])
-            # self.viewer_data.append(reconstructed_samples,
-            #                         # normals=np.array(tmp_result['outNormal']),
-            #                         # out_dirs=np.array(tmp_result['outDir']))
-            #                         normals=mts_to_np(tmp_result['outNormal']),
-            #                         out_dirs=mts_to_np(tmp_result['outDir']))
 
         elif self.mode == Mode.RECONSTRUCTION:
             # breakpoint()
@@ -1354,38 +1339,45 @@ class Scatter3DViewer(ViewerApp):
             test1.draw_contents(self.camera, self.render_context, None,
                                              [1, 0.5, 0], disable_ztest=True, use_depth=True, depth_map=self.fb.depth())
         if self.boundary_debug is not None:
-            itsxi = self.boundary_debug['xi']
-            test1 = PointCloud(self.boundary_debug['xi'])
-            test1.draw_contents(self.camera, self.render_context, None,
-                                             [1.0,0.0,0.0], disable_ztest=True, use_depth=True, depth_map=self.fb.depth())
-            test_xo = PointCloud(self.boundary_debug['xo'])
-            # TODO: apply cmap
-            cmap = colormaps.get('RdBu')
-            color = (self.boundary_debug['grad'][0]).numpy() #[...,0]
-            # print(color)
-            # cmax = max(color.max(),abs(color.min()))
-            # color /= cmax
-            # print(color.max(),color.min())
-            # breakpoint()
+            test1 = PointCloud(self.boundary_debug['its_p'])
+            cmap = colormaps.get('RdBu_r')
+            # color = (self.boundary_debug['weight']).numpy() #[...,0]
+            # color = (self.boundary_debug['value']).numpy().mean(axis=-1) #[...,0]
+            color = (self.boundary_debug['vdis']).numpy().mean(axis=-1) #[...,0]
             color[np.isnan(color)] = 0.0
             # print(color)
             color = cmap(color)
-            # print(color)
-            test_xo.draw_contents(self.camera, self.render_context, None,
-                                             color, disable_ztest=True, use_depth=False,) #, depth_map=self.fb.depth())
+            test1.draw_contents(self.camera, self.render_context, None,
+                                             color, disable_ztest=True, use_depth=True, depth_map=self.fb.depth())
             
-            itsp = self.boundary_debug['its_p']
-            itsn = self.boundary_debug['its_n']
-            itsp[np.isnan(itsp)] = 0.0
-            itsn[np.isnan(itsn)] = 0.0
-            # print(itsp)
-            # print(itsn)
-            testp= PointCloud(itsp)
-            testp.draw_contents(self.camera, self.render_context, None,
-                                             [0.0,1.0,0.0], disable_ztest=True, use_depth=True, depth_map=self.fb.depth())
-            testn= PointCloud(itsn)
-            testn.draw_contents(self.camera, self.render_context, None,
-                                             [0.0,0.0,1.0], disable_ztest=True, use_depth=True, depth_map=self.fb.depth())
+            
+            # itsxi = self.boundary_debug['xi']
+            # test1 = PointCloud(self.boundary_debug['xi'])
+            # test1.draw_contents(self.camera, self.render_context, None,
+            #                                  [1.0,0.0,0.0], disable_ztest=True, use_depth=True, depth_map=self.fb.depth())
+            # test_xo = PointCloud(self.boundary_debug['xo'])
+            # # TODO: apply cmap
+            # cmap = colormaps.get('RdBu_r')
+            # color = (self.boundary_debug['grad'][0]).numpy() #[...,0]
+            # color[np.isnan(color)] = 0.0
+            # # print(color)
+            # color = cmap(color)
+            # # print(color)
+            # test_xo.draw_contents(self.camera, self.render_context, None,
+            #                                  color, disable_ztest=True, use_depth=False,) #, depth_map=self.fb.depth())
+            
+            # itsp = self.boundary_debug['its_p']
+            # itsn = self.boundary_debug['its_n']
+            # itsp[np.isnan(itsp)] = 0.0
+            # itsn[np.isnan(itsn)] = 0.0
+            # # print(itsp)
+            # # print(itsn)
+            # testp= PointCloud(itsp)
+            # testp.draw_contents(self.camera, self.render_context, None,
+            #                                  [0.0,1.0,0.0], disable_ztest=True, use_depth=True, depth_map=self.fb.depth())
+            # testn= PointCloud(itsn)
+            # testn.draw_contents(self.camera, self.render_context, None,
+            #                                  [0.0,0.0,1.0], disable_ztest=True, use_depth=True, depth_map=self.fb.depth())
             # test_dir = VectorCloud(itsxi, itsp - itsxi)
             # test_dir.draw_contents(self.camera, self.render_context)
             # test_dir2= VectorCloud(itsxi, itsn - itsxi)

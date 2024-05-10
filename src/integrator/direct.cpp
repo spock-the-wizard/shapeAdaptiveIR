@@ -607,8 +607,110 @@ void DirectIntegrator::eval_secondary_edge_bssrdf(const Scene &scene, const Inte
 //     // S
     
 //     cout value0 = SpectrumD(1000.0f);
-//     return { -1, value0 };
-// }
+//     return { -1, value0 }; }
+
+// template <bool ad>
+std::tuple<Vector3fD,Vector3fD,FloatD,Vector3fD> DirectIntegrator::_sample_boundary_3(const Scene &scene, RayC camera_ray, IntC idx, bool debug) const {
+    const bool ad = true;
+        IntersectionC its = scene.ray_intersect<false>(camera_ray, true);
+        MaskC active = its.is_valid();
+
+        BSDFSampleC bs;
+        BSDFSampleD bsD;
+        BSDFArrayC bsdf_array = its.shape->bsdf(active);
+        BSDFArrayD bsdf_arrayD = BSDFArrayD(bsdf_array);
+        auto vaesub_bsdf = reinterpret_cast<VaeSub*>(bsdf_arrayD[0]);
+
+        
+        auto bs1_samples = scene.m_samplers[2].next_nd<8, false>();
+        // TODO: account for bias with weight
+        bs1_samples[0] = 1.1f;
+        // auto weight_sub = (1-F);
+        bsD = bsdf_arrayD->sample(&scene, IntersectionD(its), Vector8fD(bs1_samples),  MaskD(active));
+        bs = detach(bsD);
+        
+        // Vector3f<ad> wo;
+        // if (debug){
+        //     wo = -bsD.po.sh_frame.n;
+        // }
+        // else{
+        //     Vector3f<ad> lightpoint = (scene.m_emitters[0]->sample_position(Vector3f<ad>(1.0f), Vector2f<ad>(1.0f), true)).p;
+        //     Vector3f<ad> wo = lightpoint - bsD.po.p;
+        // }
+
+        Vector3f<ad> lightpoint = (scene.m_emitters[0]->sample_position(Vector3f<ad>(1.0f), Vector2f<ad>(1.0f), true)).p;
+        Vector3f<ad> wo = lightpoint - bsD.po.p;
+        Float<ad> dist_sqr = squared_norm(detach(wo));
+        Float<ad> dist = safe_sqrt(dist_sqr);
+        wo = wo / dist;
+        std::cout << "lightpoint " << lightpoint << std::endl;
+        std::cout << "wo " << wo << std::endl;
+
+        bsD.wo = bsD.po.sh_frame.to_local(wo);
+        bsD.po.wi = bsD.wo;
+        Ray<ad> ray1(bsD.po.p, wo, dist);
+        std::cout << "ihihiiih " << std::endl;
+        Intersection<ad> its1 = scene.ray_intersect<ad, ad>(ray1, MaskD(active));
+        active &= !its1.is_valid(); 
+
+        Vector3fD pK = detach(bsD.po.p);
+        set_requires_gradient(pK);
+        bsD.po.p = pK;
+
+        Spectrum<ad> bsdf_val;
+        bsdf_val = bsdf_arrayD->eval(IntersectionD(its), bsD, MaskD(active));
+        Float<ad> pdfpoint = bsdf_arrayD->pdfpoint(IntersectionD(its), bsD, active);
+        Spectrum<ad> Le;
+        Le = scene.m_emitters[0]->eval(bsD.po, MaskD(active));
+        // TODO: pdfpoint
+        
+        // Continuous velocity field
+        FloatD kernelEps = bsdf_arrayD -> getKernelEps(IntersectionD(its),FloatD(bs1_samples[5]));
+        FloatD maxDist = sqrt(kernelEps);
+        // TODO: Boundary test function
+        // FloatD B = abs(dot(its1.sh_frame.n,its1.wi));
+        // masked(B, ~enoki::isfinite<FloatD>(B)) = 0.f;
+        // std::cout << "B " << B << std::endl;
+        FloatD B(0.0f);
+        // TODO: distance function. Tmp setting sigma=1.0f
+        // FloatD sigma = maxDist;
+        FloatD sigma = 0.0003f;
+        int a = 3;
+        auto x_p = (pK- its.p)/maxDist;
+        auto r = norm(x_p);
+        FloatD D = 1.0f/sigma*pow(1-exp(-r*r/sigma),a);
+        // FloatD D = 1.0f/sigma*pow(1-exp(-r*r/sigma),a);
+        // FloatD weight = r;
+        FloatD weight = 1.0f/(D+B);
+        
+        auto wLe = weight*Le;
+        // auto F = Le * detach(bsdf_val); /// detach(pdfpoint);
+        backward(wLe[0],true);
+        backward(wLe[1],true);
+        backward(wLe[2],true);
+        auto d_wLe = gradient(pK);
+
+        FloatD W(0.0f);
+        set_slices(W,slices(idx));
+        scatter_add(W,weight,IntD(idx));
+        auto weight_sum = gather<FloatD>(W,IntD(idx));
+
+        auto vDis = -(pK - its.p) / (maxDist * maxDist);
+        vDis = vDis & (its1.is_valid()); // Visible points should be zero
+
+        // The formula
+        auto value = bsdf_val / weight_sum * dot(vDis,d_wLe);
+        std::cout << "hmax(bsdf_val) " << hmax(bsdf_val) << std::endl;
+        std::cout << "dot(vDis,d_wLe) " << dot(vDis,d_wLe) << std::endl;
+        std::cout << "count(active) " << count(active) << std::endl;
+        value = value & active; // V
+        
+        return std::tie(pK,value,weight,vDis);
+}
+        
+
+
+
 void DirectIntegrator::__render_boundary(const Scene &scene, int sensor_id, SpectrumD &result) const {
     const bool ad = true;
     PSDR_ASSERT_MSG(scene.is_ready(), "Input scene must be configured!");
@@ -620,145 +722,117 @@ void DirectIntegrator::__render_boundary(const Scene &scene, int sensor_id, Spec
     if ( likely(opts.sppse > 0) ) {
         int64_t num_samples = static_cast<int64_t>(num_pixels)*opts.sppse;
 
-        Int<ad> idx = arange<Int<ad>>(num_samples);
+        IntC idx = arange<Int<false>>(num_samples);
         if ( likely(opts.sppse> 1) ) idx /= opts.sppse;
         // std::cout<<"idx: "<<slices(idx)<<std::endl;
-        Vector2f<ad> samples_base = gather<Vector2f<ad>>(meshgrid(arange<Float<ad>>(opts.cropwidth),
-                                                        arange<Float<ad>>(opts.cropheight)),
+        Vector2fC samples_base = gather<Vector2f<false>>(meshgrid(arange<Float<false>>(opts.cropwidth),
+                                                        arange<Float<false>>(opts.cropheight)),
                                                         idx);
         // std::cout << "samples_base " << samples_base << std::endl;
 
 
-        Vector2f<ad> samples = (samples_base + scene.m_samplers[2].next_2d<ad>())
+        Vector2fC samples = (samples_base + scene.m_samplers[2].next_2d<false>())
                                 / ScalarVector2f(opts.cropwidth, opts.cropheight);
-        Ray<ad> camera_ray = scene.m_sensors[sensor_id]->sample_primary_ray(samples);
+        RayC camera_ray = scene.m_sensors[sensor_id]->sample_primary_ray(samples);
 
-        Intersection<ad> its = scene.ray_intersect<ad>(camera_ray, true);
-        MaskD active = its.is_valid();
-        // active &= its.is_valid();
+        Vector3fD pK,value;
+        FloatD weight;
+        std::tie(pK,value,weight,std::ignore) = _sample_boundary_3(scene,camera_ray,idx);
+        // IntersectionC its = scene.ray_intersect<false>(camera_ray, true);
+        // MaskC active = its.is_valid();
 
-        IntC cameraIdx = arange<IntC>(slices(camera_ray.o));
-        IntC validCameraSampleIdx = cameraIdx.compress_(active);
-        // Invalidate everything
-        // active &= 1.0f == 0.0f;
-        // std::cout << "active " << active << std::endl;
-
-        // std::cout << "validCameraSampleIdx " << validCameraSampleIdx << std::endl;
-        // std::cout << "validCameraSampleIdx[0] " << validCameraSampleIdx[0] << std::endl;
-        // // IntC firstValidIdx(validCameraSampleIdx[0]);
-        // active |= cameraIdx < validCameraSampleIdx[0]+1000;
-        // std::cout << "count(active) " << count(active) << std::endl;
-        // scatter_add(active,true,firstValidIdx);
-        its.p = slice(its.p,validCameraSampleIdx[0]);
-        its.sh_frame.s = slice(its.sh_frame.s,validCameraSampleIdx[0]);
-        its.sh_frame.t = slice(its.sh_frame.t,validCameraSampleIdx[0]);
-        its.sh_frame.n = slice(its.sh_frame.n,validCameraSampleIdx[0]);
-        std::cout << "its.p " << its.p << std::endl;
-        set_slices(its.p,slices(active));
-        set_slices(its.sh_frame.s,slices(active));
-        set_slices(its.sh_frame.t,slices(active));
-        set_slices(its.sh_frame.n,slices(active));
-        std::cout << "its.p " << its.p << std::endl;
-
-        // Sample disk points
-        Vector2f<ad> disk_samples = scene.m_samplers[2].next_2d<ad>();
-        disk_samples = float(M_SQRT2) * erfinv(2.f*disk_samples-1.f);
-        Vector3f<ad> vx = its.sh_frame.s;
-        Vector3f<ad> vy = its.sh_frame.t;
-        Vector3f<ad> vz = its.sh_frame.n;
-        // auto r = vz;
-        // TODO: tmp
-        float r = 0.05f;
-        float l = 0.02f;
-        // Float<ad> l = 2.0f * sqrt(rmax * rmax - r * r);
-        Ray<ad> ray2(its.p + r * (vx * disk_samples.x() + vy * disk_samples.y()) - vz * 0.5f * l, vz, l);
-        // SensorDirectSampleC sds = sensor->sample_direct(bs1.po.p);
-        auto sample = scene.m_samplers[2].next_nd<8,ad>();
+        // BSDFSampleC bs;
+        // BSDFSampleD bsD;
+        // BSDFArrayC bsdf_array = its.shape->bsdf(active);
+        // BSDFArrayD bsdf_arrayD = BSDFArrayD(bsdf_array);
+        // auto vaesub_bsdf = reinterpret_cast<VaeSub*>(bsdf_arrayD[0]);
         // auto bs1_samples = scene.m_samplers[2].next_nd<8, false>();
-        Intersection<ad> its2 = scene.ray_all_intersect<ad, ad>(ray2, active, sample, 5);
-        active &= its2.is_valid();
-        // std::cout << "HIII " << std::endl;
+        // // TODO: account for bias with weight
+        // bs1_samples[0] = 1.1f;
+        // // auto weight_sub = (1-F);
+        // bsD = bsdf_arrayD->sample(&scene, IntersectionD(its), Vector8fD(bs1_samples),  MaskD(active));
+        // bs = detach(bsD);
 
-        auto sensor = scene.m_sensors[sensor_id];
-        auto sds= sensor->sample_direct(detach(its2.p));
-        auto sds2 = sensor->sample_direct(detach(its.p));
-        SpectrumD value(1000.000f);
-        value = value & active;
-        // std::cout << "count(value) " << count(active) << std::endl;
-        // std::cout << "slices(value) " << slices(value) << std::endl;
+        // Vector3f<ad> lightpoint = (scene.m_emitters[0]->sample_position(Vector3f<ad>(1.0f), Vector2f<ad>(1.0f), true)).p;
+        // Vector3f<ad> wo = lightpoint - bsD.po.p;
+        // Float<ad> dist_sqr = squared_norm(detach(wo));
+        // Float<ad> dist = safe_sqrt(dist_sqr);
+        // wo = wo / dist;
 
-        SpectrumD red(1000.000f,0.0f,0.f);
-        // scatter_add(result,value,IntD(sds.pixel_idx));
-        scatter_add(result,red,IntD(sds2.pixel_idx));
-        // Compute dot(gradF, v)
+        // bsD.wo = bsD.po.sh_frame.to_local(wo);
+        // bsD.po.wi = bsD.wo;
+        // Ray<ad> ray1(bsD.po.p, wo, dist);
+        // Intersection<ad> its1 = scene.ray_intersect<ad, ad>(ray1, MaskD(active));
+        // active &= !its1.is_valid(); 
 
-        // Assign test weight kernel
+        // Vector3fD pK = detach(bsD.po.p);
+        // set_requires_gradient(pK);
+        // bsD.po.p = pK;
 
-        // (1) Compute V
+        // Spectrum<ad> bsdf_val;
+        // bsdf_val = bsdf_arrayD->eval(IntersectionD(its), bsD, MaskD(active));
+        // Float<ad> pdfpoint = bsdf_arrayD->pdfpoint(IntersectionD(its), bsD, active);
+        // Spectrum<ad> Le;
+        // Le = scene.m_emitters[0]->eval(bsD.po, MaskD(active));
+        // // TODO: pdfpoint
+        
+        // // Continuous velocity field
+        // FloatD kernelEps = bsdf_arrayD -> getKernelEps(IntersectionD(its),FloatD(bs1_samples[5]));
+        // FloatD maxDist = sqrt(kernelEps);
+        // // TODO: Boundary test function
+        // FloatD B = abs(dot(its1.sh_frame.n,its1.wi));
+        // masked(B, ~enoki::isfinite<FloatD>(B)) = 0.f;
+        // std::cout << "B " << B << std::endl;
+        // // FloatD B = 1.0
+        // // TODO: distance function. Tmp setting sigma=1.0f
+        // // FloatD sigma = maxDist;
+        // FloatD sigma = 0.0003f;
+        // int a = 3;
+        // auto x_p = (pK- its.p)/maxDist;
+        // auto r = norm(x_p);
+        // FloatD D = 1.0f/sigma*pow(1-exp(-r*r/sigma),a);
+        // // FloatD D = 1.0f/sigma*pow(1-exp(-r*r/sigma),a);
+        // // FloatD weight = r;
+        // FloatD weight = 1.0f/(D+B);
+        
+        // auto wLe = weight*Le;
+        // // auto F = Le * detach(bsdf_val); /// detach(pdfpoint);
+        // backward(wLe[0],true);
+        // backward(wLe[1],true);
+        // backward(wLe[2],true);
+        // auto d_wLe = gradient(pK);
+        // // std::cout << "gradient(pK) " << d_wLe <<std::endl;
 
-        // (2) Compute divV
+        // // // Analytic gradient computed by hand...
+        // // auto gradF = - 2.0f * (bsD.po.p - lightpoint) / dist_sqr * F;
+        // // std::cout << "gradF " << gradF << std::endl;
 
+        // // // std::cout << "weight " << weight << std::endl;
+        // FloatD W(0.0f);
+        // set_slices(W,slices(idx));
+        // scatter_add(W,weight,IntD(idx));
+        // auto weight_sum = gather<FloatD>(W,IntD(idx));
 
-    //     BSDFArray<ad> bsdf_array = its.shape->bsdf(active);
-    //     Mask<ad> maskl = Mask<ad>(active);
-    //     Vector3f<ad> lightpoint = (scene.m_emitters[0]->sample_position(Vector3f<ad>(1.0f), Vector2f<ad>(1.0f), maskl)).p;
+        // auto vDis = -(pK - its.p) / (maxDist * maxDist);
+        // vDis = vDis & (!its1.is_valid()); // Visible points should be zero
+        // // auto vCon = vDis * weight;
+        // // vCon /= detach(weight_sum);
 
-    //     BSDFSample<ad> bs;
-    //     bs = bsdf_array->sample(&scene, its, sampler.next_nd<8, ad>(), active);
-    //     Mask<ad> active1 = active && bs.is_valid;
-
-    //     Vector3f<ad> wo = lightpoint - bs.po.p;
-    //     Float<ad> dist_sqr = squared_norm(detach(wo));
-    //     Float<ad> dist = safe_sqrt(dist_sqr);
-    //     wo = wo / dist;
-
-    // // Directly connect to point light
-    // bs.wo = bs.po.sh_frame.to_local(wo);
-    // bs.po.wi = bs.wo;
-    // Ray<ad> ray1(bs.po.p, wo, dist);
-    // Intersection<ad> its1 = scene.ray_intersect<ad, ad>(ray1, active1);
-
-    // // Note the negation as we are casting rays TO the light source.
-    // // Occlusion indicates Invisibility
-    // active1 &= !its1.is_valid(); 
-
-    // Spectrum<ad> bsdf_val;
-    // if constexpr ( ad ) {
-    //     bsdf_val = bsdf_array->eval(its, bs, active1);
-    // } else {
-    //     bsdf_val = bsdf_array->eval(its, bs, active1);
-    // }
-    
-    // Float<ad> pdfpoint = bsdf_array->pdfpoint(its, bs, active1);
-    // Spectrum<ad> Le;
-    // // Spectrum<ad> Le_inv;
-
-    // if constexpr ( ad ) {
-    //     Le = scene.m_emitters[0]->eval(bs.po, active1);
-    // }
-    // else{
-    //     Le = scene.m_emitters[0]->eval(bs.po, active1);
-    // }
-
-    // // masked(result, active1) +=  bsdf_val * detach(Le)/ detach(pdfpoint); //Spectrum<ad>(detach(dd));  
-    // masked(result, active1) +=  bsdf_val * Le / detach(pdfpoint); //Spectrum<ad>(detach(dd));  
-    // // masked(result, active1) +=  bsdf_val * detach(Le) / pdfpoint;
-    // return result;
-
-
-
-
-        // Spectrum<ad> value = Li(scene, scene.m_samplers[0], camera_ray, true, sensor_id);
-        // masked(value, ~enoki::isfinite<Spectrum<ad>>(value)) = 0.f;
-        // FIXME: tmp setting
-        // scatter_add(result, value, idx);
+        // // The formula
+        // auto value = bsdf_val / weight_sum * dot(vDis,d_wLe);
+        // value = value & active; // V
+        
+        // std::cout << "vCon" << vCon << std::endl;
+        // SpectrumD value = dot(Vector3fD(gradF),vCon);
+        // // FIXME: tmp setting
+        masked(value, ~enoki::isfinite<Spectrum<ad>>(value)) = 0.f;
+        std::cout << "value " << value << std::endl;
+        scatter_add(result,value-detach(value),IntD(idx));
         }
 
         if ( likely(opts.sppse > 1) ) {
             result /= static_cast<float>(opts.sppse);
         }
-            
-
 }
 
 template <bool ad>

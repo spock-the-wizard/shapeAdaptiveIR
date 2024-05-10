@@ -265,7 +265,6 @@ Spectrum<ad> VaeSub::__eval_sub(const Intersection<ad> &its, const BSDFSample<ad
 
     Float<ad> cos_theta_i = Frame<ad>::cos_theta(its.wi);
     // Outgoing angle of light ray
-    std::cout << "here " << std::endl;
     Float<ad> cos_theta_o = Frame<ad>::cos_theta(bs.wo);
     active &= (cos_theta_i > 0.f);
     active &= (cos_theta_o > 0.f);
@@ -294,6 +293,10 @@ Spectrum<ad> VaeSub::__eval_sub(const Intersection<ad> &its, const BSDFSample<ad
     // std::cout << "hsum(hsum(sw)) " << hsum(hsum(sw)) << std::endl;
     Spectrum<ad> value = sp* (1.0f - F) *sw * cos_theta_o;
     // std::cout << "cos_theta_o " << cos_theta_o << std::endl;
+    // std::cout << "sw " << sw << std::endl;
+    // std::cout << "cos_theta_o " << cos_theta_o << std::endl;
+    // std::cout << "sp " << sp << std::endl;
+    // std::cout << "F " << F << std::endl;
     // std::cout << "sp " << sp << std::endl;
     // std::cout << "bs.po.abs_prob " << bs.po.abs_prob << std::endl;
     // std::cout << "hsum(hsum(value) " << hsum(hsum(value))<< std::endl;
