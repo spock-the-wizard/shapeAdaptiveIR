@@ -76,6 +76,16 @@ public:
 
     FloatD getKernelEps(const IntersectionD& its,FloatD idx) const override;
     FloatC getKernelEps(const IntersectionC& its,FloatC idx) const override;
+    
+    FloatC getEta(const IntersectionC& its) const {
+        return m_eta.eval<false>(its.uv);
+    };
+    FloatC getFresnel(const IntersectionC& its) const override {
+        FloatC cos_theta_i = FrameC::cos_theta(its.wi);
+        masked(cos_theta_i,isnan(cos_theta_i)) = 1.0f;
+        SpectrumC Fresnel = __FersnelDi<false>(1.0f, m_eta.eval<false>(its.uv), cos_theta_i);
+        return Fresnel.x();
+    };
 
     // FloatD absorption(const IntersectionD& its,Vector8fD& sample) const override;
     // FloatC absorption(const IntersectionC& its,Vector8fC& sample) const override;

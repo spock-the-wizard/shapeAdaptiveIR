@@ -189,6 +189,7 @@ Spectrum<ad> DirectIntegrator::__Li(const Scene &scene, Sampler &sampler, const 
 
     if constexpr ( ad ) {
         Le = scene.m_emitters[0]->eval(bs.po, active1);
+        // Le /= norm(detach(Le));
     }
     else{
         Le = scene.m_emitters[0]->eval(bs.po, active1);
@@ -610,10 +611,18 @@ void DirectIntegrator::eval_secondary_edge_bssrdf(const Scene &scene, const Inte
 //     return { -1, value0 }; }
 
 // template <bool ad>
-std::tuple<Vector3fD,Vector3fD,FloatD,Vector3fD> DirectIntegrator::_sample_boundary_3(const Scene &scene, RayC camera_ray, IntC idx, bool debug) const {
+std::tuple<Vector3fD,Vector3fD,FloatD,Vector3fD,Vector3fD> DirectIntegrator::_sample_boundary_3(const Scene &scene, RayC camera_ray, IntC idx, bool debug) const {
     const bool ad = true;
         IntersectionC its = scene.ray_intersect<false>(camera_ray, true);
+        its.wi = its.sh_frame.to_local(-camera_ray.d);
         MaskC active = its.is_valid();
+        // std::cout << "its.n " << its.n << std::endl;
+        // std::cout << "count(hsum(its.n) == 0.0f)) " << count(hsum(its.n) == 0.0f) << std::endl;
+        // std::cout << "its.wi " << its.wi << std::endl;
+
+        // IntersectionD its2 = scene.ray_intersect<true>(RayD(camera_ray), true);
+        // std::cout << "its2.wi " << its2.wi << std::endl;
+        // std::cout << "count(~isnan(its2.wi.x())) " << count(~isnan(its2.wi.x())) << std::endl;
 
         BSDFSampleC bs;
         BSDFSampleD bsD;
@@ -624,88 +633,355 @@ std::tuple<Vector3fD,Vector3fD,FloatD,Vector3fD> DirectIntegrator::_sample_bound
         
         auto bs1_samples = scene.m_samplers[2].next_nd<8, false>();
         // TODO: account for bias with weight
+        auto F = bsdf_array->getFresnel(its);
+        FloatC weight_sub = 1.0f / (1.0f-F);
+        // std::cout << "weight_sub " << weight_sub << std::endl;
+        
         bs1_samples[0] = 1.1f;
         // auto weight_sub = (1-F);
         bsD = bsdf_arrayD->sample(&scene, IntersectionD(its), Vector8fD(bs1_samples),  MaskD(active));
         bs = detach(bsD);
-        
-        // Vector3f<ad> wo;
-        // if (debug){
-        //     wo = -bsD.po.sh_frame.n;
-        // }
-        // else{
-        //     Vector3f<ad> lightpoint = (scene.m_emitters[0]->sample_position(Vector3f<ad>(1.0f), Vector2f<ad>(1.0f), true)).p;
-        //     Vector3f<ad> wo = lightpoint - bsD.po.p;
-        // }
 
         Vector3f<ad> lightpoint = (scene.m_emitters[0]->sample_position(Vector3f<ad>(1.0f), Vector2f<ad>(1.0f), true)).p;
         Vector3f<ad> wo = lightpoint - bsD.po.p;
         Float<ad> dist_sqr = squared_norm(detach(wo));
         Float<ad> dist = safe_sqrt(dist_sqr);
         wo = wo / dist;
-        std::cout << "lightpoint " << lightpoint << std::endl;
-        std::cout << "wo " << wo << std::endl;
+        // std::cout << "lightpoint " << lightpoint << std::endl;
+        // std::cout << "wo " << wo << std::endl;
 
         bsD.wo = bsD.po.sh_frame.to_local(wo);
         bsD.po.wi = bsD.wo;
         Ray<ad> ray1(bsD.po.p, wo, dist);
-        std::cout << "ihihiiih " << std::endl;
         Intersection<ad> its1 = scene.ray_intersect<ad, ad>(ray1, MaskD(active));
-        active &= !its1.is_valid(); 
+        std::cout << "count(active) " << count(active) << std::endl;
+        // std::cout << "count(its1.is_valid()) " << count(its1.is_valid()) << std::endl;
+        active &= !its1.is_valid();  // visible to light?
 
-        Vector3fD pK = detach(bsD.po.p);
+        FloatD kernelEps = bsdf_arrayD -> getKernelEps(IntersectionD(its),FloatD(bs1_samples[5]));
+        FloatD maxDist = sqrt(kernelEps);
+
+
+        // // ======================================================
+        // // Material point pK
+        // Vector3fD p = (bsD.po.p- its.p)/maxDist;
+        // Vector3fD pK = detach(p); //(1.0f); // = Vector3fD(p); //detach(p);
+        
+        // // Spatial point xK
+        // Vector3fD xK = detach(bsD.po.p);
+        // set_requires_gradient(xK);
+        // bsD.po.p = xK;
+
+        // Spectrum<ad> bsdf_val;
+        // bsdf_val = bsdf_arrayD->eval(IntersectionD(its), bsD, MaskD(active));
+        // Float<ad> pdfpoint = bsdf_arrayD->pdfpoint(IntersectionD(its), bsD, active);
+        // Spectrum<ad> Le;
+        // Le = scene.m_emitters[0]->eval(bsD.po, MaskD(active));
+        
+        // // Continuous velocity field
+        // FloatD B(0.0f);
+        // FloatD sigma = 0.003f;
+        // int a = 3;
+        // FloatD r_ = squared_norm(xK - its.p);
+        // // FloatD r = safe_sqrt(r_);
+        // // std::cout << "r " << r << std::endl;
+        // // FloatD D = 1.0f/sigma*pow(1-exp(-r*r/sigma),a);
+        // a=1;
+        // // r = r / maxDist / 5000.0f;
+        // // FloatD D = 1.0f/sigma*pow(1-exp(-r/sigma),a);
+        // // FloatD weight = 1.0f/(D+B);
+        // FloatD weight = sigma * exp(-r_ / detach(maxDist));
+        
+        // auto wLe = Le;
+        // // auto wLe = weight*Le;
+        // backward(wLe[0],true);
+        // backward(wLe[1],true);
+        // backward(wLe[2],true);
+        // Vector3fC d_wLe = gradient(xK);
+
+        // FloatC W(0.0f);
+        // set_slices(W,slices(idx));
+        // scatter_add(W,detach(weight),idx);
+        // auto weight_sum = gather<FloatC>(W,idx);
+
+        // auto vDis = pK; // * - detach(pK) / detach(maxDist);
+        // // (pK - its.p) / (maxDist * maxDist);
+        // std::cout << "bsdf_val " << bsdf_val << std::endl;
+        // std::cout << "d_wLe " << d_wLe << std::endl;
+        
+        // ======================================================
+        // Material point pK
+        Vector3fD p = (bsD.po.p- its.p)/maxDist;
+        Vector3fD pK = detach(p); 
         set_requires_gradient(pK);
-        bsD.po.p = pK;
+        
+        // // TODO: account for geometry of projected point
+        // Vector3fD n = bsD.po.n;
+        // std::cout << "n " << n << std::endl;
+        // Vector3fD t = cross(normalize(pK),n);
+        // Vector3fD vn = normalize(cross(n,t));
+        // FloatD cosAngle = dot(vn,normalize(detach(pK)));
+        
+        // Vector3fD xK = vn*maxDist*cosAngle;
+        // xK = xK - detach(xK) + bs.po.p; //detach(bsD.po.p);
+        Vector3fD xK = pK * maxDist + its.p;
+        bsD.po.p = xK;
 
         Spectrum<ad> bsdf_val;
         bsdf_val = bsdf_arrayD->eval(IntersectionD(its), bsD, MaskD(active));
+        // SpectrumC bsdf_val;
+        // bsdf_val = bsdf_array->eval(its,bs,active); //IntersectionD(its), bsD, MaskD(active));
         Float<ad> pdfpoint = bsdf_arrayD->pdfpoint(IntersectionD(its), bsD, active);
         Spectrum<ad> Le;
         Le = scene.m_emitters[0]->eval(bsD.po, MaskD(active));
-        // TODO: pdfpoint
         
         // Continuous velocity field
-        FloatD kernelEps = bsdf_arrayD -> getKernelEps(IntersectionD(its),FloatD(bs1_samples[5]));
-        FloatD maxDist = sqrt(kernelEps);
         // TODO: Boundary test function
-        // FloatD B = abs(dot(its1.sh_frame.n,its1.wi));
-        // masked(B, ~enoki::isfinite<FloatD>(B)) = 0.f;
-        // std::cout << "B " << B << std::endl;
         FloatD B(0.0f);
-        // TODO: distance function. Tmp setting sigma=1.0f
-        // FloatD sigma = maxDist;
-        FloatD sigma = 0.0003f;
-        int a = 3;
-        auto x_p = (pK- its.p)/maxDist;
-        auto r = norm(x_p);
-        FloatD D = 1.0f/sigma*pow(1-exp(-r*r/sigma),a);
-        // FloatD D = 1.0f/sigma*pow(1-exp(-r*r/sigma),a);
-        // FloatD weight = r;
-        FloatD weight = 1.0f/(D+B);
         
+        // Idea 1. Compute geometric term for all samples.
+        // Find closest point with different geometric term
+        // FloatC G_xi = dot(bsD.po.n,bsD.sh_frame.n) & (~detach(its1).is_valid());
+        FloatC G_xi = Frame<false>::cos_theta(-detach(bsD.wo)) & (~detach(its1).is_valid());
+        // FloatC G_xo = its.n & (its.is_valid());
+        auto its_wi = detach(lightpoint) - its.p;
+        FloatC dist_sqrt = norm(its_wi); //sqrt(dot(its_wi,its_wi));  //sqrt(squared_norm(its_wi));
+        its_wi = its_wi / dist_sqrt;
+        its_wi = its.sh_frame.to_local(its_wi);
+        FloatC G_xo = Frame<false>::cos_theta(-detach(its_wi)) & (its.is_valid());
+        // std::cout << "lightpoint " << lightpoint << std::endl;
+        
+        // Get pairwise distance between samples
+        // Gather relevant neighboring samples
+        float thresG = 0.9f;
+        // Let's try a binary group
+        MaskC maskB = abs(G_xi-G_xo) > thresG;
+        // std::cout << "G_xi " << G_xi << std::endl;
+        // std::cout << "G_xo " << G_xo << std::endl;
+        // std::cout << "abs(G_xi - G_xo) " << abs(G_xi - G_xo) << std::endl;
+        // std::cout << "max abs(G_xi - G_xo) " << hmax(abs(G_xi - G_xo))<< std::endl;
+        // std::cout << "maskB " << maskB << std::endl;
+        
+        IntC _idx = arange<IntC>(slices(its));
+        const long unsigned int N = 100;
+        // Array<Vector3fC,N> samples(5.0f);
+        // Array<MaskC,N> maskS(false);
+        // Array<FloatD,N> distPair(5.0f);
+        IntD idx_list = zero<IntC>(slices(its));
+        FloatD distPair(5.0f);
+        // set_slices(samples,slices(its));
+        // set_slices(maskS,slices(its));
+        // samples[0] = bs.po.p;
+        // maskS[0] = maskB;
+        
+        int idx_closest = -1;
+        for (int id=1;id<N;id++){
+            IntC is_first_col = arange<IntC>(slices(its)) % N;
+            MaskC m = (N-1) - is_first_col <0.2f;
+            // Index of current neighbor in bsD.po.p
+            _idx = select(_idx < N-1, _idx+1, 0); 
+            
+            auto nei_n = gather<Vector3fC>(bs.po.n,_idx);
+            auto nei_vis = gather<MaskC>(!detach(its1).is_valid(),_idx);
+            auto nei_valid = gather<MaskC>(bs.po.is_valid(),_idx);
+            
+            auto xi_n = bs.po.n;
+            auto xi_vis = bs.po.is_valid();
+            auto xi_valid = its.is_valid();
+            
+            
+            // Is the neighbor a boundary candidate?
+            // auto isDiff = (xi_vis ^ nei_vis) | dot(xi_n,nei_n) < thresG;
+            // auto isDiff = xi_valid & nei_valid & 
+            auto isDiff = ((abs(dot(xi_n,nei_n)) < thresG)); // | (xi_vis^nei_vis));
+            // std::cout << "isDiff " << isDiff << std::endl;
+            // std::cout << "count(isDiff) " << count(isDiff) << std::endl;
+
+            // If yes, add position to samples
+            auto samples = gather<Vector3fC>(bs.po.p,_idx,isDiff);
+            // samples[id] = gather<Vector3fC>(samples[id-1],_idx,isDiff);
+            // Compute distance
+            auto _norm = norm(Vector3fD(samples) - bsD.po.p);
+            std::cout << "_norm " << _norm << std::endl;
+
+            // Update if necessary
+            auto update = isDiff && (distPair > _norm);
+            std::cout << "update " << update << std::endl;
+            distPair = select(update, _norm, distPair); //hmin(distPair,_norm);
+                                                                               
+            std::cout << "distPair " << distPair << std::endl;
+            std::cout << "_idx " << _idx << std::endl;
+            idx_list = select(update, IntD(_idx), idx_list); //hmin(distPair,_norm);
+            std::cout << "idx_list " << idx_list << std::endl;
+        }
+        // std::cout << "idx_list " << idx_list << std::endl;
+        IntC is_first_col = arange<IntC>(slices(its)) % N;
+        int test_idx = 0;
+        MaskC m = (test_idx - is_first_col <0.5f) && (test_idx + 1 - is_first_col > 0.5f);
+        auto candB = idx_list[test_idx];
+        std::cout << "slice(bsD.po.p,test_idx) " << slice(bsD.po.p,test_idx) << std::endl;
+        std::cout << "slice(bsD.po.p,candB) " << slice(bsD.po.p,candB) << std::endl;
+        MaskC m2= (candB - is_first_col <0.2f) && (candB+1 - is_first_col > 0.5f);
+        std::cout << "test_idx " << test_idx << std::endl;
+        std::cout << "candB " << candB << std::endl;
+        
+        // auto n_single = slice(bsD.po.n,test_idx);
+        // auto isDiff_single = ((abs(dot(bsD.po.n,n_single)) < 0.5f ));// | (bsD.is_valid() != vis_single); // | (xi_vis^nei_vis));
+                                                                     // 
+        // Closest candidate point
+        // std::cout << "idx_closest " << idx_closest << std::endl;
+        // auto pos_single = slice(bsD.po.p,test_idx);
+        // auto min_dist = 10.0f;
+        // auto min_idx = -1;
+        // for(int id=0;id<N;id++){
+        //     auto pos_nei = slice(bsD.po.p,id);
+        //     auto isDiff = slice(isDiff_single,id); 
+        //     auto norm__ = norm(pos_nei-pos_single);
+        //     if (isDiff && (norm__ < min_dist)){
+        //         min_idx = id;
+        //         min_dist = norm__;
+        //     }
+        // }
+        // std::cout << "min_idx " << min_idx << std::endl;
+        // std::cout << "min_dist " << min_dist << std::endl;
+        // MaskC m3 = (min_idx - is_first_col <0.5f) && (min_idx+1 - is_first_col > 0.5f);
+
+
+        // std::cout << "count(isDiff_single) " << count(isDiff_single) << std::endl;
+        // std::cout << "isDiff_single " << isDiff_single << std::endl;
+        // distPair = select(isDiff_single,FloatD(0.6f),FloatD(0.3f));
+        distPair = select(m,FloatD(1.0f),distPair);
+        distPair = select(m2,FloatD(0.8f),distPair);
+        // distPair = select(m3,FloatD(0.9f),distPair);
+        distPair = select(bs.po.is_valid(),distPair,FloatD(0.0f));
+        B = distPair;
+        // FIXME 
+        FloatD weight = B;
+
+        // [M*N,N]
+        // Vector3fD _dist = bsD.po.p - samples; //Vector3fD(samples);
+        // auto _dist = samples - bsD.po.p;
+        // FloatD dist_pairwise = dot(_dist,_dist); 
+        // FloatD dist_pairwise = norm(Vector3fD(samples) - bsD.po.p);
+        
+        // // [N*N,1]
+        // auto min_dist = hmin(dist_pairwise);
+
+        // B = select(distPair == 5.0f, hmax(distPair), distPair);
+        // FloatD B = distPair;
+        // std::cout << "hmean(B) " << hmean(B) << std::endl;
+        // min_dist;
+
+
+        FloatD sigma = 0.003f;
+        int a = 3;
+        // auto r = norm(xK - its.p);
+        auto r_ = dot(pK,pK) / maxDist / maxDist; //xK-its.p,xK-its.p);
+        // std::cout << "mean(r_) " << hmean(r_) << std::endl;
+        // std::cout << "r " << r << std::endl;
+        // FloatD D = 1.0f/sigma*pow(1-exp(-r_/sigma),a);
+        // auto r = dot(pK,pK);
+        // FloatD D = 1/sigma*1/exp(-r*r);
+        // B = norm(pK - Vector3fD(0.0f,2.0f,2.0f));
+        // auto v = (xK - Vector3fD(0.0f,0.5f,0.5f));
+        // B = dot(v,v); 
+
+        // FloatD weight = sigma * exp(-r*r);
+        // FloatD weight = 1.0f/(D+B);
+        // FloatD weight = 1.0f/(1000.0f*B+ D);
+        // FloatD weight = 1.0f/D + 10.0f/(B); //(1000.0f*B+ D);
+        // FloatD weight = 1.0f/(B);
+        // std::cout << "hmax(weight) " << hmax(weight) << std::endl;
+        // std::cout << "hmax(weight) " << hmax(1/detach(D)) << std::endl;
+        // std::cout << "hmax(weight) " << hmax(1/(1000.0f*detach(B))) << std::endl;
+        // std::cout << "1/D " << 1.0f/D << std::endl;
+        // std::cout << "1/B " << 1.0f/(1000.0f*B) << std::endl;
+        std::cout << "weight " << weight << std::endl;
+        // r /= maxDist * 15.0f;
+        // std::cout << "weight " << weight << std::endl;
+        
+        // Vector3fD wLe = weight; 
         auto wLe = weight*Le;
-        // auto F = Le * detach(bsdf_val); /// detach(pdfpoint);
+        std::cout << "wLe " << wLe << std::endl;
+        // auto wLe = Le;
         backward(wLe[0],true);
         backward(wLe[1],true);
         backward(wLe[2],true);
-        auto d_wLe = gradient(pK);
+        Vector3fC d_wLe = gradient(pK);
 
-        FloatD W(0.0f);
+        // auto wLe = Le * bsdf_val;
+        // backward(wLe[0]);//,true);
+        // Vector3fC d_wLe = gradient(pK);
+        std::cout << "d_wLe" << d_wLe <<std::endl;
+        // set_gradient(pK, FloatD(0.0f));
+        // std::cout << "d_wLe" << d_wLe <<std::endl;
+        // backward(wLe[1],true);
+        // Vector3fC d_wLe_g = gradient(pK);
+        // std::cout << "d_wLe" << d_wLe_g <<std::endl;
+        // set_gradient(pK,FloatD(0.0f));
+        // std::cout << "d_wLe" << d_wLe_g <<std::endl;
+        // backward(wLe[2],true);
+        // Vector3fC d_wLe_b = gradient(pK);
+        // std::cout << "d_wLe" << d_wLe_b <<std::endl;
+
+        FloatC W(0.0f);
         set_slices(W,slices(idx));
-        scatter_add(W,weight,IntD(idx));
-        auto weight_sum = gather<FloatD>(W,IntD(idx));
+        scatter_add(W,detach(weight),idx);
+        auto weight_sum = gather<FloatC>(W,idx);
 
-        auto vDis = -(pK - its.p) / (maxDist * maxDist);
-        vDis = vDis & (its1.is_valid()); // Visible points should be zero
+        // auto vDis = - detach(pK) / detach(maxDist);
+        // (pK - its.p) / (maxDist * maxDist);
+        std::cout << "bsdf_val " << bsdf_val << std::endl;
+        // std::cout << "d_wLe " << d_wLe << std::endl;
+        // ======================================================
+        // auto dot_ = dot(p,d_wLe);
+        // auto dot_g= dot(p,d_wLe_g);
+        // auto dot_b = dot(p,d_wLe_b);
+        // Vector3fD value(dot_,dot_g,dot_b); //Vector3fD(bsdf_val) * dot_; 
+        // Vector3fC fw = detach(bsdf_val)*detach(Le);
+        // value = value + Vector3fD(fw)*hsum(p);
 
+        auto dot_ = dot(p,d_wLe);
+        // Vector3fC fw = detach(bsdf_val)*detach(Le);
+        // Vector3fD value = Vector3fD(detach(bsdf_val))* dot_; 
+        // value = value + Vector3fD(fw)*hsum(p);
+
+        // Weighted version
+        Vector3fD value = Vector3fD(detach(bsdf_val)) * dot_; 
+        Vector3fC fw = detach(bsdf_val)*detach(Le)*detach(weight);
+        // value = value + Vector3fD(fw)*hsum(p);
+
+        // Diff. BSDF version
+        // Vector3fD value(dot_,dot_g,dot_b); 
+        // Vector3fD vDis = p;
+        // FIXME: tmp
+        Vector3fD vDis = bs.po.n; //d_wLe;
         // The formula
-        auto value = bsdf_val / weight_sum * dot(vDis,d_wLe);
-        std::cout << "hmax(bsdf_val) " << hmax(bsdf_val) << std::endl;
-        std::cout << "dot(vDis,d_wLe) " << dot(vDis,d_wLe) << std::endl;
-        std::cout << "count(active) " << count(active) << std::endl;
+        // Vector3fD dot_ = dot(vDis,d_wLe);
+        // FIXME: testing
+        // dot_ /= norm(detach(vDis));
+        // Vector3fD xK = pK * maxDist + its.p;
+        // Vector3fD dot_ = dot(normalize(pK)*maxDist,d_wLe);
+        
+        // Vector3fD n = bsD.po.n;
+        // std::cout << "n " << n << std::endl;
+        // Vector3fD t = cross(normalize(pK),n);
+        // Vector3fD vn = normalize(cross(n,t));
+        // FloatD cosAngle = dot(vn,normalize(detach(pK)));
+        // Vector3fD dot_ = dot(Vector3fD(detach(vn))*norm(detach(pK))*maxDist*detach(cosAngle),d_wLe);
+        // auto value = bsdf_val*(dot(d_wLe,vDis));// + Le*weight*hsum(x_p));
+        // auto value = Vector3fD(detach(bsdf_val)) * dot_; //dot(pK,d_wLe);
+        // value = value + bsdf_val*detach(Le)*detach(weight)*hsum(xK);
+        // auto value = bsdf_val*Le*weight*hsum(pK);
+        
+        // std::cout << "dot(vDis,d_wLe) " << dot(vDis,d_wLe) << std::endl;
+        // std::cout << "count(active) " << count(active) << std::endl;
+        value = value / Vector3fD(weight_sum);
+        value = value * weight_sub;
+        value = value / detach(pdfpoint);
         value = value & active; // V
         
-        return std::tie(pK,value,weight,vDis);
+        return std::tie(xK,value,weight,vDis,dot_);
 }
         
 
@@ -737,7 +1013,7 @@ void DirectIntegrator::__render_boundary(const Scene &scene, int sensor_id, Spec
 
         Vector3fD pK,value;
         FloatD weight;
-        std::tie(pK,value,weight,std::ignore) = _sample_boundary_3(scene,camera_ray,idx);
+        std::tie(pK,value,weight,std::ignore,std::ignore) = _sample_boundary_3(scene,camera_ray,idx);
         // IntersectionC its = scene.ray_intersect<false>(camera_ray, true);
         // MaskC active = its.is_valid();
 

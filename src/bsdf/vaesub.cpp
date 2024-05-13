@@ -294,10 +294,8 @@ Spectrum<ad> VaeSub::__eval_sub(const Intersection<ad> &its, const BSDFSample<ad
     Spectrum<ad> value = sp* (1.0f - F) *sw * cos_theta_o;
     // std::cout << "cos_theta_o " << cos_theta_o << std::endl;
     // std::cout << "sw " << sw << std::endl;
-    // std::cout << "cos_theta_o " << cos_theta_o << std::endl;
     // std::cout << "sp " << sp << std::endl;
     // std::cout << "F " << F << std::endl;
-    // std::cout << "sp " << sp << std::endl;
     // std::cout << "bs.po.abs_prob " << bs.po.abs_prob << std::endl;
     // std::cout << "hsum(hsum(value) " << hsum(hsum(value))<< std::endl;
     // std::cout << "hsum(hsum(bs.po.J) " << hsum(hsum(bs.po.J)) << std::endl;

@@ -72,6 +72,12 @@ public:
     virtual FloatD getKernelEps(const IntersectionD& its,FloatD idx) const { 
         return full<FloatD>(1.0f);
     }
+    virtual FloatC getFresnel(const IntersectionC& its) const {
+        return full<FloatC>(1.0f);
+    }
+    virtual FloatD getFresnel(const IntersectionD& its) const { 
+        return full<FloatD>(1.0f);
+    }
     // virtual FloatC absorption(const IntersectionC& its,FloatC rnd) const {
     //     return full<FloatC>(1.0f);
     // }
@@ -94,6 +100,7 @@ ENOKI_CALL_SUPPORT_BEGIN(psdr::BSDF)
     ENOKI_CALL_SUPPORT_METHOD(anisotropic)
     // ENOKI_CALL_SUPPORT_METHOD(getKernelEps<true>)
     ENOKI_CALL_SUPPORT_METHOD(getKernelEps)
+    ENOKI_CALL_SUPPORT_METHOD(getFresnel)
     ENOKI_CALL_SUPPORT_METHOD(absorption)
     ENOKI_CALL_SUPPORT_METHOD(hasbssdf)
 ENOKI_CALL_SUPPORT_END(psdr::BSDF)

@@ -127,7 +127,7 @@ void Scene::configure() {
         }
     }
 
-    // std::cout<<"configure sensor"<<std::endl;
+    std::cout<<"configure sensor"<<std::endl;
     // Preprocess sensors
     PSDR_ASSERT_MSG(!m_sensors.empty(), "Missing sensor!");
     std::vector<size_t> num_edges;
@@ -278,7 +278,7 @@ void Scene::configure() {
 
         // Joon addded: debugging edge sampling
         FloatC edge_lengths = norm(detach(m_sec_edge_info.e1));
-        edge_lengths = select(edge_lengths > 0.005f,edge_lengths,0.0f);
+        // edge_lengths = select(edge_lengths > 0.005f,edge_lengths,0.0f);
         m_sec_edge_distrb->init(edge_lengths);
         // IntC edge_idx = arange<IntC>(slices(edge_lengths));
         // // int num = 40450;
@@ -627,6 +627,8 @@ Intersection<ad> Scene::ray_intersect(const Ray<ad> &ray, Mask<ad> active, Trian
         dir /= its.t;
 
         its.sh_frame = Frame<ad>(sh_n);
+        // std::cout << "its.sh_frame " << its.sh_frame.n << std::endl;
+        // std::cout << "sh_n " << sh_n << std::endl;
         its.wi = its.sh_frame.to_local(-dir);
         //its.uv = fmadd(tri_uv_info[0], 1.f - u - v, fmadd(tri_uv_info[1], u, tri_uv_info[2]*v));
         its.uv = bilinear2<ad>(tri_uv_info[0],
