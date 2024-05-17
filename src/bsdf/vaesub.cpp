@@ -319,6 +319,13 @@ BSDFSampleD VaeSub::sample(const Scene *scene, const IntersectionD &its, const V
     return __sample<true>(scene, its,rand, active);
 }
 
+std::pair<BSDFSampleD,FloatD> VaeSub::sample_v2(const Scene *scene, const IntersectionD &its, const Vector8fD &rand, MaskD active) const {
+    auto kernelEps = getKernelEps<true>(its,rand[5]);
+    auto result = __sample<true>(scene, its,rand, active);
+    // return std::tie(result,kernelEps);
+    return std::pair(result,kernelEps); //outPos2,absorption);
+}
+
 template <bool ad>
 BSDFSample<ad> VaeSub::__sample(const Scene *scene, const Intersection<ad> &its, const Vector8f<ad> &sample, Mask<ad> active) const {
     // NOTE: Mask active is 100% True
@@ -358,6 +365,9 @@ BSDFSample<ad> VaeSub::__sample(const Scene *scene, const Intersection<ad> &its,
     // Joon added
     // std::cout << "sample.x() > prob " << (sample.x() > prob) << std::endl;
     bs.rgb_rv = select(sample.x() > prob, bs.rgb_rv, bsdf_bs.rgb_rv);
+    bs.maxDist = select(sample.x() > prob, bs.maxDist, bsdf_bs.maxDist);
+    bs.velocity = select(sample.x() > prob, bs.velocity, bsdf_bs.velocity);
+   
 
     return bs;
 }
@@ -382,6 +392,8 @@ BSDFSample<ad> VaeSub::__sample_bsdf(const Intersection<ad> &its, const Vector8f
     bs.is_sub = false;
     //Joon added
     bs.rgb_rv = full<Float<ad>>(-1.0f);
+    bs.maxDist = full<Float<ad>>(-1.0f);
+    bs.velocity = full<Vector3f<ad>>(0.0f);
     bs.po.abs_prob = full<Float<ad>>(0.0f);
     return bs;
 }
@@ -393,7 +405,7 @@ BSDFSample<ad> VaeSub::__sample_sub(const Scene *scene, const Intersection<ad> &
     BSDFSample<ad> bs;
     Float<ad> pdf_po = Frame<ad>::cos_theta(its.wi);
     Vector3f<ad> dummy;
-    std::tie(bs.po, bs.rgb_rv,dummy,dummy) = __sample_sp<ad>(scene, its, sample, pdf_po, active);
+    std::tie(bs.po, bs.rgb_rv,dummy,bs.velocity,bs.maxDist) = __sample_sp<ad>(scene, its, sample, pdf_po, active);
     bs.wo = warp::square_to_cosine_hemisphere<ad>(tail<2>(sample));
     bs.pdf = pdf_po;
     bs.is_valid = active && (cos_theta_i > 0.f) && bs.po.is_valid();// && ( == its.shape->m_id);&& 
@@ -618,11 +630,12 @@ Float<ad> VaeSub::getKernelEps(const Intersection<ad>& its,Float<ad> rnd) const 
     Float<ad> albedo_ch = select(rnd < (1.0f / 3.0f), albedo.x(),albedo.y());
     albedo_ch = select(rnd > (2.0f / 3.0f), albedo.z(),albedo_ch);
     Spectrum<ad> sigma_t = m_sigma_t.eval<ad>(its.uv);
+    // if constexpr(ad){
+    //     set_requires_gradient(sigma_t.x()); //sigma_t_ch);
+    //     // set_requires_gradient(albedo.x()); //sigma_t_ch);
+    // }
     auto sigma_t_ch = select(rnd < (1.0f / 3.0f), sigma_t.x(),sigma_t.y());
     sigma_t_ch = select(rnd > (2.0f / 3.0f), sigma_t.z(),sigma_t_ch);
-    // if constexpr(ad){
-    //     set_requires_gradient(sigma_t[2]);
-    // }
     Spectrum<ad> g = m_g.eval<ad>(its.uv);
     auto g_ch = select(rnd < (1.0f / 3.0f), g.x(),g.y());
     g_ch = select(rnd > (2.0f / 3.0f), g.z(),g_ch);
@@ -646,16 +659,16 @@ Float<ad> VaeSub::getKernelEps(const Intersection<ad>& its,Float<ad> rnd) const 
 
     Float<ad> res = 4.0f * val * val / (miu_t_p * miu_t_p);
     // if constexpr(ad){
-
     // backward(res);
-    // std::cout << "grad" << gradient(sigma_t.z());
+    // std::cout << "gradient(sigma_t_ch) " << gradient(sigma_t.x()) << std::endl;
+    // // std::cout << "gradient(sigma_t_ch) " << gradient(albedo.x()) << std::endl;
     // }
     
     return res;
 }
 
 template <bool ad>
-std::tuple<Intersection<ad>,Float<ad>,Vector3f<ad>,Vector3f<ad>> VaeSub::__sample_sp(const Scene *scene, const Intersection<ad> &its, const Vector8f<ad> &sample, Float<ad> &pdf, Mask<ad> active) const {        
+std::tuple<Intersection<ad>,Float<ad>,Vector3f<ad>,Vector3f<ad>,Float<ad>> VaeSub::__sample_sp(const Scene *scene, const Intersection<ad> &its, const Vector8f<ad> &sample, Float<ad> &pdf, Mask<ad> active) const {        
         using namespace std::chrono;
         std::cout << "enter sample_sp " << std::endl;
     
@@ -669,21 +682,48 @@ std::tuple<Intersection<ad>,Float<ad>,Vector3f<ad>,Vector3f<ad>> VaeSub::__sampl
         float is_light_space = true;
 
         // FIXME: tmp
-        Spectrum<ad> albedo,sigma_t;
+        // Spectrum<ad> albedo,sigma_t;
         // if constexpr(ad){
         //     albedo = m_albedo.eval<ad>(its.uv);
         //     set_requires_gradient(albedo);
         //     sigma_t = m_sigma_t.eval<ad>(its.uv);
         //     set_requires_gradient(sigma_t);
         // }
+        // auto albedo = m_albedo.eval<ad>(its.uv);
+        // set_requires_gradient(albedo);
+        // auto sigma_t = m_sigma_t.eval<ad>(its.uv);
+        // set_requires_gradient(sigma_t);
 
 
-        // std::cout << its.p << std::endl;
-        // auto start_time = high_resolution_clock::now();
         auto x = _preprocessFeatures<ad>(its,rnd,is_plane,its.wi,is_light_space);
-        // auto end_time = high_resolution_clock::now();
-        // std::cout << "[Time] preprocess" <<  duration_cast<duration<double>>(end_time - start_time).count() << " seconds.";
-        auto kernelEps = getKernelEps<ad>(its,rnd);
+        // auto kernelEps = getKernelEps<ad>(its,rnd);
+        // ========================================
+        Spectrum<ad> albedo = m_albedo.eval<ad>(its.uv);
+        Float<ad> albedo_ch = select(rnd < (1.0f / 3.0f), albedo.x(),albedo.y());
+        albedo_ch = select(rnd > (2.0f / 3.0f), albedo.z(),albedo_ch);
+        Spectrum<ad> sigma_t = m_sigma_t.eval<ad>(its.uv);
+        auto sigma_t_ch = select(rnd < (1.0f / 3.0f), sigma_t.x(),sigma_t.y());
+        sigma_t_ch = select(rnd > (2.0f / 3.0f), sigma_t.z(),sigma_t_ch);
+        Spectrum<ad> g = m_g.eval<ad>(its.uv);
+        auto g_ch = select(rnd < (1.0f / 3.0f), g.x(),g.y());
+        g_ch = select(rnd > (2.0f / 3.0f), g.z(),g_ch);
+        // FIXME: Debugging
+        sigma_t_ch = detach(sigma_t_ch);
+        set_requires_gradient(sigma_t_ch);
+        ////////////
+
+        Float<ad> sigma_s = sigma_t_ch * albedo_ch;
+        auto sigma_a = sigma_t_ch - sigma_s;
+
+        auto miu_s_p = (1.0f - g_ch) * sigma_s;
+        auto miu_t_p = miu_s_p + sigma_a;
+        auto alpha_p = miu_s_p / miu_t_p;
+
+        auto effectiveAlbedo = -log(1.0f-alpha_p * (1.0f - exp(-8.0f))) / 8.0f;
+        auto val = 0.25f * g_ch + 0.25f * alpha_p + 1.0f * effectiveAlbedo;
+
+        Float<ad> kernelEps = 4.0f * val * val / (miu_t_p * miu_t_p);
+        // auto kernelEps = getKernelEps<ad>(its,rnd);
         auto fitScaleFactor = 1.0f / sqrt(kernelEps);
         
         Array<Float<ad>,4> latent(sample[2],sample[3],sample[6],sample[7]);
@@ -712,35 +752,17 @@ std::tuple<Intersection<ad>,Float<ad>,Vector3f<ad>,Vector3f<ad>> VaeSub::__sampl
         Spectrum<ad> tangent1, tangent2;
         auto inPos = its.p;
         Frame<ad> local_frame(inNormal);
-        if constexpr(ad){
-            outPos = inPos + local_frame.to_world(outPos);
-            outPos = inPos + (outPos - inPos) / fitScaleFactor;
-            // backward(fitScaleFactor);
-            // forward(sigma_t[0]);
-            // std::cout << "gradient(outPos[0]) " << gradient(outPos[0]) << std::endl;
-            // std::cout << "gradient(fitScaleFactor) " << gradient(fitScaleFactor) << std::endl;
-            // std::cout << "gradient(kernelEps) " << gradient(kernelEps) << std::endl;
-            
-            // backward(kernelEps);
-            // std::cout << "gradient(albedo) " << gradient(albedo) << std::endl;
-            // std::cout << "gradient(sigma_t) " << gradient(sigma_t) << std::endl;
-        }
-        else{
-            outPos = inPos + local_frame.to_world(outPos);
-            outPos = inPos + (outPos - inPos) / fitScaleFactor;
-        }
-        // std::cout << "outPos " << outPos << std::endl;
 
-        if(is_light_space){
+        outPos = inPos + local_frame.to_world(outPos);
+        outPos = inPos + (outPos - inPos) / fitScaleFactor;
+
+        if(is_light_space)
             inNormal = local_frame.to_world(its.wi);
-        }
-        else {
+        else 
             inNormal = vz;
-        }
 
         auto shapeFeatures = select(rnd < (1.0f / 3.0f), its.poly_coeff.x(), its.poly_coeff.y());
         shapeFeatures = select(rnd > (2.0f / 3.0f), its.poly_coeff.z(), shapeFeatures);
-        
         if (is_plane){
             shapeFeatures = zero<Array<Float<ad>,20>>();
             shapeFeatures[3] = 1.0f;
@@ -748,60 +770,26 @@ std::tuple<Intersection<ad>,Float<ad>,Vector3f<ad>,Vector3f<ad>> VaeSub::__sampl
 
         // NOTE: useLocalDir should be TRUE when using TS shape features
         // outPos should be in WORLD coords
-        // TODO: Evaluate for each unique shapeFeatures instead of each input
-        
-        // auto st_t = high_resolution_clock::now();
-        if (ad) {
-            /////////////////////////////
-            // polyVal = full<Float<ad>>(1.0f);
-            // projDir = vz;
-            /////////////////////////////
-            // std::tie(polyVal,projDir) = evalGradient<ad>(detach(its.p),detach(shapeFeatures),outPos,3,fitScaleFactor,true,vz);
-            std::tie(polyVal,projDir) = evalGradient<ad>(its.p,shapeFeatures,outPos,3,fitScaleFactor,true,vz);
-            // std::tie(polyVal,projDir) = evalGradient<ad>(detach(its.p),detach(shapeFeatures),detach(outPos),3,detach(fitScaleFactor),true,vz);
-        }
-        else{
+        if (ad)
+            std::tie(polyVal,projDir) = evalGradient<ad>(its.p,shapeFeatures,outPos,3,detach(fitScaleFactor),true,vz);
+        else
             std::tie(polyVal,projDir) = evalGradient<ad>(detach(its.p),detach(shapeFeatures),detach(outPos),3,detach(fitScaleFactor),true,vz);
-        }
-        // ///////////////////////////
-        // polyVal = full<Float<ad>>(1.0f);
-        // projDir = vz;
-        // ///////////////////////////
-        // auto end_t = high_resolution_clock::now();
-        // std::cout << "[Time] evalGradient evaluation" << duration_cast<duration<double>>(end_t - st_t).count() << std::endl;
         projDir = normalize(detach(projDir));
         projDir = -sign(polyVal) * projDir;
         
         auto rnd_var = sample[2];
-
-        // FIXME
-        // active &= (absorption < rnd_var);
         
         tmax = 1.0f;
-        // tmax = 0.05f; //1.0f;
-        // tmax = fitScaleFactor;
-        // tmax = kernelEps;
-        // std::cout << "tmax " << tmax << std::endl;
-
-        // std::cout << "=======sample_sp======== " << std::endl;
         Intersection<ad> its3;
         float eps = 0.05f;
         Mask<ad> msk;
         if(true){
-            // Ray<ad> ray3(detach(outPos) - eps*detach(projDir), projDir,detach(tmax)); //1.0f); //- 0.5f*tmax*projDir,projDir, tmax);
-            // std::cout << "outPos " << outPos << std::endl;
-            // std::cout << "count(active) " << count(active) << std::endl;
             Ray<ad> ray3(outPos- eps*projDir, projDir); //,tmax);
             Intersection<ad> its3_front = scene->ray_intersect<ad, ad>(ray3, active);
-            
-
             Ray<ad> ray_back(outPos+ eps*projDir,-projDir); //tmax);
-            // Ray<ad> ray_back(outPos+ eps*projDir,-projDir);
             Intersection<ad> its3_back = scene->ray_intersect<ad, ad>(ray_back,active);
-
             msk = !(its3_back.is_valid() && (its3_front.t > its3_back.t));
             active &= (its3_front.is_valid() | its3_back.is_valid());
-
             its3.n = select(msk,its3_front.n,its3_back.n);
             its3.sh_frame.s = select(msk,its3_front.sh_frame.s,its3_back.sh_frame.s);
             its3.sh_frame.t = select(msk,its3_front.sh_frame.t,its3_back.sh_frame.t);
@@ -814,42 +802,63 @@ std::tuple<Intersection<ad>,Float<ad>,Vector3f<ad>,Vector3f<ad>> VaeSub::__sampl
             its3.t = select(msk,its3_front.t,its3_back.t);
             its3.shape = select(msk,its3_front.shape,its3_back.shape);
             its3.poly_coeff = shapeFeatures;
-        // std::cout << "[sample_sp] count(its3_front.is_valid()) " << count(its3_front.is_valid()) << std::endl;
-        // std::cout << "[sample_sp] count(its3_back.is_valid()) " << count(its3_back.is_valid()) << std::endl;
-        // std::cout << "count(its3.is_valid()) " << count(its3.is_valid()) << std::endl;
-        // std::cout << "its3.t " << its3.t << std::endl;
-        // std::cout << "its3.shape " << its3.shape << std::endl;
         }
         else{
-            // Ray<ad> ray3(its.p + r * (vx * cos(phi) + vy * sin(phi)) - vz * 0.5f * l, vz, l);
             Ray<ad> ray3(detach(outPos) - eps*detach(projDir), projDir,detach(tmax)); //1.0f); //- 0.5f*tmax*projDir,projDir, tmax);
             its3 = scene->ray_intersect<ad, ad>(ray3, active);
             msk = true;
         }
 
-
         its3.abs_prob = absorption;
         if constexpr(ad){
             // Reparameterization to allow gradient flow
-            auto ray_dir = select(msk,projDir,-projDir);
-            // FloatD scale_factor = 1.0f/fitScaleFactor;
-            // Vector3fC relative = (detach(its3.p) - detach(its.p)) / detach(scale_factor);
-            // its3.p = its.p + Vector3fD(relative) * scale_factor;
-            
-            its3.p = outPos-eps*ray_dir + its3.t * ray_dir;
+            // Idea #1. Naive version (Dumb and stupid)
+            // auto ray_dir = select(msk,projDir,-projDir);
             // its3.p = outPos-eps*ray_dir + its3.t * ray_dir;
+
+            // FIXME: DEBUG for viz
+            // // Idea #2. Normalize direction (Uniform contribution amongst samples regardless of distance)
+            // Vector3fD dirTan = (detach(its3.p) - detach(its.p));
+            // dirTan /= norm(dirTan);
+            // its3.p = dirTan/fitScaleFactor - dirTan/detach(fitScaleFactor) + detach(its3.p); 
+            
+            // // Idea #3. Tangential Direction (w.o. Normalization)
+            // auto relVector = detach(its3.p) - detach(its.p);
+            // auto s = cross(Vector3fD(relVector),its3.n);
+            // auto t = cross(its3.n,s); 
+            // its3.p = t / fitScaleFactor - t/detach(fitScaleFactor) + detach(its3.p);
+
+            // Idea #4. Tangential Direction (w. Normalization)
+            auto relVector = detach(its3.p) - detach(its.p);
+            auto s = cross(Vector3fD(relVector),its3.n);
+            auto t = normalize(cross(its3.n,s)); 
+            
+            its3.p = t / fitScaleFactor - t/detach(fitScaleFactor) + detach(its3.p);
         }
         else{
             auto ray_dir = select(msk,projDir,-projDir);
             its3.p = outPos-eps*ray_dir + its3.t * ray_dir;
         }
-        
-        // std::cout << "its3.p " << its3.p << std::endl;
-        // std::cout << "count(its3.is_valid()) " << count(its3.is_valid()) << std::endl;
 
-        rnd = sample[5];
+        Vector3f<ad> velocity(0.0f); 
+        if constexpr(ad){
+            // FIXME: Debug for vis
+            backward(fitScaleFactor,true);
+            auto dfit = gradient(sigma_t_ch);
+            auto relVector = detach(its3.p) - detach(its.p);
+            // Idea #1. Normalized
+            // relVector /= norm(relVector);
+            // Vector3f<ad> gradAn =(-1.0f/detach(fitScaleFactor)/detach(fitScaleFactor)) * Vector3fD(relVector) * dfit;
+            
+            // Idea #2. Tangential velocity, No Normalization
+            auto s = cross(Vector3fD(relVector),its3.n);
+            auto t = cross(its3.n,s); 
+            // std::cout << "dfit " << dfit << std::endl;
+            velocity =(-1.0f/detach(fitScaleFactor)/detach(fitScaleFactor)) * t * dfit;
+        }
 
-        return std::tuple<Intersection<ad>,Float<ad>,Vector3f<ad>,Vector3f<ad>>(its3,rnd,outPos,projDir);
+        // return std::tuple<Intersection<ad>,Float<ad>,Vector3f<ad>,Vector3f<ad>,Float<ad>>(its3,rnd,outPos,projDir,1.0f/fitScaleFactor);
+        return std::tuple<Intersection<ad>,Float<ad>,Vector3f<ad>,Vector3f<ad>,Float<ad>>(its3,sample[5],outPos,velocity,1.0f/fitScaleFactor);
     
 } // namespace psdr
 

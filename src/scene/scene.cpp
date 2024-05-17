@@ -1038,6 +1038,7 @@ std::tuple<BoundarySegSampleDirect,SecondaryEdgeInfo> Scene::sample_boundary_seg
     return std::tie(result,info);
 }
 
+// Sample shadow edges
 BoundarySegSampleDirect Scene::sample_boundary_segment_direct(const Vector3fC &sample3, MaskC active) const {
 
     BoundarySegSampleDirect result;

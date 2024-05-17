@@ -544,7 +544,7 @@ IntersectionC Integrator::sample_boundary_(const Scene &scene, const Vector3fC &
 
 //TODO: visualizer for boundary term
 // std::tuple<Vector3fC,Vector3fC,Vector3fC,Vector3fC,Vector3fC,Vector3fC> Integrator::sample_boundary_3(Scene &scene, int edge_idx) {
-std::tuple<Vector3fD,Vector3fD,FloatD,Vector3fD,Vector3fD> Integrator::sample_boundary_3(const Scene &scene, const Vector3fC &pts, const Vector3fC &dir){
+std::tuple<Vector3fD,Vector3fD,FloatD,Vector3fD,Vector3fD,Vector3fD> Integrator::sample_boundary_3(const Scene &scene, const Vector3fC &pts, const Vector3fC &dir){
     // IntersectionC tmp;
     // return tmp;
     // auto camera_ray = RayC(pts,dir);
@@ -552,11 +552,11 @@ std::tuple<Vector3fD,Vector3fD,FloatD,Vector3fD,Vector3fD> Integrator::sample_bo
     IntC idx(0);
     BSDFSampleC bs;
     FloatD weight;
-    Vector3fD its_p, value, vDis, vDot;
-    std::tie(its_p,value,weight,vDis,vDot) = _sample_boundary_3(scene,camera_ray,idx,true);
+    Vector3fD its_p, value, vDis, vDot,d_wLe;
+    std::tie(its_p,value,weight,vDis,d_wLe,vDot) = _sample_boundary_3(scene,camera_ray,idx,true);
     // std::cout << "weight " << weight << std::endl;
 
-    return std::tie(its_p,value,weight,vDis,vDot);
+    return std::tie(its_p,value,weight,vDis,d_wLe,vDot);
 } 
 
 std::tuple<Vector3fC, Vector3fC, Vector3fC, Vector20fC, FloatC> Integrator::sample_sub(const Scene &scene, Vector3f<false> pts, Vector3f<false> dir) {
@@ -598,7 +598,7 @@ std::tuple<Vector3fC, Vector3fC, Vector3fC, Vector20fC, FloatC> Integrator::samp
     Float<ad> second;
     Vector3f<ad> outPos;
     Vector3f<ad> projDir;
-    std::tie(its_sub,second,outPos,projDir) = res;
+    std::tie(its_sub,second,outPos,projDir,std::ignore) = res;
     its_sub = res1.po;
 
 
@@ -712,8 +712,8 @@ Spectrum<ad> Integrator::__render(const Scene &scene, int sensor_id) const {
         Spectrum<ad> value = Li(scene, scene.m_samplers[0], camera_ray, true, sensor_id);
         masked(value, ~enoki::isfinite<Spectrum<ad>>(value)) = 0.f;
         // FIXME: tmp setting
-        // scatter_add(result, value, idx);
-        scatter_add(result, detach(value), idx);
+        scatter_add(result, value, idx);
+        // scatter_add(result, detach(value), idx);
         // std::cout << "max(value) " << count(value!=0.0f) << std::endl;
         }
 

@@ -50,7 +50,10 @@ typename Bitmap<channels>::template Value<ad> Bitmap<channels>::eval(Vector2f<ad
 
     if ( width == 1 && height == 1 ) {
         if constexpr ( ad )
+            {
+                // std::cout << "reaches eval single dim " << std::endl;
             return m_data;
+            }
         else
             return detach(m_data);
     } else {

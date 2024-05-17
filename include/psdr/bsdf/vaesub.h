@@ -30,19 +30,21 @@ using OuterDynamicArray = DynamicArray<InnerDynamicArray>;
 
 PSDR_CLASS_DECL_BEGIN(VaeSub, final, BSDF)
 public:
-    VaeSub() : 
-    m_alpha_u(0.1f), m_alpha_v(0.1f), m_eta(0.8f), 
-    m_albedo(1.0f), m_sigma_t(0.5f),
-    m_specular_reflectance(1.0f), m_g(0.0f) 
+    VaeSub() : BSDF()
+    // m_alpha_u(0.1f), m_alpha_v(0.1f), m_eta(0.8f), 
+    // m_albedo(1.0f), m_sigma_t(0.5f),
+    // m_specular_reflectance(1.0f), m_g(0.0f) 
         {   
+            // BSDF();
             m_anisotropic = false;
         loadNetwork();
          }
     void loadNetwork();
-    VaeSub(const Bitmap1fD &alpha, const Bitmap1fD &eta, const Bitmap3fD &reflectance, const Bitmap3fD &sigma_t, const Bitmap3fD &albedo)
-        : 
-    m_alpha_u(alpha), m_alpha_v(alpha), m_eta(eta), m_specular_reflectance(1.0f), 
-    m_albedo(albedo), m_sigma_t(sigma_t), m_g(0.0f) { 
+    VaeSub(const Bitmap1fD&alpha, const Bitmap1fD &eta, const Bitmap3fD &reflectance, const Bitmap3fD &sigma_t, const Bitmap3fD &albedo)
+        : BSDF(alpha,eta,reflectance,sigma_t,albedo)
+    // m_alpha_u(alpha), m_alpha_v(alpha), m_eta(eta), m_specular_reflectance(1.0f), 
+    // m_albedo(albedo), m_sigma_t(sigma_t), m_g(0.0f) 
+    { 
         m_anisotropic = false; 
         loadNetwork();
         const std::string variablePath = "None";
@@ -102,6 +104,8 @@ public:
     BSDFSampleC sample(const Scene *scene, const IntersectionC &its, const Vector8fC &sample, MaskC active = true) const override;
     BSDFSampleD sample(const Scene *scene, const IntersectionD &its, const Vector8fD &sample, MaskD active = true) const override;
 
+    std::pair<BSDFSampleD,FloatD> sample_v2(const Scene *scene, const IntersectionD &its, const Vector8fD &sample, MaskD active = true) const override;
+
     // std::tuple<Vector3fC,Vector3fC,Vector3fC> sample_vae(const Scene *scene, const IntersectionC &its, const Vector8fC &rand, MaskC active) const override;
 
     // std::tuple<float,float,float> sample_vae(const Scene *scene, const IntersectionC &its, const Vector8fC &rand, MaskC active) const override;
@@ -111,7 +115,7 @@ public:
     // template <bool ad>
     // std::pair<Intersection<ad>,Float<ad>> __sample_sp(const Scene *scene, const Intersection<ad> &its, const Vector8f<ad> &sample, Float<ad> &pdf, Mask<ad>active) const;
    template <bool ad>
-    std::tuple<Intersection<ad>,Float<ad>,Vector3f<ad>,Vector3f<ad>> __sample_sp(const Scene *scene, const Intersection<ad> &its, const Vector8f<ad> &sample, Float<ad> &pdf, Mask<ad>active) const;
+    std::tuple<Intersection<ad>,Float<ad>,Vector3f<ad>,Vector3f<ad>,Float<ad>> __sample_sp(const Scene *scene, const Intersection<ad> &its, const Vector8f<ad> &sample, Float<ad> &pdf, Mask<ad>active) const;
     template <bool ad>
     BSDFSample<ad> __sample_sub(const Scene *scene, const Intersection<ad> &its, const Vector8f<ad> &sample, Mask<ad> active) const;
     template <bool ad>
@@ -159,10 +163,10 @@ public:
 
     std::string to_string() const override { return std::string("VaeSub[id=") + m_id + "]"; }
 
-    Bitmap1fD m_alpha_u, m_alpha_v; // surface roughness
-    Bitmap1fD m_eta, m_g;
-    Bitmap3fD m_albedo, m_sigma_t; // medium features
-    Bitmap3fD m_specular_reflectance; // reflectance
+    // Bitmap1fD m_alpha_u, m_alpha_v; // surface roughness
+    // Bitmap1fD m_eta, m_g;
+    // Bitmap3fD m_albedo, m_sigma_t; // medium features
+    // Bitmap3fD m_specular_reflectance; // reflectance
 
                                     
 

@@ -392,8 +392,8 @@ class Scatter3DViewer(ViewerApp):
             self.sc.param_map[self.material_key].g.data = self.g
             self.sc.param_map[self.material_key].sigma_t.data = self.sigma_t
             self.sc.param_map[self.material_key].albedo.data = self.albedo
-
-            self.sc.setlightposition(Vector3f([0.34, 1.391, 1.395]))
+            # self.sc.setlightposition(Vector3f([0.34, 1.391, 1.395]))
+            # self.sc.setlightposition(Vector3f([-0.733, -1.833, -0.316]))
             # self.sc.setlightposition(Vector3f([1.0,1.0,1.0]))
             self.sc.configure()
             self.update_displayed_scattering()
@@ -433,6 +433,7 @@ class Scatter3DViewer(ViewerApp):
                       warp_fun=np.log2, inv_warp_fun=lambda x: 2 ** x)
 
         add_checkbox(self, tools, 'show_samples', True, label='Show Samples')
+        add_checkbox(self, tools, 'show_weight', True, label='Show Weight')
         add_checkbox(self, tools, 'show_boundary', True, label='Show Boundary')
         add_checkbox(self, tools, 'project_samples', False, label='Project Points')
         self.show_rec_mesh_checkbox = add_checkbox(self, tools, 'show_rec_mesh', False, label='Show Reconstructed Mesh')
@@ -591,6 +592,7 @@ class Scatter3DViewer(ViewerApp):
         mesh_name = self.mesh_file.split('/')[-1][:-4]
         if mesh_name.endswith('_'):
             mesh_name = mesh_name[:-1]
+        self.mesh_name = mesh_name
 
         if self.scene_file is not None and os.path.exists(self.scene_file):
             scene_file = self.scene_file
@@ -607,14 +609,39 @@ class Scatter3DViewer(ViewerApp):
                 scene_file = "/sss/InverseTranslucent/examples/scenes/sphere1_out.xml"
             elif "cylinder" in mesh_name:
                 scene_file = "/sss/InverseTranslucent/examples/scenes/cylinder4_out.xml"
+            elif "plane" in mesh_name:
+                scene_file = "/sss/InverseTranslucent/examples/scenes/inverse/plane_out.xml"
+                breakpoint()
             else: #if "cube_subdiv" in self.mesh_file:
                 scene_file = "/sss/InverseTranslucent/examples/scenes/cone4_out.xml"
                 scene_file = scene_file.replace('cone',mesh_name)
+        LIGHT_DIR = os.path.join('../../scenes', "light")
+        lightdir = LIGHT_DIR + '/lights-{}.npy'.format(self.mesh_name)
+        if self.mesh_name == "duck":
+            lightdir = LIGHT_DIR + '/lights-head.npy'
+        elif self.mesh_name == "kettle":
+            lightdir = LIGHT_DIR + '/lights-kettle1.npy'
+        elif self.mesh_name == "cone":
+            lightdir = LIGHT_DIR + '/lights-cone4.npy'
+        elif self.mesh_name == "head_v2":
+            lightdir = LIGHT_DIR + '/lights-head1.npy'
+        elif 'cylinder' in self.mesh_name:
+            lightdir = LIGHT_DIR + '/lights-cylinder4.npy'
+        lights = np.load(lightdir)
+        if self.mesh_name == "duck":
+            lights = lights[:25,:]
+            lights[:,:3] = np.array([1.192, -1.3364, 0.889])
+        elif self.mesh_name == "plane": 
+            lights[:,:3] = np.array([0.0, 2.0,0.0])
+        
+        light = lights[0]
         sc.load_file(scene_file)
+        sc.setlightposition(Vector3f(light[0],light[1],light[2]))
+        sc.configure()
 
         ro = sc.opts
 
-        ro.sppse = 4
+        ro.sppse = 100
         ro.spp = 4
         ro.sppe = 4
         ro.log_level = 0
@@ -899,15 +926,19 @@ class Scatter3DViewer(ViewerApp):
             its_dir = Vector3f(self.inDirection.reshape(-1,3).repeat(n,0))
             its_loc = Vector3f((self.its_loc-its_dir).reshape(-1,3))
 
-            its_p,value,weight,vdis = self.sampler.sample_boundary_3(self.sc,its_loc,its_dir)
+            its_p,value,weight,vdis,dwLe,vdot= self.sampler.sample_boundary_3(self.sc,its_loc,its_dir)
             print("value.mean()",value.numpy().mean())
             print("weight.mean()",weight.numpy().mean())
+            print("vdis.mean()",vdis.numpy().mean())
+            # breakpoint()
             # breakpoint()
             self.boundary_debug = {
                 "its_p": its_p,
                 "weight": weight,
                 "value":value,
-                "vdis": vdis
+                "vdis": vdis,
+                "vdot": vdot,
+                "dwLe":dwLe,
             }
 
             # xi,xo,its_p,its_n,delta,grad = self.sampler.sample_boundary_2(self.sc,self.boundary_edge_idx)
@@ -1340,10 +1371,40 @@ class Scatter3DViewer(ViewerApp):
                                              [1, 0.5, 0], disable_ztest=True, use_depth=True, depth_map=self.fb.depth())
         if self.boundary_debug is not None:
             test1 = PointCloud(self.boundary_debug['its_p'])
+            # cmap = colormaps.get('viridis')
             cmap = colormaps.get('RdBu_r')
-            # color = (self.boundary_debug['weight']).numpy() #[...,0]
-            # color = (self.boundary_debug['value']).numpy().mean(axis=-1) #[...,0]
-            color = (self.boundary_debug['vdis']).numpy().mean(axis=-1) #[...,0]
+            import matplotlib as mpl
+            if self.show_weight:
+                # cmap = colormaps.get('viridis')
+                color = (self.boundary_debug['weight']).numpy() #[...,0]
+                # print(self.boundary_debug['vdot'].numpy().shape)
+                # color = (self.boundary_debug['vdot']).numpy()[...,0]#[...,0]
+                norm = mpl.colors.Normalize(vmin=color.min(), vmax=color.max())
+                color = norm(color)
+            else:
+                # print(self.boundary_debug['value'].numpy()[...,0].sum())
+
+                val = (self.boundary_debug['value']).numpy().mean(axis=-1) #[...,0]
+                print(val.mean())
+                color = (self.boundary_debug['value']).numpy().mean(axis=-1) #[...,0]
+                cmax = max(color.max(),abs(color.min()))
+                norm = mpl.colors.Normalize(vmin=-cmax, vmax=cmax)
+                color = norm(color)
+            
+            if self.show_outgoing_dir: 
+                pts = self.boundary_debug['its_p']
+                # NOTE: tmp setting
+                vn = self.boundary_debug['vdis'] * 3000
+                test_dir = VectorCloud(pts,vn)
+                test_dir.draw_contents(self.camera, self.render_context)
+
+                vn2 = self.boundary_debug['dwLe'] * 100
+                test_dir = VectorCloud(pts,vn2)
+                test_dir.draw_contents(self.camera, self.render_context)
+                
+                # norm(0)
+            # color = (self.boundary_debug['vdis']).numpy().mean(axis=-1) #[...,0]
+            # color = (self.boundary_debug['vdis']).numpy()[...,0]
             color[np.isnan(color)] = 0.0
             # print(color)
             color = cmap(color)

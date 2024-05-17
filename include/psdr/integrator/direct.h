@@ -32,7 +32,7 @@ protected:
     void __render_boundary(const Scene &scene, int sensor_id, SpectrumD &result) const override;
     void render_secondary_edges(const Scene &scene, int sensor_id, SpectrumD &result) const override;
     void render_secondary_edgesC(const Scene &scene, int sensor_id, SpectrumC &result) const override;
-    std::tuple<Vector3fD,Vector3fD,FloatD,Vector3fD,Vector3fD> _sample_boundary_3(const Scene &scene, RayC camera_ray, IntC idx, bool debug=false) const override;
+    std::tuple<Vector3fD,Vector3fD,FloatD,Vector3fD,Vector3fD,Vector3fD> _sample_boundary_3(const Scene &scene, RayC camera_ray, IntC idx, bool debug=false) const override;
 
     template <bool ad>
     std::pair<IntC, Spectrum<ad>> eval_secondary_edge(const Scene &scene, const Sensor &sensor, const Vector3fC &sample3) const;
