@@ -21,7 +21,7 @@
         <rgb name="alpha" value="0.05" />
         
         <rgb name="sigma_t" value="80.0, 80.0, 80.0" />
-        <rgb name="albedo" value="0.8, 0.8, 0.8" />
+        <rgb name="albedo" value="0.9, 0.9, 0.9" />
         
     </bsdf>
 
@@ -390,13 +390,7 @@
                 <lookat origin="-1.7451356415219745, 0.8684696933568277, 0.4475064071165705" target="-0.872567820760987, 0.4342348466784138, 0.22375320355828524" up="0.4206255333298493, 0.9007996991174978, -0.10786131271593875" />
             </transform>
             </sensor> 
-  <sensor type="perspective" id="sensor-soap_00049 ">
-            <string name="fov_axis" value="x" />
-            <float name="fov" value="34.979061655104005" />
-            <transform name="to_world">
-                <lookat origin="-0.7288497668169316, 0.26304506378009285, -1.84379643991191" target="-0.3644248834084658, 0.13152253189004642, -0.921898219955955" up="0.04835009182690655, 0.991313181393868, 0.12231289799157728" />
-            </transform>
-            </sensor> 
+  
  
  
 </scene>

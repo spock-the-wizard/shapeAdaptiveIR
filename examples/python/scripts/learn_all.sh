@@ -38,69 +38,31 @@ do
     # Exp 3. Forward Rendering Baseline method
     # bash ./template/learn_$name.sh $exp_name $spp ../../scenes/scenes_baseline/${name}_out.xml
 
-    # # Exp 4. Inverse Rendering experiment
-    # exp_name="exp3/var112"
-    # # exp_name="exp3/var109"
-    # exp_name="test/boundary_detection"
-    # name="duck" #head1" #sphere1"
-    # name="sphere1"
-    # # name="kettle1" #sphere1"
-    # # name="head1" #sphere1"
-    # # name="cone4" #sphere1"
-    # # name="buddha1" #sphere1"
-    # echo $exp_name
-    # xml_file=$root/../../scenes/inverse/${name}_out.xml
-    # out_file=$root/../../scenes/inverse/${name}_out_tmp.xml
+    # Exp 4. Inverse Rendering experiment
+    exp_name="exp4/var35"
 
-    #  # sigma_t="25.0, 25.0, 25.0" # duck
-    # # sigma_t="54.0, 72.0, 98.0" # sphere1
-    # # sigma_t="109.0, 109.0, 52.0" # head1
-    # sigma_t="80.0, 80.0, 80.0" # init
-    # sigma_t="50.0, 80.0, 60.0" # init
-    # # sigma_t="40.0, 40.0, 40.0" # init
-    
-    # albedo="0.9, 0.9, 0.9" #sphere1
-    # # albedo="0.88305, 0.183, 0.011" # duck
-    # # albedo="0.9, 0.9, 0.9" # head1
-    # # albedo="0.98, 0.98, 0.98" # head1
-    # # albedo="0.8, 0.8, 0.8"
-
-    # python $root/replace_xml.py --sigma_t "$sigma_t" \
-    # --albedo "$albedo" \
-    # --in_xml "$xml_file" \
-    # --out_xml "$out_file" \
-    # # --is_baseline
-    # spp_inv=1 #128
-    # n_crops=1
-    # spp=1
-    # # spp_inv=1
-    # # n_crops=1
-    # # bash $root/inverse/learn_inverse_2.sh $exp_name $name $spp $out_file $spp_inv $n_crops
-    # bash $root/inverse/learn_inverse.sh $exp_name $name $spp $out_file $spp_inv $n_crops
-
-    # Exp 5. Render Gradient Image
-    exp_name="test/grad2"
-    name="sphere1"
-    name="head1"
-    name="duck"
-    # name="cylinder4"
+    name=$1
     echo $exp_name
     xml_file=$root/../../scenes/inverse/${name}_out.xml
     out_file=$root/../../scenes/inverse/${name}_out_tmp.xml
-    albedo="0.8"
-    sigma_t="52.0"
-    # albedo="0.9, 0.9, 0.9"
-
+    sigma_t="80.0, 80.0, 80.0" # init
+    # sigma_t="40.0" # init
+    albedo="0.9, 0.9, 0.9" #sphere1
     python $root/replace_xml.py --sigma_t "$sigma_t" \
     --albedo "$albedo" \
     --in_xml "$xml_file" \
     --out_xml "$out_file" \
     # --is_baseline
-    spp=64
-
-    bash $root/grad/render_grad.sh $exp_name $name $spp $out_file
     
+    spp=32
+    spp_inv=32 # don't go lower than this...
+    n_crops=4
+    # sppse=128
+    sppse=0
+    sppe=0 # set to nonzero when disabling interior term
+    bash ./inverse/learn_inverse.sh $exp_name $name $spp $out_file $spp_inv $n_crops $sppse $sppe
 
+    # # --is_baseline
     # # Exp 6. Check asymmetric backward
     # exp_name="exp3/var38"
     # # exp_name="test/time"

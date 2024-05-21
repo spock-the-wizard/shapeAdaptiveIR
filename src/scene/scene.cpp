@@ -91,7 +91,6 @@ void Scene::configure() {
         std::cout << sample_count << std::endl;
         if ( m_samplers[2].m_sample_count != sample_count ){
             m_samplers[2].seed(arange<UInt64C>(sample_count) + m_seed);
-
         }
             
         // int64_t sample_count_2 = static_cast<int64_t>(m_opts.cropheight)*m_opts.cropheight*m_opts.sppsce;

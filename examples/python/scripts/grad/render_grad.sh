@@ -17,14 +17,15 @@ python3.8 /sss/InverseTranslucent/examples/python/learn_real_data_2.py \
         --albedo_laplacian 0 \
         --rough_laplacian 0 \
         --no_init "no" \
-        --spp 4 \
-        --n_crops 1 \
-        --sppe 0 \
-        --sppse 0 \
+        --spp $5 \
+        --n_crops $6 \
+        --sppe $9 \
+        --sppse $7 \
         --ref_spp $3 \
         --albedo_texture 0 \
         --rough_texture 0 \
         --sigma_texture 0 \
         --scene_file $4 \
         --render_gradient \
+        --sensor_id $8 \
         --debug \

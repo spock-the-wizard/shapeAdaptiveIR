@@ -39,6 +39,13 @@ protected:
     template <bool ad>
     std::pair<IntC, Spectrum<ad>> eval_boundary_edge(const Scene &scene, const Sensor &sensor, const Vector3fC &sample3) const;
 
+    // std::tuple<Vector3f<true>,IntC,Vector3f<true>,IntC,Vector3f<true>,Float<true>,Float<true>,Float<true>> _eval_boundary_edge(const Scene &scene, const Sensor &sensor, const Vector3fC &sample3, BoundarySegSampleDirect bss, SecondaryEdgeInfo edge_info) const override;
+    std::tuple<Vector3f<true>,IntC,Vector3f<true>,IntC,
+    Vector3f<true>,Float<true>,Float<true>,SpectrumD, //Float<true>,
+    Vector3fC,Vector3fC,Vector3fC,Vector3fC> _eval_boundary_edge(const Scene &scene, const Sensor &sensor, const Vector3fC &sample3,
+BoundarySegSampleDirect bss, SecondaryEdgeInfo sec_edge_info) const override;
+    // std::tuple<Vector3f<ad>,IntC,Vector3fD,IntC,Vectof3fD,FloatD,FloatD,FloatD> _eval_boundary_edge(const Scene &scene, const Sensor &sensor, const Vector3fC &sample3) const;
+
     template <bool ad>
     void eval_secondary_edge_bssrdf(const Scene &scene, const IntersectionC &its, const Sensor &sensor, const Vector3fC &sample3, SpectrumD &result) const;
 

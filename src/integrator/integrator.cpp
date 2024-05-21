@@ -105,6 +105,22 @@ SpectrumC Integrator::renderC(const Scene &scene, int sensor_id) const {
     return result;
 }
 
+//TODO: visualizer for boundary term
+// std::tuple<Vector3fD,Vector3fD,FloatD,Vector3fD,Vector3fD,Vector3fD> Integrator::sample_boundary_4(const Scene &scene, const Vector3fC &pts, const Vector3fC &dir){
+//     // IntersectionC tmp;
+//     // return tmp;
+//     // auto camera_ray = RayC(pts,dir);
+//     Ray<false> camera_ray(pts,dir);
+//     IntC idx(0);
+//     BSDFSampleC bs;
+//     FloatD weight;
+//     Vector3fD its_p, value, vDis, vDot,d_wLe;
+//     std::tie(its_p,value,weight,vDis,d_wLe,vDot) = _sample_boundary_3(scene,camera_ray,idx,true);
+//     // std::cout << "weight " << weight << std::endl;
+
+//     return std::tie(its_p,value,weight,vDis,d_wLe,vDot);
+// } 
+
 std::tuple<Vector3fC,Vector3fC,Vector3fC,Vector3fC,Vector3fC,Vector3fC> Integrator::sample_boundary_2(Scene &scene, int edge_idx) {
     /*
     * Debug boundary integral computation
@@ -314,155 +330,9 @@ std::tuple<Vector3fC,Vector3fC,Vector3fC,Vector3fC,Vector3fC,Vector3fC> Integrat
 
     return std::tie(_p0,bs1.po.p,pos_p, pos_n, delta,result);
 
-
-
-
-
-    // IntersectionC _its1;
-    // // Light ray intersection on edge
-    // _its1 = scene.ray_intersect<false>(RayC(_p2, -_dir), valid);
-    // std::cout << "count(_its1.is_valid()) " << count(_its1.is_valid()) << std::endl;
-    // // IntersectionC its1 = scene.ray_intersect<false>(RayC(_p0, _dir), valid);
-    // // valid &= (~its1.is_valid());
-
-
-
-    // BSDFSampleC bs1, bs2;
-    // BSDFSampleD bs1D;
-    // BSDFArrayC bsdf_array = _its1.shape->bsdf(valid);
-    // BSDFArrayD bsdf_arrayD = BSDFArrayD(bsdf_array);
-    // auto vaesub_bsdf = reinterpret_cast<VaeSub*>(bsdf_arrayD[0]);
-    // auto bs1_samples = scene.m_samplers[2].next_nd<8, false>();
-    // // account for bias with weight
-    // bs1_samples[0] = 1.1f;
-    // bs1D = bsdf_arrayD->sample(&scene, IntersectionD(_its1), Vector8fD(bs1_samples),  MaskD(valid));
-    // bs1 = detach(bs1D);
-    
-    // // TODO: set idx
-    // const bool ad = false; 
-    // Sensor& sensor = *scene.m_sensors[0];
-    // SensorDirectSampleC sds = sensor.sample_direct(bs1.po.p);
-    
-    // // xo is a valid VAE output and seen from camera
-    // valid &= bs1.po.is_valid();
-    // // valid &= sds.is_valid;
-
-    // Ray<ad> camera_ray;
-    // // Camera its ray
-    // Intersection<ad> its2;
-    // camera_ray = sensor.sample_primary_ray(sds.q);
-    // its2 = scene.ray_intersect<false>(camera_ray, valid);
-    // // valid &= its2.is_valid() && norm(its2.p - bs1.po.p) < ShadowEpsilon;
-    
-    // // bs2 is xi (light ray)
-    // // bs2.is_valid = _its1.is_valid();
-    // // bs2.pdf = bss.pdf;
-    // // bs2.is_sub = bsdf_array->hasbssdf();
-    // // bs2.rgb_rv = bs1.rgb_rv;
-
-    // Vector3fC d0;
-    // d0 = -camera_ray.d;
-    // bs1.wo =  bs1.po.sh_frame.to_local(d0);
-    // bs1.po.wi =  bs1.wo;
-    // bs2.po = _its1;
-    // bs2.wo =  bs2.po.sh_frame.to_local(_dir);
-    // bs2.po.wi =  bs2.wo;
-    // bs2.rgb_rv = bs1.rgb_rv;
-    // bs2.po.abs_prob = bs1.po.abs_prob;
-    // bs2.is_sub = bsdf_array -> hasbssdf();
-    // // ADDED
-    // // NOTE: don't forget this part...!! 
-    // // Needed for eval_sub
-    // bs2.is_valid = _its1.is_valid();
-    // bs2.pdf = bss.pdf;
-    // bs2.po.J = FloatC(1.0f);
-
-
-    // std::cout << "valid" << count(valid) << std::endl;
-
-    // // std::cout << "tmp tmpset " << std::endl;
-    // SpectrumC bsdf_val = bsdf_array->eval(bs1.po, bs2, valid);
-    // FloatC pdfpoint = bsdf_array->pdfpoint(bs1.po, bs2, valid);
-    // SpectrumC value0 = (bsdf_val*scene.m_emitters[0]->eval(bs2.po, valid)*(sds.sensor_val/bss.pdf/pdfpoint)) & valid;
-
-    // Vector3fC edge_n0 = normalize(detach(sec_edge_info.n0));
-    // Vector3fC edge_n1 = normalize(detach(sec_edge_info.n1));
-    // // // FIXME: should this be dependent on relative position of light ray?
-    // std::cout << "n0" <<edge_n0 << std::endl;
-    // std::cout << "n1" << edge_n1 << std::endl;
-    
-    // Vector3fC line_n0 = normalize(cross(-bss.edge,edge_n0));
-    // Vector3fC line_n1 = normalize(cross(-edge_n1,bss.edge));
-
-    // // FIXME
-    // Vector3fC n = normalize(cross(_its1.n,bss.edge));
-    
-    // // Compute geometry term for left and right limits
-    // float eps = 0.01f;
-    // auto lightpoint = _p2;
-    // Vector3fC pos_p = bs2.po.p + eps * line_n0;
-    // Vector3fC pos_n = bs2.po.p + eps * line_n1;
-    // Vector3fC dir_p = normalize(lightpoint - pos_p);
-    // Vector3fC dir_n = normalize(lightpoint - pos_n);
-    // IntersectionC its_p = scene.ray_intersect<false>(RayC(pos_p,dir_p),valid);
-    // IntersectionC its_n = scene.ray_intersect<false>(RayC(pos_n,dir_n),valid);
-    // MaskC vis_n = ~its_n.is_valid();
-    // MaskC vis_p = ~its_p.is_valid();
-    // FloatC cos_theta_o = FrameC::cos_theta(bs2.wo);
-    // value0 /= cos_theta_o;
-    // // std::cout << "cos_theta_o " << cos_theta_o << std::endl;
-    
-    // // edge normal
-    // // deltaG = (G-)-(G+)
-    // FloatC cos_n = dot(edge_n1,_dir);
-    // FloatC cos_p = dot(edge_n0,_dir);
-    // // FIXME: discard visibility
-    // // FloatC delta = cos_n & vis_n;
-    // // delta -= cos_p & vis_p;
-    // FloatC delta = cos_n - cos_p;
-    // std::cout << "delta " << delta << std::endl;
-    // value0 *= delta;
-    // std::cout << "vis_n " << vis_n << std::endl;
-    // std::cout << "vis_p " << vis_p << std::endl;
-
-    // // FIXME: add only sharp edges
-    // // valid &= abs(delta) > 0.5f;
-    // // test 8
-    // // valid &= vis_n ^ vis_p;
-
-    // // // Reparameterize xi
-    // // // xi = xo + x_VAE / scalefactor
-    // FloatD kernelEps = bsdf_arrayD -> getKernelEps(IntersectionD(_its1),FloatD(bs1_samples[5]));
-    // FloatD maxDist = sqrt(kernelEps);
-    // Vector3fC xo = detach(bs1D.po.p);
-    // Vector3fC xvae = (bs2.po.p - bs1.po.p) / detach(maxDist);
-    // Vector3fD xi = Vector3fD(xo) + Vector3fD(xvae) * maxDist;
-
-    // // NOTE: tmp fix 
-    // Vector3fC grad = dot(n,xvae);
-    // SpectrumC result = (delta * grad) & valid;
-    // // SpectrumC result = (value0 * grad) & valid;
-    // std::cout << "n " << n << std::endl;
-    // // std::cout << "_its1.n " << _its1.n << std::endl; // either edge
-
-    // // std::cout << "edge_n1" << edge_n1 << std::endl;
-    // // std::cout << "edge_n0" << edge_n0 << std::endl;
-
-    // // std::cout << "line_n1 " << line_n1 << std::endl;
-    // // std::cout << "line_n0 " << line_n0 << std::endl;
-    // std::cout << "result " << result << std::endl;
-    // std::cout << "grad " << grad << std::endl;
-    // // std::cout << "xvae " << xvae << std::endl;
-    // std::cout << "valid " << valid << std::endl;
-    // // std::cout << "value0 " << value0 << std::endl;
-    
-
-    // return std::tie(_p0,bs1.po.p,pos_p, pos_n, delta,result);
-    // Vector3fC xi = _p0;
-    // Vector3fC xo = bs1.po.p;
-    // std::cout << "xo " << xo << std::endl;
 }
 
+// Deprecated
 template <bool ad>
 std::tuple<BSDFSampleC,BSDFSampleC,Float<ad>> Integrator::sample_boundary(const Scene &scene, const Ray<ad> &camera_ray) const{
     BSDFSampleC bs1,bs2;
@@ -530,6 +400,7 @@ std::tuple<BSDFSampleC,BSDFSampleC,Float<ad>> Integrator::sample_boundary(const 
     return std::tie(bs1,bs2,maxDist);
 }
 
+// Deprecated
 IntersectionC Integrator::sample_boundary_(const Scene &scene, const Vector3fC &pts, const Vector3fC &dir){
     // IntersectionC tmp;
     // return tmp;
@@ -541,14 +412,33 @@ IntersectionC Integrator::sample_boundary_(const Scene &scene, const Vector3fC &
 
     return bs.po;
 } 
+// //TODO: visualizer for boundary term
+std::tuple<Vector3fD,IntC,Vector3fD,IntC,Vector3fD,FloatD,FloatD,SpectrumD,Vector3fC,Vector3fC,Vector3fC,Vector3fC> Integrator::sample_boundary_4(const Scene &scene, int idx) {
+    int sensor_id = 4;
+
+    const RenderOption &opts = scene.m_opts;
+    Vector3fC sample3 = scene.m_samplers[2].next_nd<3, false>();
+
+    BoundarySegSampleDirect bss;
+    SecondaryEdgeInfo sec_edge_info;
+    std::tie(bss,sec_edge_info) = scene.sample_boundary_segment_v2(sample3);
+
+
+    // scene.m_samplers[2].seed(arange<UInt64C>(slices(bss.p0)));
+    
+    auto sensor = scene.m_sensors[sensor_id];
+
+    return _eval_boundary_edge(scene,*sensor,sample3,bss,sec_edge_info);
+}
 
 //TODO: visualizer for boundary term
-// std::tuple<Vector3fC,Vector3fC,Vector3fC,Vector3fC,Vector3fC,Vector3fC> Integrator::sample_boundary_3(Scene &scene, int edge_idx) {
 std::tuple<Vector3fD,Vector3fD,FloatD,Vector3fD,Vector3fD,Vector3fD> Integrator::sample_boundary_3(const Scene &scene, const Vector3fC &pts, const Vector3fC &dir){
     // IntersectionC tmp;
+    //
     // return tmp;
     // auto camera_ray = RayC(pts,dir);
     Ray<false> camera_ray(pts,dir);
+
     IntC idx(0);
     BSDFSampleC bs;
     FloatD weight;
@@ -598,7 +488,7 @@ std::tuple<Vector3fC, Vector3fC, Vector3fC, Vector20fC, FloatC> Integrator::samp
     Float<ad> second;
     Vector3f<ad> outPos;
     Vector3f<ad> projDir;
-    std::tie(its_sub,second,outPos,projDir,std::ignore) = res;
+    std::tie(its_sub,second,outPos,projDir,std::ignore,std::ignore) = res;
     its_sub = res1.po;
 
 
@@ -631,17 +521,22 @@ SpectrumD Integrator::renderD(const Scene &scene, int sensor_id) const {
     // Interior integral
     SpectrumD result = __render<true>(scene, sensor_id);
     
+    // NOTE: Do not test interior term wehn spp is nonzero.
+    if ( likely(scene.m_opts.sppe > 0) ) {
+        result = detach(result);
+    }
+    
     // TODO: testing WAS-based boundary term
-    __render_boundary(scene,sensor_id,result);
+    // __render_boundary(scene,sensor_id,result);
 
     // Boundary integral
     // if ( likely(scene.m_opts.sppe > 0) ) {
     //     render_primary_edges(scene, sensor_id, result);
     // }
 
-    // if ( likely(scene.m_opts.sppse > 0) ) {
-    //     render_secondary_edges(scene, sensor_id, result);
-    // }
+    if ( likely(scene.m_opts.sppse > 0) ) {
+        render_secondary_edges(scene, sensor_id, result);
+    }
     
     cuda_eval(); cuda_sync();
 
@@ -722,8 +617,11 @@ Spectrum<ad> Integrator::__render(const Scene &scene, int sensor_id) const {
         }
             
 
-    // FIXME
+    // // TODO: Normal
     return result;
+    // // Debugging
+    // return zero<Spectrum<ad>>(num_pixels);
+    
     // if constexpr(ad){
     //     return result;
     // }
@@ -732,6 +630,38 @@ Spectrum<ad> Integrator::__render(const Scene &scene, int sensor_id) const {
     // }
 }
 
+// void Integrator::render_primary_edges(const Scene &scene, int sensor_id, SpectrumD &result) const {
+//     const RenderOption &opts = scene.m_opts;
+
+//     std::cout << "[var135] Render primary visibility edges " << std::endl;
+//     const Sensor *sensor = scene.m_emitters_sensors[0];
+//     if ( sensor->m_enable_edges ) {
+//         PrimaryEdgeSample edge_samples = sensor->sample_primary_edge(scene.m_samplers[1].next_1d<false>());
+//         MaskC valid = (edge_samples.idx >= 0);
+// #ifdef PSDR_PRIMARY_EDGE_VIS_CHECK
+//         IntersectionC its = scene.ray_intersect<false>(edge_samples.ray_c);
+//         valid &= ~its.is_valid();
+//         std::cout << "hmmm " << std::endl;
+// #endif
+//         std::cout << "count(valid) " << count(valid) << std::endl;
+//         SpectrumC delta_L = Li(scene, scene.m_samplers[1], edge_samples.ray_n, valid, sensor_id) - 
+//                             Li(scene, scene.m_samplers[1], edge_samples.ray_p, valid, sensor_id);
+                            
+//                             // estimate subgradient
+//         SpectrumD value = edge_samples.x_dot_n*SpectrumD(delta_L/edge_samples.pdf);
+//         masked(value, ~enoki::isfinite<SpectrumD>(value)) = 0.f;
+//         if ( likely(opts.sppe > 1) ) {
+//             value /= static_cast<float>(opts.sppe);
+//         }
+
+//         // TODO: Normal
+//         // value -= detach(value);
+//         // Debugging silhouette detection
+//         value = SpectrumD(1000.0f);
+
+//         scatter_add(result, value, IntD(edge_samples.idx), valid);
+//     }
+// }
 
 void Integrator::render_primary_edges(const Scene &scene, int sensor_id, SpectrumD &result) const {
     const RenderOption &opts = scene.m_opts;
@@ -743,7 +673,9 @@ void Integrator::render_primary_edges(const Scene &scene, int sensor_id, Spectru
 #ifdef PSDR_PRIMARY_EDGE_VIS_CHECK
         IntersectionC its = scene.ray_intersect<false>(edge_samples.ray_c);
         valid &= ~its.is_valid();
+        std::cout << "hmmm " << std::endl;
 #endif
+        std::cout << "count(valid) " << count(valid) << std::endl;
         SpectrumC delta_L = Li(scene, scene.m_samplers[1], edge_samples.ray_n, valid, sensor_id) - 
                             Li(scene, scene.m_samplers[1], edge_samples.ray_p, valid, sensor_id);
                             
@@ -753,7 +685,12 @@ void Integrator::render_primary_edges(const Scene &scene, int sensor_id, Spectru
         if ( likely(opts.sppe > 1) ) {
             value /= static_cast<float>(opts.sppe);
         }
-        value -= detach(value);
+
+        // TODO: Normal
+        // value -= detach(value);
+        // Debugging silhouette detection
+        value = SpectrumD(1000.0f);
+
         scatter_add(result, value, IntD(edge_samples.idx), valid);
     }
 }

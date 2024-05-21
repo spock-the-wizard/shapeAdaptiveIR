@@ -105,6 +105,9 @@ public:
     int                     m_num_sensors;
     int                     m_seed = 0;
     std::vector<Sensor*>    m_sensors;
+    
+    // Joon added: Used to compute silhouette edges
+    std::vector<Sensor*>    m_emitter_sensors;
 
     std::vector<Emitter*>   m_emitters;
     EnvironmentMap          *m_emitter_env;

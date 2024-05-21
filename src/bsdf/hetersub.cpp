@@ -70,9 +70,6 @@ Spectrum<ad> HeterSub::__Sp(const Intersection<ad>&its, const Intersection<ad>&b
     Spectrum<ad> sigma_s = m_sigma_t.eval<ad>(its.uv) * albedo;
     Spectrum<ad> sigma_a = m_sigma_t.eval<ad>(its.uv) - sigma_s;
 
-    // FIXME: debugging
-    // set_requires_gradient(albedo);
-
     Spectrum<ad> miu_s_p = (1.0f - m_g.eval<ad>(its.uv)) * sigma_s;
     Spectrum<ad> miu_t_p = miu_s_p + sigma_a;
     Spectrum<ad> alpha_p = miu_s_p / miu_t_p;
@@ -312,6 +309,8 @@ BSDFSample<ad> HeterSub::__sample(const Scene *scene, const Intersection<ad> &it
     bs.po.abs_prob = select(sample.x() > prob, bs.po.abs_prob, bsdf_bs.po.abs_prob);
     bs.rgb_rv = select(sample.x() > prob, bs.rgb_rv, bsdf_bs.rgb_rv);
     bs.po.poly_coeff = select(sample.x() > prob, bs.po.poly_coeff, bsdf_bs.po.poly_coeff);
+    bs.maxDist = select(sample.x() > prob, bs.maxDist, bsdf_bs.maxDist);
+    bs.velocity = select(sample.x() > prob, bs.velocity, bsdf_bs.velocity);
     return bs;
 }
 
@@ -334,6 +333,8 @@ BSDFSample<ad> HeterSub::__sample_bsdf(const Intersection<ad> &its, const Vector
     bs.is_sub = false;
 
     bs.rgb_rv = full<Float<ad>>(-1.0f);
+    bs.maxDist = full<Float<ad>>(-1.0f);
+    bs.velocity = full<Vector3f<ad>>(0.0f);
     bs.po.abs_prob = full<Float<ad>>(0.0f);
     return bs;
 }
@@ -361,6 +362,8 @@ BSDFSample<ad> HeterSub::__sample_sub(const Scene *scene, const Intersection<ad>
     pdf_po = __pdf_sub<ad>(its, bs, active) * warp::square_to_cosine_hemisphere_pdf<ad>(bs.wo);
     bs.pdf = pdf_po;
     bs.rgb_rv = 1.0f;
+    bs.velocity = 1.0f;
+    bs.maxDist = 1.0f;
 
     return bs;
 }

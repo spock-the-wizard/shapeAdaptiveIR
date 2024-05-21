@@ -372,6 +372,7 @@ PYBIND11_MODULE(psdr_cuda, m) {
         .def("sample_boundary", &Integrator::sample_boundary_, "scene"_a, "pts"_a,"dir"_a)
         .def("sample_boundary_2", &Integrator::sample_boundary_2, "scene"_a, "edge_idx"_a)
         .def("sample_boundary_3", &Integrator::sample_boundary_3, "scene"_a, "pts"_a,"dir"_a)
+        .def("sample_boundary_4", &Integrator::sample_boundary_4, "scene"_a, "idx"_a)
         .def("sample_sub", &Integrator::sample_sub, "scene"_a, "pts"_a,"dir"_a);
 
     py::class_<FieldExtractionIntegrator, Integrator>(m, "FieldExtractionIntegrator")

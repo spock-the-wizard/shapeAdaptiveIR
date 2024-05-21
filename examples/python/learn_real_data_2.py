@@ -8,6 +8,7 @@ import numpy as np
 import math
 from enoki.cuda_autodiff import Float32 as FloatD, Vector3f as Vector3fD, Matrix4f as Matrix4fD, Vector3i
 from enoki.cuda import Vector20f as Vector20fC
+from psdr_cuda import Bitmap3fD
 # from enoki.cuda_autodiff import Vector20fD as Vector20fD
 from enoki.cuda import Float32 as FloatC
 import matplotlib.pyplot as plt
@@ -48,6 +49,8 @@ import pickle
 import sys
 import time
 from enum import Enum
+import matplotlib.pyplot as plt
+import matplotlib.cm as cm
 # sys.path.insert(0,'./copy.py')
 import copy
 from multiprocessing import Queue
@@ -98,6 +101,15 @@ from viewer.viewer import GLTexture, ViewerApp
 from utils.printing import printr, printg
 import utils.mtswrapper
 
+import random
+random_seed = 0
+torch.manual_seed(random_seed)
+torch.cuda.manual_seed(random_seed)
+torch.cuda.manual_seed_all(random_seed) # if use multi-GPU
+torch.backends.cudnn.deterministic = True
+torch.backends.cudnn.benchmark = False
+np.random.seed(random_seed)
+random.seed(random_seed) # if use multi-GPU
 
 class Mode(Enum):
     REF = 0
@@ -200,7 +212,7 @@ parser.add_argument('--seed',               type=int,      default=4)
 
 parser.add_argument('--spp',                type=int,      default=4)
 parser.add_argument('--sppe',               type=int,      default=0)
-parser.add_argument('--sppse',              type=int,     default=0)
+parser.add_argument('--sppse',              type=int,     default=8192)
 
 parser.add_argument('--integrator',         type=str,      default='direct')
 
@@ -214,6 +226,7 @@ parser.add_argument('--d_type',             type=str,     default="custom")
 parser.add_argument('--silhouette',         type=str,     default="no")
 
 parser.add_argument('--render_gradient', action="store_true")
+parser.add_argument('--sensor_id',         type=int,    default=0)
 parser.add_argument('--debug', action="store_true", default=False)
 
 os.environ["OPENCV_IO_ENABLE_OPENEXR"]="1"
@@ -221,7 +234,6 @@ os.environ["OPENCV_IO_ENABLE_OPENEXR"]="1"
 args = parser.parse_args()
 
 import matplotlib as mpl
-import matplotlib.pyplot as plt
 class MidpointNormalize(mpl.colors.Normalize):
     """
     class to help renormalize the color scale
@@ -332,6 +344,10 @@ def opt_task(args):
             'albedo': [0.90, 0.90, 0.90],
             'sigmat': [40.00, 40.00, 100.00],
         },
+        'maneki1':{
+            'albedo': [0.89, 0.89, 0.89],
+            'sigmat': [78.37, 54.169, 83.51],
+        },
     }
 
     # load scene
@@ -354,7 +370,6 @@ def opt_task(args):
     
     ro = sc.opts
     
-
     ro.sppse = args.sppse
     ro.spp = args.spp
     ro.sppe = args.sppe
@@ -364,6 +379,8 @@ def opt_task(args):
     material_key = "BSDF[id=opt]"
     num_sensors = sc.num_sensors
     isBaseline = sc.param_map[material_key].type_name() == "HeterSub"
+    if args.albedo_lr == 0:
+        sc.param_map[material_key].albedo = Bitmap3fD(params_gt[args.scene]['albedo'])
 
     if args.d_type == "syn":
         lightdir = LIGHT_DIR + '/lights-sy-{}.npy'.format(args.light_file)
@@ -380,6 +397,9 @@ def opt_task(args):
     if args.scene == "duck":
         lights = lights[:25,:]
         lights[:,:3] = np.array([1.192, -1.3364, 0.889])
+    if args.scene == "plane": 
+        #FIXME: tmp setting light
+        lights[:,:3] = np.array([0.0, 2.0,0.0])
 
     if args.integrator == 'direct':
         myIntegrator = psdr_cuda.DirectIntegrator()
@@ -413,6 +433,20 @@ def opt_task(args):
         mesh_file = "../../smoothshape/duck_v2.obj"
     elif args.scene == "sphere1":
         mesh_file = "../../smoothshape/sphere_v2.obj"
+    elif args.scene == "maneki1":
+        mesh_file = "../../smoothshape/maneki.obj"
+    elif args.scene == "pig1":
+        mesh_file = "../../smoothshape/pig.obj"
+    elif args.scene == "horse1":
+        mesh_file = "../../smoothshape/horse.obj"
+    elif args.scene == "botijo":
+        mesh_file = "../../smoothshape/botijo.obj"
+    elif args.scene == "cube":
+        mesh_file = "../../smoothshape/cube_subdiv25.obj"
+    elif args.scene == "pyramid4":
+        mesh_file = "../../smoothshape/vicini/pyramid_.obj"
+    elif args.scene == "plane":
+        mesh_file = "../../smoothshape/plane_almost_v2.obj"
     else:
         raise NotImplementedError
 
@@ -429,17 +463,22 @@ def opt_task(args):
         time_start = time.time()
         app = Scatter3DViewer(mesh_file,alb,sig,g)
         sc.param_map[mesh_key].load_poly(app.mesh_polys,0)
-        for i in range(1,3):
-            alb = albedo[:,i]
-            sig = sigma_t[:,i]
-            app.sigma_t = sig
-            app.alb = sig
-            app.extract_mesh_polys()
-            sc.param_map[mesh_key].load_poly(app.mesh_polys,i)
+        if sc.param_map[material_key].monochrome:
+            sc.param_map[mesh_key].load_poly(app.mesh_polys,1)
+            sc.param_map[mesh_key].load_poly(app.mesh_polys,2)
+        else:
+            for i in range(1,3):
+                alb = albedo[:,i]
+                sig = sigma_t[:,i]
+                app.sigma_t = sig
+                app.alb = sig
+                app.extract_mesh_polys()
+                sc.param_map[mesh_key].load_poly(app.mesh_polys,i)
 
         time_end = time.time()
         print(f"Precomputing polynomials took {time_end - time_start} seconds")
 
+    # FIXME
     if not args.debug and not isBaseline:
         precompute_mesh_polys()
 
@@ -623,7 +662,7 @@ def opt_task(args):
         return loss
 
 
-    def compute_forward_derivative(A,S,sensor_id,idx_param=0,FD=False,poly_fit=False):
+    def compute_forward_derivative(A,S,sensor_id,idx_param=0,FD=False,poly_fit=False,chunk=False):
 
         if poly_fit and not isBaseline:
             precompute_mesh_polys()
@@ -649,25 +688,9 @@ def opt_task(args):
         sc.setlightposition(Vector3fD(lights[sensor_id][0], lights[sensor_id][1], lights[sensor_id][2]))
         sc.configure()
 
-        # Forward-propagate gradients from single input to multi-outputs
-        # ek.set_label(a,"sigma_t")
-        # ek.set_label(a,"albedo")
-        # ek.set_label(img,"img")
-        # print(ek.graphviz(img))
-        # with open("test_graph.dot", "w") as f:
-        #     f.write(ek.graphviz(img))
-    
         if not FD:
             grad_imgs = []
-            for batch_idx in range(args.n_crops*args.n_crops):
-                ix = batch_idx // args.n_crops
-                iy = batch_idx % args.n_crops
-                
-                # image_loss = renderV, A, S, R, G, render_batch, i)
-                sc.opts.crop_offset_x = ix * sc.opts.cropwidth
-                sc.opts.crop_offset_y = iy * sc.opts.cropheight
-                sc.configure()
-
+            if chunk:
                 img = myIntegrator.renderD(sc, sensor_id)
                 for i in range(3):
                     ek.forward(a[i])
@@ -676,25 +699,55 @@ def opt_task(args):
                     grad_img = grad_for.numpy().reshape(sc.opts.cropheight,sc.opts.cropwidth,-1)
                     # del img, grad_for
                 except:
-                    print(f"Zero gradient for {batch_idx}")
+                    grad_img = np.zeros((sc.opts.cropheight,sc.opts.cropwidth,3))
+                
+                if grad_img.shape[-1] == 0:
                     grad_img = np.zeros((sc.opts.cropheight,sc.opts.cropwidth,3))
                 grad_imgs.append(grad_img)
+            else:
+                for batch_idx in range(args.n_crops*args.n_crops):
+                    ix = batch_idx // args.n_crops
+                    iy = batch_idx % args.n_crops
+                    
+                    # image_loss = renderV, A, S, R, G, render_batch, i)
+                    sc.opts.crop_offset_x = ix * sc.opts.cropwidth
+                    sc.opts.crop_offset_y = iy * sc.opts.cropheight
+                    sc.configure()
+
+                    img = myIntegrator.renderD(sc, sensor_id)
+                    for i in range(3):
+                        ek.forward(a[i])
+                    try:
+                        grad_for = ek.gradient(img)
+                        grad_img = grad_for.numpy().reshape(sc.opts.cropheight,sc.opts.cropwidth,-1)
+                        del img, grad_for
+                    except:
+                        print(f"Zero gradient for {batch_idx}")
+                        grad_img = np.zeros((sc.opts.cropheight,sc.opts.cropwidth,3))
+                    
+                    if grad_img.shape[-1] == 0:
+                        grad_img = np.zeros((sc.opts.cropheight,sc.opts.cropwidth,3))
+                    grad_imgs.append(grad_img)
 
             # (16,w,h) in column major order
             img = np.array(grad_imgs)
-            img = img.reshape((args.n_crops,args.n_crops,sc.opts.cropheight,sc.opts.cropwidth,-1))
-            img = img.transpose((1,0,2,3,4))
-            # (4,4,w,h) 
-            img = img.transpose((0,2,1,3,4))
             # (4,w,4,h)
-            img = img.reshape((sc.opts.height,sc.opts.width,-1))
+            if chunk:
+                img = img.reshape((sc.opts.cropheight,sc.opts.cropwidth,-1))
+            else:
+                img = img.reshape((args.n_crops,args.n_crops,sc.opts.cropheight,sc.opts.cropwidth,-1))
+                img = img.transpose((1,0,2,3,4))
+                # (4,4,w,h) 
+                img = img.transpose((0,2,1,3,4))
+                img = img.reshape((sc.opts.height,sc.opts.width,-1))
             # (4w, 4h)
             return img
         else:
-            sc.opts.crop_offset_x = 0
-            sc.opts.crop_offset_y = 0
-            sc.opts.cropheight = sc.opts.height
-            sc.opts.cropwidth = sc.opts.width
+            if not chunk:
+                sc.opts.crop_offset_x = 0
+                sc.opts.crop_offset_y = 0
+                sc.opts.cropheight = sc.opts.height
+                sc.opts.cropwidth = sc.opts.width
             sc.configure()
             img = renderNtimes(sc, myIntegrator, args.ref_spp, sensor_id)
             # img = myIntegrator.renderC(sc, sensor_id)
@@ -740,8 +793,11 @@ def opt_task(args):
             sc.param_map[material_key].sigma_t.data  = sigma_t
             sc.param_map[material_key].alpha_u.data  = roughness
             sc.param_map[material_key].eta.data      = eta
-            ctx.mono = sc.param_map[material_key].monochrome
-            
+            if not isBaseline:
+                ctx.mono = sc.param_map[material_key].monochrome
+            else:
+                ctx.mono = True
+
             print("------------------------------------seed----------",seed)
             npixels = ro.cropheight * ro.cropwidth
             sc.opts.spp = args.spp
@@ -760,21 +816,43 @@ def opt_task(args):
                 # tar_img = Vector3fD(tars[sensor_id].cuda())
                 # weight_img = Vector3fD(tmeans[sensor_id].cuda()f)
                 our_imgA = myIntegrator.renderD(sc, sensor_id)
-                tmp = our_imgA.numpy().reshape(ro.cropheight,ro.cropwidth,3)
-                debug_dir = "bound2"
-                os.makedirs(debug_dir,exist_ok=True)
-                cv2.imwrite(f"{debug_dir}/{args.scene}_{sensor_id}.png",tmp*255)
-                print(tmp.max())
+                # tmp = our_imgA.numpy().reshape(ro.cropheight,ro.cropwidth,3)
+                ctx.diff = our_imgA - tar_img
+                # ctx.diff = tar_img - our_imgA
+                # debug_dir = f"bound2/{args.stats_folder.replace('/','_')}"
+                # os.makedirs(debug_dir,exist_ok=True)
+                # cv2.imwrite(f"{debug_dir}/{args.scene}_{sensor_id}.png",tmp*255)
+                # print(tmp.max())
                 if isBaseline:
                     our_imgB = myIntegrator.renderD(sc, sensor_id)
                 else:
                     # our_imgB = myIntegrator.renderD(sc, sensor_id)
+                    # print("No variance reduction scheme of [Deng]")
                     our_imgB = our_imgA
                 render_loss += compute_render_loss(our_imgA, our_imgB, tar_img, args.img_weight) / batch_size
-                # render_loss += compute_render_loss(our_imgA, our_imgA, tar_img, args.img_weight) / batch_size
+
+                fd_delta = 10
+                if not ctx.mono:
+                    ctx.d_pixel = np.zeros((ro.cropheight*ro.cropwidth,3))
+                    for ch_idx in range(3):
+                        param_delta = torch.zeros(3).cuda()
+                        param_delta[ch_idx] = fd_delta
+                        S0 = Variable((sigma_t.torch() - param_delta) , requires_grad=False)
+                        S1 = Variable((sigma_t.torch() + param_delta) , requires_grad=False)
+                        result0 = compute_forward_derivative(A,S=S0,sensor_id=sensor_id,FD=True,chunk=True)
+                        result1 = compute_forward_derivative(A,S=S1,sensor_id=sensor_id,FD=True,chunk=True)
+                        ctx.d_pixel[...,ch_idx] = (result1-result0).reshape(-1,3)[...,ch_idx] / 2*fd_delta
+                elif ctx.mono:
+                    param_delta = torch.ones(3).cuda()
+                    param_delta= param_delta *fd_delta
+                    S0 = Variable((sigma_t.torch() - param_delta) , requires_grad=False)
+                    S1 = Variable((sigma_t.torch() + param_delta) , requires_grad=False)
+                    result0 = compute_forward_derivative(A,S=S0,sensor_id=sensor_id,FD=True,chunk=True)
+                    result1 = compute_forward_derivative(A,S=S1,sensor_id=sensor_id,FD=True,chunk=True)
+                    ctx.d_pixel = (result1-result0).reshape(-1,3) / 2*fd_delta
                 
-                # Save RMSE loss for logging
-                # render_loss += compute_render_loss(our_imgA, our_imgB, tar_img, args.img_weight) / batch_size
+                # ctx.d_pixel = compute_forward_derivative(A=A, S=S, sensor_id=sensor_id,poly_fit=False,chunk=True).reshape(-1,3)
+                render_loss += compute_render_loss(our_imgA, our_imgA, tar_img, args.img_weight) / batch_size
 
             if args.silhouette == "yes":
                 sc.opts.spp = 1
@@ -807,15 +885,30 @@ def opt_task(args):
             gradA = ek.gradient(ctx.input2).torch()
             gradA[torch.isnan(gradA)] = 0.0
             gradA[torch.isinf(gradA)] = 0.0
-            if ctx.mono:
+            # FIXME: fix albedo 
+            # gradA = None
+            
+            if not isBaseline and ctx.mono:
                 gradA[...,:] = torch.mean(gradA,dim=-1)
             # gradA= None
             # print("-------------------------S-----------------------------")
-            gradS = ek.gradient(ctx.input3).torch()
+            # gradS = ek.gradient(ctx.input3).torch()
+            # gradS_ = ek.gradient(ctx.input3).torch()
+
+            # img = ctx.d_pixel.reshape(512,512,-1)[...,0]
+            # img = (img - img.min()) / (img.max() - img.min())
+            # cv2.imwrite('test1.png',img*255)
+            # img2 = ctx.diff.torch().cpu().numpy().reshape(512,512,-1)[...,0]
+            # img2 = (img2 - img2.min()) / (img2.max() - img2.min())
+            # cv2.imwrite('test2.png',img2*255)
+            gradS = torch.from_numpy(ctx.d_pixel * 2*(ctx.diff)).cuda().mean(dim=0,keepdim=True)
+            print(gradS)
+            # breakpoint()
             gradS[torch.isnan(gradS)] = 0.0
             gradS[torch.isinf(gradS)] = 0.0
-            if ctx.mono:
-                gradS[...,:] = torch.mean(gradS,dim=-1)
+
+            if not isBaseline and ctx.mono:
+                gradS[...,:] = torch.mean(gradS,dim=-1,)
 
             # print("-------------------------R-----------------------------")
             gradR = ek.gradient(ctx.input4).torch()
@@ -849,7 +942,7 @@ def opt_task(args):
         return texturesize
 
     def renderPreview(i, sidxs):
-        cmap = colormaps.get('inferno')
+        # cmap = colormaps.get('inferno')
         images = []
         error_map = []
         rmse_list = []
@@ -860,21 +953,39 @@ def opt_task(args):
             # TODO: tmp setting
             sc.setlightposition(Vector3fD(lights[idx][0], lights[idx][1], lights[idx][2]))
             img2 = renderNtimes(sc, myIntegrator, args.ref_spp, idx)
-            img2 = np.clip(img2,a_min=0.0, a_max=1.0)
+            
+            # FIXME: set cmap for debugging
+            img3 = np.copy(img2)
+            cmap_key='RdBu_r'
+            cmax = max(img2.max(),abs(img2.min()))
+            cmax = min(cmax,0.05) 
+            norm = MidpointNormalize(vmin=-cmax,vmax=cmax,midpoint=0.0)
+            extent = (0,img2.shape[0],img2.shape[1],0)
+            plt.imshow(img3[...,0], extent=extent,cmap=cmap_key,norm=norm)
+            plt.tight_layout()
+            plt.colorbar()
+            plt.axis('off')
+
+            plt.savefig(statsdir + "/iter_{}_{}_debug.png".format(i+1,idx))
+            plt.close()
+
+            # breakpoint()
+            # mapper = cm.ScalarMappable(norm=norm, cmap='viridis')
+            # img2 = img2[...,0][...,None]
+            # img2 = mapper.to_rgba(img2 / img2.max())[...,:3]#.clone()
+            
             # target2 = tars[idx].numpy().reshape((ro.height,ro.width,-1))[coy:coy+coh,cox:cox+cow]
             target2 = tars[idx].numpy().reshape((ro.height,ro.width,-1)) #[coy:coy+coh,cox:cox+cow]
             target2 = cv2.cvtColor(target2, cv2.COLOR_RGB2BGR)
             target2 = np.clip(target2,a_min=0.0, a_max=1.0)
-            # breakpoint()
             cv2.imwrite(statsdir + "/iter_{}_{}_out.png".format(i+1,idx), img2*255.0)
             cv2.imwrite(statsdir + "/iter_{}_{}_gt.png".format(i+1,idx), target2*255.0)
             absdiff2 = np.abs(img2 - target2)
                                 
-            import matplotlib.pyplot as plt
             rmse2 = rmse(img2,target2)
             plt.imshow(rmse2, cmap='inferno')
             plt.tight_layout()
-            plt.colorbar()
+            # plt.colorbar()
             plt.axis('off')
             # plt.show()
 
@@ -908,6 +1019,7 @@ def opt_task(args):
         # rmse2 = cmap(rmse(img2,target2)).astype(np.float32)[...,:3] * 255.0
         output = np.concatenate((images), axis=1)                
         # error = np.concatenate((error_map), axis=1)                
+        # breakpoint()
         cv2.imwrite(statsdir + "/iter_{}.exr".format(i+1), output)
         # cv2.imwrite(statsdir + "/error_{}.png".format(i+1), error)
         wandb_log({
@@ -1156,7 +1268,6 @@ def opt_task(args):
             torch.cuda.empty_cache()
             ek.cuda_malloc_trim()
 
-            # if (i==0 and args.n_iters == 1) or 
             if (i % args.n_dump == args.n_dump -1):
             # if (i % args.n_dump == 0):
             # if i == 0 or ((i+1) %  args.n_dump) == 0:
@@ -1258,11 +1369,12 @@ def opt_task(args):
             ek.cuda_malloc_trim()
 
     if args.render_gradient:
-        GRAD_DIR = "../../grad"
+        GRAD_DIR = "../../grad2"
 
         fd_delta = 5e-2 #2
         fd_delta = 5
-        sensor_id = 0 #0
+        # fd_delta = 2
+        sensor_id = args.sensor_id #30 #0
         idx_param = 2 #0
         param_delta = torch.ones(3).cuda()
         param_delta = param_delta * fd_delta
@@ -1282,27 +1394,62 @@ def opt_task(args):
         # img = result[...,idx_param]
         # img = torch.mean(result,dim=-1)
         img = np.mean(result,axis=-1)
+        # breakpoint()
         # img = result.numpy().reshape(sc.opts.cropheight,sc.opts.cropwidth,-1)[...,idx_param]
 
         # norm = MidpointNormalize(midpoint=0.0)
         # plt.imshow(img, cmap='RdBu',norm=norm)
+        # img[img>0.0] = 1.0
+        # img[img<0.0] = -1.0
+        print(f"Number of nonzero pixels: {np.count_nonzero(img)}")
+        grad_dir = f"grad/{args.stats_folder.replace('/','_')}"
+        os.makedirs(grad_dir,exist_ok=True)
+        fname=f"{grad_dir}/{args.scene}_{sensor_id}_{fd_delta}"
+        np.save(fname,img)
+        print(f"Write gradient image to {fname}")
+
         cmax = max(img.max(),abs(img.min()))
         # FIXME: tmp setting
-        cmax = min(cmax,0.002)
+        # cmax = min(cmax,0.005)
         norm = MidpointNormalize(vmin=-cmax,vmax=cmax,midpoint=0.0)
         plt.imshow(img, cmap='RdBu_r',norm=norm)
         plt.tight_layout()
         plt.colorbar()
         plt.axis('off')
-
         print(f"Write gradient image to {filename}")
-        plt.savefig(filename,bbox_inches='tight')
+        plt.savefig(filename,bbox_inches='tight',pad_inches=0)
         plt.close()
 
-        del result, img
+        # Image without axis or boundary
+        # plt.tight_layout()
+        # plt.axis('off')
+        # plt.imshow(img, cmap='RdBu_r',norm=norm,extent=extent)
+        # plt.savefig(filename,bbox_inches='tight',pad_inches=0)
+        # plt.close()
+        # breakpoint()
         
+        cmap_key='RdBu_r'
+        # Apply normalization and cmap to image
+        extent = (0,img.shape[0],img.shape[1],0)
+        filename = filename.replace('.png','_nolegend.png')
+        mapper = cm.ScalarMappable(norm=norm, cmap=cmap_key)
+        img_ours = np.copy(mapper.to_rgba(img))#.clone()
+        plt.tight_layout()
+        plt.axis('off')
+        plt.imshow(img_ours,extent=extent)
+        plt.savefig(filename,bbox_inches='tight',pad_inches=0)
+        plt.close()
+
+        # del result, img
+        # FIXME
+        # return
+        
+        filename = filename.replace("_nolegend.png",".png")
         filename = filename.replace("deriv","FD",)
         ## Gradient estimate using finite differences
+        # if os.path.exists(filename):
+        #     return
+
         A,S = None, None
         if isAlbedo:
             A0 = Variable(sc.param_map[material_key].albedo.data.torch() - param_delta, requires_grad=True)
@@ -1327,18 +1474,43 @@ def opt_task(args):
         result_fd = (result1 - result0) / (2*fd_delta)
         # img = result_fd[...,idx_param]
         img = np.mean(result_fd,axis=-1)
+        
+        # Save FD results
+        fname=f"{grad_dir}/{args.scene}_{sensor_id}_{fd_delta}_fd"
+        np.save(fname,img)
+        print(f"Write gradient image to {fname}")
 
-        cmax = max(img.max(),abs(img.min()))
-        norm = MidpointNormalize(vmin=-cmax,vmax=cmax,midpoint=0.0)
-        plt.imshow(img, cmap='RdBu_r',norm=norm)
-        plt.tight_layout()
-        plt.colorbar()
-        plt.axis('off')
+        # cmax = max(img.max(),abs(img.min()))
+        # norm = MidpointNormalize(vmin=-cmax,vmax=cmax,midpoint=0.0)
+        # plt.imshow(img, cmap='RdBu_r',norm=norm)
+        # plt.tight_layout()
+        # plt.colorbar()
+        # plt.axis('off')
+        # plt.savefig(filename,bbox_inches='tight',pad_inches=0)
+        # plt.close()
 
-        print(f"Write gradient image to {filename}")
-        plt.savefig(filename,bbox_inches='tight')
-        plt.close()
-
+        # filename = filename.replace('.png','_nolegend.png')
+        # mapper = cm.ScalarMappable(norm=norm, cmap=cmap_key)
+        # img_fd = np.copy(mapper.to_rgba(img))
+        # plt.tight_layout()
+        # plt.axis('off')
+        # plt.imshow(img_fd,extent=extent)
+        # plt.savefig(filename,bbox_inches='tight',pad_inches=0)
+        # plt.close()
+        
+        # # Visualize absolute difference between FD and ours
+        # filename = filename.replace('_nolegend.png','.png')
+        # filename = filename.replace('FD','absdiff')
+        # img_diff = np.abs(img_fd[...,:3] - img_ours[...,:3])# * 255.0
+        # img_diff = img_diff[...,[2,1,0]].sum(axis=-1)
+        # plt.imshow(img_diff,cmap='viridis',extent=extent)
+        # plt.tight_layout()
+        # plt.colorbar()
+        # plt.axis('off')
+        # # print(f"Write gradient image to {filename}")
+        # plt.savefig(filename,bbox_inches='tight')
+        # plt.close()
+        
 
         del result0, result1, result_fd
         # breakpoint()

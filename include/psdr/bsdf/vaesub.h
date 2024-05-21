@@ -115,7 +115,7 @@ public:
     // template <bool ad>
     // std::pair<Intersection<ad>,Float<ad>> __sample_sp(const Scene *scene, const Intersection<ad> &its, const Vector8f<ad> &sample, Float<ad> &pdf, Mask<ad>active) const;
    template <bool ad>
-    std::tuple<Intersection<ad>,Float<ad>,Vector3f<ad>,Vector3f<ad>,Float<ad>> __sample_sp(const Scene *scene, const Intersection<ad> &its, const Vector8f<ad> &sample, Float<ad> &pdf, Mask<ad>active) const;
+    std::tuple<Intersection<ad>,Float<ad>,Vector3f<ad>,Vector3f<ad>,Float<ad>,Intersection<ad>> __sample_sp(const Scene *scene, const Intersection<ad> &its, const Vector8f<ad> &sample, Float<ad> &pdf, Mask<ad>active) const;
     template <bool ad>
     BSDFSample<ad> __sample_sub(const Scene *scene, const Intersection<ad> &its, const Vector8f<ad> &sample, Mask<ad> active) const;
     template <bool ad>

@@ -286,17 +286,28 @@ Spectrum<ad> VaeSub::__eval_sub(const Intersection<ad> &its, const BSDFSample<ad
         sp = select(bs.rgb_rv > (2.0f/3.0f),b,sp);
     }
     sp = sp * (1-bs.po.abs_prob);
+    // if constexpr(ad){
+    //     std::cout << "[var 184] Reparam hetersub eval" << std::endl;
+    //     auto sp_hetersub = sqrt(__Sp<ad>(bs.po, its)) * sqrt(__Sp<ad>(its, bs.po));
+    //     sp = Vector3fD(detach(sp)) + sp_hetersub - detach(sp_hetersub);
+    // }
 
     Spectrum<ad> sw =  __Sw<ad>(bs.po, bs.wo, active);
 
     // std::cout << "count(active) " << count(active) << std::endl;
     // std::cout << "hsum(hsum(sw)) " << hsum(hsum(sw)) << std::endl;
     Spectrum<ad> value = sp* (1.0f - F) *sw * cos_theta_o;
+    // std::cout << "1-F " << 1-F << std::endl;
+    // std::cout << "hmean(F) " << hmean(F) << std::endl;
+    // Spectrum<ad> value = sp* sw * cos_theta_o;
     // std::cout << "cos_theta_o " << cos_theta_o << std::endl;
     // std::cout << "sw " << sw << std::endl;
     // std::cout << "sp " << sp << std::endl;
     // std::cout << "F " << F << std::endl;
     // std::cout << "bs.po.abs_prob " << bs.po.abs_prob << std::endl;
+    // std::cout << "bs.po.J " << bs.po.J << std::endl;
+    // std::cout << "active " << active << std::endl;
+    
     // std::cout << "hsum(hsum(value) " << hsum(hsum(value))<< std::endl;
     // std::cout << "hsum(hsum(bs.po.J) " << hsum(hsum(bs.po.J)) << std::endl;
     // std::cout << "hsum(hsum(1.0f-F) " << hsum(hsum(1.0f-F)) << std::endl;
@@ -330,7 +341,6 @@ template <bool ad>
 BSDFSample<ad> VaeSub::__sample(const Scene *scene, const Intersection<ad> &its, const Vector8f<ad> &sample, Mask<ad> active) const {
     // NOTE: Mask active is 100% True
     
-    std::cout << "reaches sample " << std::endl;
     BSDFSample<ad> bs = __sample_sub<ad>(scene, its, sample, active);
     BSDFSample<ad> bsdf_bs =  __sample_bsdf<ad>(its, sample, active);
 
@@ -367,6 +377,20 @@ BSDFSample<ad> VaeSub::__sample(const Scene *scene, const Intersection<ad> &its,
     bs.rgb_rv = select(sample.x() > prob, bs.rgb_rv, bsdf_bs.rgb_rv);
     bs.maxDist = select(sample.x() > prob, bs.maxDist, bsdf_bs.maxDist);
     bs.velocity = select(sample.x() > prob, bs.velocity, bsdf_bs.velocity);
+
+    bs.pair.num = select(sample.x() > prob, bs.pair.num, bsdf_bs.pair.num);
+    bs.pair.n = select(sample.x() > prob, bs.pair.n, bsdf_bs.pair.n);
+    bs.pair.p = select(sample.x() > prob, bs.pair.p, bsdf_bs.pair.p);
+    bs.pair.J = select(sample.x() > prob, bs.pair.J, bsdf_bs.pair.J);
+    bs.pair.uv = select(sample.x() > prob, bs.pair.uv, bsdf_bs.pair.uv);
+    bs.pair.shape = select(sample.x() > prob, bs.pair.shape, bsdf_bs.pair.shape);
+    bs.pair.t = select(sample.x() > prob, bs.pair.t, bsdf_bs.pair.t);
+    bs.pair.wi = select(sample.x() > prob, bs.pair.wi, bsdf_bs.pair.wi);
+    bs.pair.sh_frame.s = select(sample.x() > prob, bs.pair.sh_frame.s, bsdf_bs.pair.sh_frame.s);
+    bs.pair.sh_frame.t = select(sample.x() > prob, bs.pair.sh_frame.t, bsdf_bs.pair.sh_frame.t);
+    bs.pair.sh_frame.n = select(sample.x() > prob, bs.pair.sh_frame.n, bsdf_bs.pair.sh_frame.n);
+    bs.pair.abs_prob = select(sample.x() > prob, bs.pair.abs_prob, bsdf_bs.pair.abs_prob);
+    bs.pair.poly_coeff = select(sample.x() > prob, bs.pair.poly_coeff, bsdf_bs.pair.poly_coeff);
    
 
     return bs;
@@ -394,6 +418,7 @@ BSDFSample<ad> VaeSub::__sample_bsdf(const Intersection<ad> &its, const Vector8f
     bs.rgb_rv = full<Float<ad>>(-1.0f);
     bs.maxDist = full<Float<ad>>(-1.0f);
     bs.velocity = full<Vector3f<ad>>(0.0f);
+    bs.pair = its;
     bs.po.abs_prob = full<Float<ad>>(0.0f);
     return bs;
 }
@@ -405,7 +430,7 @@ BSDFSample<ad> VaeSub::__sample_sub(const Scene *scene, const Intersection<ad> &
     BSDFSample<ad> bs;
     Float<ad> pdf_po = Frame<ad>::cos_theta(its.wi);
     Vector3f<ad> dummy;
-    std::tie(bs.po, bs.rgb_rv,dummy,bs.velocity,bs.maxDist) = __sample_sp<ad>(scene, its, sample, pdf_po, active);
+    std::tie(bs.po, bs.rgb_rv,dummy,bs.velocity,bs.maxDist,bs.pair) = __sample_sp<ad>(scene, its, sample, pdf_po, active);
     bs.wo = warp::square_to_cosine_hemisphere<ad>(tail<2>(sample));
     bs.pdf = pdf_po;
     bs.is_valid = active && (cos_theta_i > 0.f) && bs.po.is_valid();// && ( == its.shape->m_id);&& 
@@ -668,7 +693,7 @@ Float<ad> VaeSub::getKernelEps(const Intersection<ad>& its,Float<ad> rnd) const 
 }
 
 template <bool ad>
-std::tuple<Intersection<ad>,Float<ad>,Vector3f<ad>,Vector3f<ad>,Float<ad>> VaeSub::__sample_sp(const Scene *scene, const Intersection<ad> &its, const Vector8f<ad> &sample, Float<ad> &pdf, Mask<ad> active) const {        
+std::tuple<Intersection<ad>,Float<ad>,Vector3f<ad>,Vector3f<ad>,Float<ad>,Intersection<ad>> VaeSub::__sample_sp(const Scene *scene, const Intersection<ad> &its, const Vector8f<ad> &sample, Float<ad> &pdf, Mask<ad> active) const {        
         using namespace std::chrono;
         std::cout << "enter sample_sp " << std::endl;
     
@@ -676,7 +701,6 @@ std::tuple<Intersection<ad>,Float<ad>,Vector3f<ad>,Vector3f<ad>,Float<ad>> VaeSu
 
         // float is_plane = true;
         float is_plane = false;
-        // FIXME: detach detection
         ///////////////////////////////
         // float is_light_space = false;
         float is_light_space = true;
@@ -708,8 +732,8 @@ std::tuple<Intersection<ad>,Float<ad>,Vector3f<ad>,Vector3f<ad>,Float<ad>> VaeSu
         auto g_ch = select(rnd < (1.0f / 3.0f), g.x(),g.y());
         g_ch = select(rnd > (2.0f / 3.0f), g.z(),g_ch);
         // FIXME: Debugging
-        sigma_t_ch = detach(sigma_t_ch);
-        set_requires_gradient(sigma_t_ch);
+        // sigma_t_ch = detach(sigma_t_ch);
+        // set_requires_gradient(sigma_t_ch);
         ////////////
 
         Float<ad> sigma_s = sigma_t_ch * albedo_ch;
@@ -753,8 +777,17 @@ std::tuple<Intersection<ad>,Float<ad>,Vector3f<ad>,Vector3f<ad>,Float<ad>> VaeSu
         auto inPos = its.p;
         Frame<ad> local_frame(inNormal);
 
+        // FIXME: MATE2
+        float epsM = 0.1f;
+        auto matePos = outPos* (1.0f + epsM);
+
         outPos = inPos + local_frame.to_world(outPos);
         outPos = inPos + (outPos - inPos) / fitScaleFactor;
+
+        // FIXME: MATE2
+        matePos = inPos + local_frame.to_world(matePos);
+        matePos = inPos + (matePos - inPos) / fitScaleFactor;
+
 
         if(is_light_space)
             inNormal = local_frame.to_world(its.wi);
@@ -770,10 +803,13 @@ std::tuple<Intersection<ad>,Float<ad>,Vector3f<ad>,Vector3f<ad>,Float<ad>> VaeSu
 
         // NOTE: useLocalDir should be TRUE when using TS shape features
         // outPos should be in WORLD coords
+        // std::cout << "shapeFeatures" << shapeFeatures << std::endl;
         if (ad)
             std::tie(polyVal,projDir) = evalGradient<ad>(its.p,shapeFeatures,outPos,3,detach(fitScaleFactor),true,vz);
         else
             std::tie(polyVal,projDir) = evalGradient<ad>(detach(its.p),detach(shapeFeatures),detach(outPos),3,detach(fitScaleFactor),true,vz);
+
+        
         projDir = normalize(detach(projDir));
         projDir = -sign(polyVal) * projDir;
         
@@ -789,7 +825,9 @@ std::tuple<Intersection<ad>,Float<ad>,Vector3f<ad>,Vector3f<ad>,Float<ad>> VaeSu
             Ray<ad> ray_back(outPos+ eps*projDir,-projDir); //tmax);
             Intersection<ad> its3_back = scene->ray_intersect<ad, ad>(ray_back,active);
             msk = !(its3_back.is_valid() && (its3_front.t > its3_back.t));
-            active &= (its3_front.is_valid() | its3_back.is_valid());
+
+            // active &= (its3_front.is_valid() | its3_back.is_valid());
+
             its3.n = select(msk,its3_front.n,its3_back.n);
             its3.sh_frame.s = select(msk,its3_front.sh_frame.s,its3_back.sh_frame.s);
             its3.sh_frame.t = select(msk,its3_front.sh_frame.t,its3_back.sh_frame.t);
@@ -810,6 +848,9 @@ std::tuple<Intersection<ad>,Float<ad>,Vector3f<ad>,Vector3f<ad>,Float<ad>> VaeSu
         }
 
         its3.abs_prob = absorption;
+        
+
+        // auto t = normalize(cross(its3.n,s)); 
         if constexpr(ad){
             // Reparameterization to allow gradient flow
             // Idea #1. Naive version (Dumb and stupid)
@@ -832,8 +873,7 @@ std::tuple<Intersection<ad>,Float<ad>,Vector3f<ad>,Vector3f<ad>,Float<ad>> VaeSu
             auto relVector = detach(its3.p) - detach(its.p);
             auto s = cross(Vector3fD(relVector),its3.n);
             auto t = normalize(cross(its3.n,s)); 
-            
-            its3.p = t / fitScaleFactor - t/detach(fitScaleFactor) + detach(its3.p);
+            its3.p = t/fitScaleFactor - t/detach(fitScaleFactor) + detach(its3.p);
         }
         else{
             auto ray_dir = select(msk,projDir,-projDir);
@@ -843,22 +883,71 @@ std::tuple<Intersection<ad>,Float<ad>,Vector3f<ad>,Vector3f<ad>,Float<ad>> VaeSu
         Vector3f<ad> velocity(0.0f); 
         if constexpr(ad){
             // FIXME: Debug for vis
-            backward(fitScaleFactor,true);
-            auto dfit = gradient(sigma_t_ch);
-            auto relVector = detach(its3.p) - detach(its.p);
-            // Idea #1. Normalized
-            // relVector /= norm(relVector);
-            // Vector3f<ad> gradAn =(-1.0f/detach(fitScaleFactor)/detach(fitScaleFactor)) * Vector3fD(relVector) * dfit;
+            // backward(fitScaleFactor,true);
+            // auto dfit = gradient(sigma_t_ch);
+            // auto relVector = detach(its3.p) - detach(its.p);
+            // // Idea #1. Normalized
+            // // relVector /= norm(relVector);
+            // // Vector3f<ad> gradAn =(-1.0f/detach(fitScaleFactor)/detach(fitScaleFactor)) * Vector3fD(relVector) * dfit;
             
-            // Idea #2. Tangential velocity, No Normalization
-            auto s = cross(Vector3fD(relVector),its3.n);
-            auto t = cross(its3.n,s); 
-            // std::cout << "dfit " << dfit << std::endl;
-            velocity =(-1.0f/detach(fitScaleFactor)/detach(fitScaleFactor)) * t * dfit;
+            // // Idea #2. Tangential velocity, No Normalization
+            // // auto s = cross(Vector3fD(relVector),its3.n);
+            // // auto t = cross(its3.n,s); 
+            // // // std::cout << "dfit " << dfit << std::endl;
+            // // velocity =(-1.0f/detach(fitScaleFactor)/detach(fitScaleFactor)) * t * dfit;
+
+            // // Idea #3. Tangential velocity, w. Normalization
+            // auto s = cross(Vector3fD(relVector),its3.n);
+            // auto t = cross(its3.n,s); 
+            // t = normalize(t);
+            // velocity =(-1.0f/detach(fitScaleFactor)/detach(fitScaleFactor)) * t * dfit;
         }
+        
+        // if constexpr(ad) {
+        //     // TODO: detach this
+        //     // Compute Mate's position
+        //     // Step 1. Propagate by epsilon in tangent direction
+        //     float eps = 0.05f;
+        //     auto relVector = detach(its3.p) - detach(its.p);
+        //     auto s = cross(Vector3fD(relVector),its3.n);
+        //     auto t = cross(its3.n,s);
+        //     Vector3f<ad> mate = its3.p + eps*Vector3fD(t);
+
+        //     // Step 2. Project onto surface
+        //     auto ray_dir = select(msk,projDir,-projDir);
+        //     RayD rayMate(mate-eps*projDir,projDir);
+        //     // TODO: active should not matter? - Previously invalid samples do not get a gradient?
+        //     IntersectionD itsMate = scene->ray_intersect<ad,ad>(rayMate,active);
+
+        //     // Step 3. Save to velocity (tmp borrowing)
+        //     velocity = itsMate.p;
+
+        // }
+        // FIXME: MATE2
+        Intersection<ad> its3M;
+        Ray<ad> ray3M(matePos- eps*projDir, projDir); //,tmax);
+        Intersection<ad> its3_front_M = scene->ray_intersect<ad, ad>(ray3M, active);
+        Ray<ad> ray_backM(matePos+ eps*projDir,-projDir); //tmax);
+        Intersection<ad> its3_back_M = scene->ray_intersect<ad, ad>(ray_backM,active);
+        msk = !(its3_back_M.is_valid() && (its3_front_M.t > its3_back_M.t));
+        // active &= (its3_front_M.is_valid() | its3_back_M.is_valid());
+
+        its3M.n = select(msk,its3_front_M.n,its3_back_M.n);
+        its3M.sh_frame.s = select(msk,its3_front_M.sh_frame.s,its3_back_M.sh_frame.s);
+        its3M.sh_frame.t = select(msk,its3_front_M.sh_frame.t,its3_back_M.sh_frame.t);
+        its3M.sh_frame.n = select(msk,its3_front_M.sh_frame.n,its3_back_M.sh_frame.n);
+        its3M.uv = select(msk,its3_front_M.uv,its3_back_M.uv);
+        its3M.J = select(msk,its3_front_M.J,its3_back_M.J);
+        its3M.num = select(msk,its3_front_M.num,its3_back_M.num);
+        its3M.wi = select(msk,its3_front_M.wi,its3_back_M.wi);
+        its3M.p = select(msk,its3_front_M.p,its3_back_M.p);
+        its3M.t = select(msk,its3_front_M.t,its3_back_M.t);
+        its3M.shape = select(msk,its3_front_M.shape,its3_back_M.shape);
+        its3M.poly_coeff = shapeFeatures;
+        // velocity = its3M.p;
 
         // return std::tuple<Intersection<ad>,Float<ad>,Vector3f<ad>,Vector3f<ad>,Float<ad>>(its3,rnd,outPos,projDir,1.0f/fitScaleFactor);
-        return std::tuple<Intersection<ad>,Float<ad>,Vector3f<ad>,Vector3f<ad>,Float<ad>>(its3,sample[5],outPos,velocity,1.0f/fitScaleFactor);
+        return std::tuple<Intersection<ad>,Float<ad>,Vector3f<ad>,Vector3f<ad>,Float<ad>,Intersection<ad>>(its3,sample[5],outPos,velocity,sigma_t_ch,its3M);
     
 } // namespace psdr
 

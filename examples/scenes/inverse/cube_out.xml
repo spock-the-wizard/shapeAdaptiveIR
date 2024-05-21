@@ -5,47 +5,35 @@
     </integrator>
 
      <emitter type="point" id="point-light">
-        
-        <rgb name="power" value="251" />
+        <!-- <rgb name="power" value="1000, 1000, 1000" /> -->
+        <rgb name="power" value="500, 500, 500" />
         <transform name="to_world" id="light-transform">
-            
+            <!-- <translate x="-2.944557" y="48.8898" z="-41.4402" /> -->
 		</transform>
     </emitter>
 
 
-    
     <bsdf type="vaesub" id="opt">
-        
-        <float name="eta" value="1.00" />
-        
-        
+        <!-- <texture name="alpha" type="bitmap">
+            <string name="filename" value="../../textures/rough_init.exr" />
+        </texture> -->
+        <float name="eta" value="1.2029" />
+        <!-- <rgb name="specular_reflectance" value="1.0, 1.0, 1.0" /> -->
         <rgb name="specular_reflectance" value="0, 0, 0" />
-        <rgb name="alpha" value="0.05" />
+        <rgb name="alpha" value="0.5, 0.5, 0.5" />
         
-
-        
-        <rgb name="sigma_t" value="52.0" />
-        <rgb name="albedo" value="0.8" />
-
-        
-        
+        <!-- <rgb name="sigma_t" value="1.00, 1.00, 1.00" /> -->
+        <rgb name="sigma_t" value="25.00, 25.00, 25.00" />
+        <rgb name="albedo" value="0.88305, 0.183, 0.011" />
         
     </bsdf>
 
 
     <shape type="obj" id="init">
-        <string name="filename" value="../../smoothshape/duck_v2.obj" />
+        <!-- <string name="filename" value="../../smoothshape/cube_3_init_uv.obj" /> -->
+        <string name="filename" value="../../smoothshape/cube_subdiv25.obj" />
         <int name="layer_count" value="0" />
         <float name="layer_depth" value="0.15" />
-        
-        
-        
-        <string name="poly_coeff_b" value="../../polycoeffs/duck_gt_b.npy" />
-        <string name="poly_coeff_g" value="../../polycoeffs/duck_gt_g.npy" />
-        <string name="poly_coeff_r" value="../../polycoeffs/duck_gt_r.npy" />
-
-        
-        
         <ref id="opt" />
     </shape>
 
@@ -56,7 +44,6 @@
                 <lookat origin="0.17167392971669881, -0.5457063203346879, -1.9164374954071421" target="0.08583696485834941, -0.27285316016734396, -0.9582187477035711" up="0.024344627171586124, 0.9620556912085152, -0.2717649464908651" />
             </transform>
             <film type="hdrfilm" id="film-0-0">
-                
                 <integer name="width" value="512" />
                 <integer name="height" value="512" />
                 <string name="pixel_format" value="rgb" />

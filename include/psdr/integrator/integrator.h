@@ -20,10 +20,15 @@ public:
     // std::tuple<Vector3fC,Vector3fC,Vector3fC,Array<Array<float,20>,3>> sample_sub(const Scene &scene, Vector3f<false> pts, Vector3f<false> dir);
     std::tuple<Vector3fC,Vector3fC,Vector3fC,Vector20fC,Float<false>> sample_sub(const Scene &scene, Vector3f<false> pts, Vector3f<false> dir);
     template <bool ad>
+    // Deprecated
     std::tuple<BSDFSampleC,BSDFSampleC,Float<ad>> sample_boundary(const Scene &scene, const Ray<ad> &camera_ray) const;
     IntersectionC sample_boundary_(const Scene &scene, const Vector3fC &pts, const Vector3fC &dir); 
+
     std::tuple<Vector3fC,Vector3fC,Vector3fC,Vector3fC,Vector3fC,Vector3fC> sample_boundary_2(Scene &scene, int edge_idx);
     std::tuple<Vector3fD, Vector3fD, FloatD,Vector3fD,Vector3fD,Vector3fD> sample_boundary_3(const Scene &scene, const Vector3fC &pts, const Vector3fC &dir); 
+    // std::tuple<Vector3fD,IntC,Vector3fD,IntC,Vector3fD,FloatD,FloatD,FloatD> sample_boundary_4(const Scene &scene, int idx);
+    std::tuple<Vector3fD,IntC,Vector3fD,IntC,Vector3fD,FloatD,FloatD,SpectrumD,Vector3fC,Vector3fC,Vector3fC,Vector3fC> sample_boundary_4(const Scene &scene, int idx);
+    // std::tuple<Vector3f<true>,IntC,Vector3f<true>,IntC,Vector3f<true>,Float<true>,Float<true>,Float<true>> sample_boundary_4(const Scene &scene, const Vector3fC &pts, const Vector3fC &dir);
 // template FloatC Scene::emitter_position_pdf<false>(const Vector3fC&, const IntersectionC&, MaskC) const;
 // template FloatD Scene::emitter_position_pdf<true >(const Vector3fD&, const IntersectionD&, MaskD) const;
     // std::tuple<BSDFSampleC,BSDFSampleC,FloatC> sample_boundary(const Scene &scene, const RayC &camera_ray) const;
@@ -54,6 +59,14 @@ protected:
     virtual void render_secondary_edges(const Scene &scene, int sensor_id, SpectrumD &result) const {}
     virtual void render_secondary_edgesC(const Scene &scene, int sensor_id, SpectrumC &result) const {}
     virtual std::tuple<Vector3fD ,Vector3fD,FloatD,Vector3fD,Vector3fD,Vector3fD> _sample_boundary_3(const Scene &scene, RayC camera_ray, IntC idx, bool debug=false) const {}
+    // virtual std::tuple<Vector3f<ad>,IntC,Vector3f<ad>,IntC,Vector3f<ad>,Float<ad>,Float<ad>,Float<ad>> _eval_boundary_edge(const Scene &scene, const Sensor &sensor, const Vector3fC &sample3) const {}
+    // template <bool ad>
+    // virtual std::tuple<Vector3f<true>,IntC,Vector3f<true>,IntC,Vector3f<true>,Float<true>,Float<true>,Float<true>> _eval_boundary_edge(const Scene &scene, const Sensor &sensor, const Vector3fC &sample3,
+    // BoundarySegSampleDirect bss, SecondaryEdgeInfo sec_edge_info) const {}
+    virtual std::tuple<Vector3f<true>,IntC,Vector3f<true>,IntC,
+    Vector3f<true>,Float<true>,Float<true>,SpectrumD, //Float<true>,
+    Vector3fC,Vector3fC,Vector3fC,Vector3fC> _eval_boundary_edge(const Scene &scene, const Sensor &sensor, const Vector3fC &sample3,
+    BoundarySegSampleDirect bss, SecondaryEdgeInfo sec_edge_info) const {}
 
     template <bool ad>
     Spectrum<ad> __render(const Scene &scene, int sensor_id) const;
