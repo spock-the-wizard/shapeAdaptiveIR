@@ -778,7 +778,7 @@ std::tuple<Intersection<ad>,Float<ad>,Vector3f<ad>,Vector3f<ad>,Float<ad>,Inters
         Frame<ad> local_frame(inNormal);
 
         // FIXME: MATE2
-        float epsM = 0.1f;
+        float epsM = 0.05f;
         auto matePos = outPos* (1.0f + epsM);
 
         outPos = inPos + local_frame.to_world(outPos);

@@ -260,7 +260,7 @@ Spectrum<ad> DirectIntegrator::__Li(const Scene &scene, Sampler &sampler, const 
         auto po_f = (Le*bsdf_val); // &active1;
         pair_f = pair_f & active2;
         po_f = po_f & active1;
-        auto diff = (pair_f - po_f) / pdfpoint;
+        auto diff = - (pair_f - po_f) / pdfpoint;
         diff = detach(diff);
         masked(result,active) += diff * bs.maxDist - diff * detach(bs.maxDist);
     }
