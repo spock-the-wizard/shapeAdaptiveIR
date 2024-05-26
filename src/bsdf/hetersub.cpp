@@ -364,6 +364,8 @@ BSDFSample<ad> HeterSub::__sample_sub(const Scene *scene, const Intersection<ad>
     bs.rgb_rv = 1.0f;
     bs.velocity = 1.0f;
     bs.maxDist = 1.0f;
+    bs.pair = bs.po;
+    bs.pair2 = bs.po;
 
     return bs;
 }

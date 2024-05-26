@@ -308,9 +308,6 @@ Spectrum<ad> VaeSub::__eval_sub(const Intersection<ad> &its, const BSDFSample<ad
     // std::cout << "bs.po.J " << bs.po.J << std::endl;
     // std::cout << "active " << active << std::endl;
     
-    // std::cout << "hsum(hsum(value) " << hsum(hsum(value))<< std::endl;
-    // std::cout << "hsum(hsum(bs.po.J) " << hsum(hsum(bs.po.J)) << std::endl;
-    // std::cout << "hsum(hsum(1.0f-F) " << hsum(hsum(1.0f-F)) << std::endl;
     if constexpr ( ad ) {
         value = value * bs.po.J;    
     }
@@ -378,20 +375,40 @@ BSDFSample<ad> VaeSub::__sample(const Scene *scene, const Intersection<ad> &its,
     bs.maxDist = select(sample.x() > prob, bs.maxDist, bsdf_bs.maxDist);
     bs.velocity = select(sample.x() > prob, bs.velocity, bsdf_bs.velocity);
 
-    bs.pair.num = select(sample.x() > prob, bs.pair.num, bsdf_bs.pair.num);
-    bs.pair.n = select(sample.x() > prob, bs.pair.n, bsdf_bs.pair.n);
-    bs.pair.p = select(sample.x() > prob, bs.pair.p, bsdf_bs.pair.p);
-    bs.pair.J = select(sample.x() > prob, bs.pair.J, bsdf_bs.pair.J);
-    bs.pair.uv = select(sample.x() > prob, bs.pair.uv, bsdf_bs.pair.uv);
-    bs.pair.shape = select(sample.x() > prob, bs.pair.shape, bsdf_bs.pair.shape);
-    bs.pair.t = select(sample.x() > prob, bs.pair.t, bsdf_bs.pair.t);
-    bs.pair.wi = select(sample.x() > prob, bs.pair.wi, bsdf_bs.pair.wi);
-    bs.pair.sh_frame.s = select(sample.x() > prob, bs.pair.sh_frame.s, bsdf_bs.pair.sh_frame.s);
-    bs.pair.sh_frame.t = select(sample.x() > prob, bs.pair.sh_frame.t, bsdf_bs.pair.sh_frame.t);
-    bs.pair.sh_frame.n = select(sample.x() > prob, bs.pair.sh_frame.n, bsdf_bs.pair.sh_frame.n);
-    bs.pair.abs_prob = select(sample.x() > prob, bs.pair.abs_prob, bsdf_bs.pair.abs_prob);
-    bs.pair.poly_coeff = select(sample.x() > prob, bs.pair.poly_coeff, bsdf_bs.pair.poly_coeff);
-   
+    if constexpr(ad){
+
+        bs.pair.num = select(sample.x() > prob, bs.pair.num, bsdf_bs.pair.num);
+        bs.pair.n = select(sample.x() > prob, bs.pair.n, bsdf_bs.pair.n);
+        bs.pair.p = select(sample.x() > prob, bs.pair.p, bsdf_bs.pair.p);
+        bs.pair.J = select(sample.x() > prob, bs.pair.J, bsdf_bs.pair.J);
+        bs.pair.uv = select(sample.x() > prob, bs.pair.uv, bsdf_bs.pair.uv);
+        bs.pair.shape = select(sample.x() > prob, bs.pair.shape, bsdf_bs.pair.shape);
+        bs.pair.t = select(sample.x() > prob, bs.pair.t, bsdf_bs.pair.t);
+        bs.pair.wi = select(sample.x() > prob, bs.pair.wi, bsdf_bs.pair.wi);
+        bs.pair.sh_frame.s = select(sample.x() > prob, bs.pair.sh_frame.s, bsdf_bs.pair.sh_frame.s);
+        bs.pair.sh_frame.t = select(sample.x() > prob, bs.pair.sh_frame.t, bsdf_bs.pair.sh_frame.t);
+        bs.pair.sh_frame.n = select(sample.x() > prob, bs.pair.sh_frame.n, bsdf_bs.pair.sh_frame.n);
+        bs.pair.abs_prob = select(sample.x() > prob, bs.pair.abs_prob, bsdf_bs.pair.abs_prob);
+        bs.pair.poly_coeff = select(sample.x() > prob, bs.pair.poly_coeff, bsdf_bs.pair.poly_coeff);
+       
+        bs.pair2.num = select(sample.x() > prob, bs.pair2.num, bsdf_bs.pair2.num);
+        bs.pair2.n = select(sample.x() > prob, bs.pair2.n, bsdf_bs.pair2.n);
+        bs.pair2.p = select(sample.x() > prob, bs.pair2.p, bsdf_bs.pair2.p);
+        bs.pair2.J = select(sample.x() > prob, bs.pair2.J, bsdf_bs.pair2.J);
+        bs.pair2.uv = select(sample.x() > prob, bs.pair2.uv, bsdf_bs.pair2.uv);
+        bs.pair2.shape = select(sample.x() > prob, bs.pair2.shape, bsdf_bs.pair2.shape);
+        bs.pair2.t = select(sample.x() > prob, bs.pair2.t, bsdf_bs.pair2.t);
+        bs.pair2.wi = select(sample.x() > prob, bs.pair2.wi, bsdf_bs.pair2.wi);
+        bs.pair2.sh_frame.s = select(sample.x() > prob, bs.pair2.sh_frame.s, bsdf_bs.pair2.sh_frame.s);
+        bs.pair2.sh_frame.t = select(sample.x() > prob, bs.pair2.sh_frame.t, bsdf_bs.pair2.sh_frame.t);
+        bs.pair2.sh_frame.n = select(sample.x() > prob, bs.pair2.sh_frame.n, bsdf_bs.pair2.sh_frame.n);
+        bs.pair2.abs_prob = select(sample.x() > prob, bs.pair2.abs_prob, bsdf_bs.pair2.abs_prob);
+        bs.pair2.poly_coeff = select(sample.x() > prob, bs.pair2.poly_coeff, bsdf_bs.pair2.poly_coeff);
+    }
+    else{
+        bs.pair = bs.po;
+        bs.pair2 = bs.po;
+    }
 
     return bs;
 }
@@ -419,6 +436,7 @@ BSDFSample<ad> VaeSub::__sample_bsdf(const Intersection<ad> &its, const Vector8f
     bs.maxDist = full<Float<ad>>(-1.0f);
     bs.velocity = full<Vector3f<ad>>(0.0f);
     bs.pair = its;
+    bs.pair2 = its;
     bs.po.abs_prob = full<Float<ad>>(0.0f);
     return bs;
 }
@@ -430,7 +448,7 @@ BSDFSample<ad> VaeSub::__sample_sub(const Scene *scene, const Intersection<ad> &
     BSDFSample<ad> bs;
     Float<ad> pdf_po = Frame<ad>::cos_theta(its.wi);
     Vector3f<ad> dummy;
-    std::tie(bs.po, bs.rgb_rv,dummy,bs.velocity,bs.maxDist,bs.pair) = __sample_sp<ad>(scene, its, sample, pdf_po, active);
+    std::tie(bs.po, bs.rgb_rv,dummy,bs.velocity,bs.maxDist,bs.pair,bs.pair2) = __sample_sp<ad>(scene, its, sample, pdf_po, active);
     bs.wo = warp::square_to_cosine_hemisphere<ad>(tail<2>(sample));
     bs.pdf = pdf_po;
     bs.is_valid = active && (cos_theta_i > 0.f) && bs.po.is_valid();// && ( == its.shape->m_id);&& 
@@ -644,8 +662,8 @@ FloatD VaeSub::getKernelEps(const IntersectionD& its,FloatD idx) const
 
 FloatC VaeSub::getKernelEps(const IntersectionC& its,FloatC idx) const
 {
-    auto res = getKernelEps<false>(its,idx);
-    return res;
+auto res = getKernelEps<false>(its,idx);
+return res;
 }
 template <bool ad>
 Float<ad> VaeSub::getKernelEps(const Intersection<ad>& its,Float<ad> rnd) const {
@@ -693,15 +711,40 @@ Float<ad> VaeSub::getKernelEps(const Intersection<ad>& its,Float<ad> rnd) const 
 }
 
 template <bool ad>
-std::tuple<Intersection<ad>,Float<ad>,Vector3f<ad>,Vector3f<ad>,Float<ad>,Intersection<ad>> VaeSub::__sample_sp(const Scene *scene, const Intersection<ad> &its, const Vector8f<ad> &sample, Float<ad> &pdf, Mask<ad> active) const {        
-        using namespace std::chrono;
-        std::cout << "enter sample_sp " << std::endl;
-    
-        Float<ad> rnd = sample[5];
+Float<ad> VaeSub::getFitScaleFactor(const Intersection<ad> &its, Float<ad> sigma_t_ch, Float<ad> albedo_ch, Float<ad> g_ch) const
+    {
+        // Spectrum<ad> albedo = m_albedo.eval<ad>(its.uv);
+        // Float<ad> albedo_ch = select(rnd < (1.0f / 3.0f), albedo.x(),albedo.y());
+        // albedo_ch = select(rnd > (2.0f / 3.0f), albedo.z(),albedo_ch);
+        // Spectrum<ad> sigma_t = m_sigma_t.eval<ad>(its.uv);
+        // auto sigma_t_ch = select(rnd < (1.0f / 3.0f), sigma_t.x(),sigma_t.y());
+        // sigma_t_ch = select(rnd > (2.0f / 3.0f), sigma_t.z(),sigma_t_ch);
+        // Spectrum<ad> g = m_g.eval<ad>(its.uv);
+        // auto g_ch = select(rnd < (1.0f / 3.0f), g.x(),g.y());
+        // g_ch = select(rnd > (2.0f / 3.0f), g.z(),g_ch);
 
+        Float<ad> sigma_s = sigma_t_ch * albedo_ch;
+        auto sigma_a = sigma_t_ch - sigma_s;
+
+        auto miu_s_p = (1.0f - g_ch) * sigma_s;
+        auto miu_t_p = miu_s_p + sigma_a;
+        auto alpha_p = miu_s_p / miu_t_p;
+
+        auto effectiveAlbedo = -log(1.0f-alpha_p * (1.0f - exp(-8.0f))) / 8.0f;
+        auto val = 0.25f * g_ch + 0.25f * alpha_p + 1.0f * effectiveAlbedo;
+
+        Float<ad> kernelEps = 4.0f * val * val / (miu_t_p * miu_t_p);
+        return 1.0f/sqrt(kernelEps);
+    }
+
+template <bool ad>
+VaeSub::RetTypeSampleSp<ad> VaeSub::__sample_sp(const Scene *scene, const Intersection<ad> &its, const Vector8f<ad> &sample, Float<ad> &pdf, Mask<ad> active) const {        
+        using namespace std::chrono;
+        Float<ad> rnd = sample[5];
         // float is_plane = true;
         float is_plane = false;
         ///////////////////////////////
+        // float is_light_space = false;
         // float is_light_space = false;
         float is_light_space = true;
 
@@ -778,15 +821,33 @@ std::tuple<Intersection<ad>,Float<ad>,Vector3f<ad>,Vector3f<ad>,Float<ad>,Inters
         Frame<ad> local_frame(inNormal);
 
         // FIXME: MATE2
-        float epsM = 0.05f;
-        auto matePos = outPos* (1.0f + epsM);
+        // float epsM = 0.05f;
+        // float epsM = 0.01f;
+        // float epsM = 0.5f;
+        float epsM = 2.0f;
+
+        auto fitScaleFactor1 = getFitScaleFactor<ad>(its,sigma_t_ch+epsM,albedo_ch,g_ch);
+        auto fitScaleFactor2 = getFitScaleFactor<ad>(its,sigma_t_ch-epsM,albedo_ch,g_ch);
+        // auto matepos = outPos* (1.0f + epsM);
+        // auto matepos2 = outPos* (1.0f - epsM);
+        auto matepos = inPos + local_frame.to_world(outPos);
+        matepos = inPos + (matepos - inPos) / fitScaleFactor1;
+        auto matepos2 = inPos + local_frame.to_world(outPos);
+        matepos2 = inPos + (matepos2 - inPos) / fitScaleFactor2;
+        Vector3fC matePos = detach(matepos);
+        Vector3fC matePos2 = detach(matepos2);
 
         outPos = inPos + local_frame.to_world(outPos);
         outPos = inPos + (outPos - inPos) / fitScaleFactor;
 
-        // FIXME: MATE2
-        matePos = inPos + local_frame.to_world(matePos);
-        matePos = inPos + (matePos - inPos) / fitScaleFactor;
+        // // FIXME: MATE2
+
+        // auto matePos = outPos* (1.0f + epsM);
+        // auto matePos2 = outPos* (1.0f - epsM);
+        // matePos = inPos + local_frame.to_world(matePos);
+        // matePos = inPos + (matePos - inPos) / fitScaleFactor;
+        // matePos2 = inPos + local_frame.to_world(matePos2);
+        // matePos2 = inPos + (matePos2 - inPos) / fitScaleFactor;
 
 
         if(is_light_space)
@@ -800,6 +861,7 @@ std::tuple<Intersection<ad>,Float<ad>,Vector3f<ad>,Vector3f<ad>,Float<ad>,Inters
             shapeFeatures = zero<Array<Float<ad>,20>>();
             shapeFeatures[3] = 1.0f;
         }
+        // std::cout << "shapeFeatures " << shapeFeatures << std::endl;
 
         // NOTE: useLocalDir should be TRUE when using TS shape features
         // outPos should be in WORLD coords
@@ -817,17 +879,31 @@ std::tuple<Intersection<ad>,Float<ad>,Vector3f<ad>,Vector3f<ad>,Float<ad>,Inters
         
         tmax = 1.0f;
         Intersection<ad> its3;
-        float eps = 0.05f;
+        float eps = 0.01f;
         Mask<ad> msk;
+        // auto maxDist = 2*kernelEps + eps;
+        auto maxDist = 2*sqrt(kernelEps) + eps;
+        std::cout << " maxDist" <<  maxDist<< std::endl;
         if(true){
-            Ray<ad> ray3(outPos- eps*projDir, projDir); //,tmax);
+            Ray<ad> ray3(outPos- eps*projDir, projDir,maxDist); //,tmax);
             Intersection<ad> its3_front = scene->ray_intersect<ad, ad>(ray3, active);
-            Ray<ad> ray_back(outPos+ eps*projDir,-projDir); //tmax);
+            Ray<ad> ray_back(outPos+ eps*projDir,-projDir,maxDist); //tmax);
             Intersection<ad> its3_back = scene->ray_intersect<ad, ad>(ray_back,active);
-            msk = !(its3_back.is_valid() && (its3_front.t > its3_back.t));
+            // [var58] Added maxDist
+            msk = !(its3_back.is_valid() && (its3_front.t > its3_back.t)); 
+            
+            // For thin objects [var54]
+            // msk = (its3_front.is_valid()) && (norm(its3_front.p - its.p) < (its3_back.p - its.p));
+            // [var56]
+            // msk |= (its3_back.is_valid());
+            // [var 57]
+            // msk = !(its3_back.is_valid());
 
-            // active &= (its3_front.is_valid() | its3_back.is_valid());
+            // msk = !(its3_back.is_valid()); // && (norm(its3_front.p - its.p) < (its3_back.p - its.p));
+            // msk = !(its3_back.is_valid()) && (its3_front.t > its3_back.t));
 
+            active &= (its3_front.is_valid() | its3_back.is_valid());
+    
             its3.n = select(msk,its3_front.n,its3_back.n);
             its3.sh_frame.s = select(msk,its3_front.sh_frame.s,its3_back.sh_frame.s);
             its3.sh_frame.t = select(msk,its3_front.sh_frame.t,its3_back.sh_frame.t);
@@ -902,53 +978,118 @@ std::tuple<Intersection<ad>,Float<ad>,Vector3f<ad>,Vector3f<ad>,Float<ad>,Inters
             // t = normalize(t);
             // velocity =(-1.0f/detach(fitScaleFactor)/detach(fitScaleFactor)) * t * dfit;
         }
-        
+
+        // IntersectionC its3M;
+        // IntersectionC its3M2;
         // if constexpr(ad) {
-        //     // TODO: detach this
-        //     // Compute Mate's position
-        //     // Step 1. Propagate by epsilon in tangent direction
-        //     float eps = 0.05f;
-        //     auto relVector = detach(its3.p) - detach(its.p);
-        //     auto s = cross(Vector3fD(relVector),its3.n);
-        //     auto t = cross(its3.n,s);
-        //     Vector3f<ad> mate = its3.p + eps*Vector3fD(t);
+            
+        //     MaskC _msk;
+        
+        //     MaskC activeM = detach(active);
+        //     RayC ray3M(matePos- eps*detach(projDir), detach(projDir)); //,tmax);
+        //     IntersectionC its3_front_M = scene->ray_intersect<false>(ray3M, activeM);
+        //     RayC ray_backM(matePos+ eps*detach(projDir),-detach(projDir)); //tmax);
+        //     IntersectionC its3_back_M = scene->ray_intersect<false>(ray_backM,activeM);
+        //     _msk = !(its3_back_M.is_valid() && (its3_front_M.t > its3_back_M.t));
+        //     activeM &= (its3_front_M.is_valid() | its3_back_M.is_valid());
 
-        //     // Step 2. Project onto surface
-        //     auto ray_dir = select(msk,projDir,-projDir);
-        //     RayD rayMate(mate-eps*projDir,projDir);
-        //     // TODO: active should not matter? - Previously invalid samples do not get a gradient?
-        //     IntersectionD itsMate = scene->ray_intersect<ad,ad>(rayMate,active);
+        // its3M.n = select(_msk,its3_front_M.n,its3_back_M.n);
+        // its3M.sh_frame.s = select(_msk,its3_front_M.sh_frame.s,its3_back_M.sh_frame.s);
+        // its3M.sh_frame.t = select(_msk,its3_front_M.sh_frame.t,its3_back_M.sh_frame.t);
+        // its3M.sh_frame.n = select(_msk,its3_front_M.sh_frame.n,its3_back_M.sh_frame.n);
+        // its3M.uv = select(_msk,its3_front_M.uv,its3_back_M.uv);
+        // its3M.J = select(_msk,its3_front_M.J,its3_back_M.J);
+        // its3M.num = select(_msk,its3_front_M.num,its3_back_M.num);
+        // its3M.wi = select(_msk,its3_front_M.wi,its3_back_M.wi);
+        // its3M.p = select(_msk,its3_front_M.p,its3_back_M.p);
+        // its3M.t = select(_msk,its3_front_M.t,its3_back_M.t);
+        // its3M.shape = select(_msk,its3_front_M.shape,its3_back_M.shape);
+        // its3M.poly_coeff = detach(shapeFeatures);
+        // // // velocity = its3M.p;
+        // // //
+        // RayC ray3M2(matePos2- eps*detach(projDir), detach(projDir)); //,tmax);
+        // IntersectionC its3_front_M2 = scene->ray_intersect<false>(ray3M2, activeM);
+        // RayC ray_backM2(matePos2+ eps*detach(projDir),-detach(projDir)); //tmax);
+        // IntersectionC its3_back_M2 = scene->ray_intersect<false>(ray_backM2,activeM);
+        // _msk = !(its3_back_M2.is_valid() && (its3_front_M2.t > its3_back_M2.t));
+        // active &= (its3_front_M2.is_valid() | its3_back_M2.is_valid());
 
-        //     // Step 3. Save to velocity (tmp borrowing)
-        //     velocity = itsMate.p;
-
+        // its3M2.n = select(_msk,its3_front_M2.n,its3_back_M2.n);
+        // its3M2.sh_frame.s = select(_msk,its3_front_M2.sh_frame.s,its3_back_M2.sh_frame.s);
+        // its3M2.sh_frame.t = select(_msk,its3_front_M2.sh_frame.t,its3_back_M2.sh_frame.t);
+        // its3M2.sh_frame.n = select(_msk,its3_front_M2.sh_frame.n,its3_back_M2.sh_frame.n);
+        // its3M2.uv = select(_msk,its3_front_M2.uv,its3_back_M2.uv);
+        // its3M2.J = select(_msk,its3_front_M2.J,its3_back_M2.J);
+        // its3M2.num = select(_msk,its3_front_M2.num,its3_back_M2.num);
+        // its3M2.wi = select(_msk,its3_front_M2.wi,its3_back_M2.wi);
+        // its3M2.p = select(_msk,its3_front_M2.p,its3_back_M2.p);
+        // its3M2.t = select(_msk,its3_front_M2.t,its3_back_M2.t);
+        // its3M2.shape = select(_msk,its3_front_M2.shape,its3_back_M2.shape);
+        // its3M2.poly_coeff = detach(shapeFeatures);
+        // return RetTypeSampleSp<ad>(its3,sample[5],outPos,velocity,sigma_t_ch,IntersectionD(its3M),IntersectionD(its3M2));
         // }
-        // FIXME: MATE2
+        
+        // TODO: modify projection condition for backward
         Intersection<ad> its3M;
-        Ray<ad> ray3M(matePos- eps*projDir, projDir); //,tmax);
-        Intersection<ad> its3_front_M = scene->ray_intersect<ad, ad>(ray3M, active);
-        Ray<ad> ray_backM(matePos+ eps*projDir,-projDir); //tmax);
-        Intersection<ad> its3_back_M = scene->ray_intersect<ad, ad>(ray_backM,active);
-        msk = !(its3_back_M.is_valid() && (its3_front_M.t > its3_back_M.t));
-        // active &= (its3_front_M.is_valid() | its3_back_M.is_valid());
-
-        its3M.n = select(msk,its3_front_M.n,its3_back_M.n);
-        its3M.sh_frame.s = select(msk,its3_front_M.sh_frame.s,its3_back_M.sh_frame.s);
-        its3M.sh_frame.t = select(msk,its3_front_M.sh_frame.t,its3_back_M.sh_frame.t);
-        its3M.sh_frame.n = select(msk,its3_front_M.sh_frame.n,its3_back_M.sh_frame.n);
-        its3M.uv = select(msk,its3_front_M.uv,its3_back_M.uv);
-        its3M.J = select(msk,its3_front_M.J,its3_back_M.J);
-        its3M.num = select(msk,its3_front_M.num,its3_back_M.num);
-        its3M.wi = select(msk,its3_front_M.wi,its3_back_M.wi);
-        its3M.p = select(msk,its3_front_M.p,its3_back_M.p);
-        its3M.t = select(msk,its3_front_M.t,its3_back_M.t);
-        its3M.shape = select(msk,its3_front_M.shape,its3_back_M.shape);
-        its3M.poly_coeff = shapeFeatures;
-        // velocity = its3M.p;
-
-        // return std::tuple<Intersection<ad>,Float<ad>,Vector3f<ad>,Vector3f<ad>,Float<ad>>(its3,rnd,outPos,projDir,1.0f/fitScaleFactor);
-        return std::tuple<Intersection<ad>,Float<ad>,Vector3f<ad>,Vector3f<ad>,Float<ad>,Intersection<ad>>(its3,sample[5],outPos,velocity,sigma_t_ch,its3M);
+        Intersection<ad> its3M2;
+        if constexpr(ad) {
+           // =============================  
+            // [grad v59] 
+           // -----------------------------  
+            Ray<ad> ray3M(matePos- eps*detach(projDir), detach(projDir),maxDist); //,tmax);
+            Intersection<ad> its3_front_M = scene->ray_intersect<ad,ad>(ray3M, active);
+            Ray<ad> ray_backM(matePos+ eps*detach(projDir),-detach(projDir),maxDist);
+            Intersection<ad> its3_back_M = scene->ray_intersect<ad,ad>(ray_backM,active);
+            auto msk1 = !(its3_back_M.is_valid() && (its3_front_M.t > its3_back_M.t)); 
+            Ray<ad> ray3M2(matePos2- eps*detach(projDir), detach(projDir),maxDist);
+            Intersection<ad> its3_front_M2 = scene->ray_intersect<ad,ad>(ray3M2, active);
+            Ray<ad> ray_backM2(matePos2+ eps*detach(projDir),-detach(projDir),maxDist);
+            Intersection<ad> its3_back_M2 = scene->ray_intersect<ad,ad>(ray_backM2,active);
+            auto msk2 = !(its3_back_M2.is_valid() && (its3_front_M2.t > its3_back_M2.t)); 
+           // -----------------------------  
+            // Ray<ad> ray3M(matePos- eps*detach(projDir), detach(projDir)); //,tmax);
+            // Intersection<ad> its3_front_M = scene->ray_intersect<ad,ad>(ray3M, active);
+            // Ray<ad> ray_backM(matePos+ eps*detach(projDir),-detach(projDir)); //tmax);
+            // Intersection<ad> its3_back_M = scene->ray_intersect<ad,ad>(ray_backM,active);
+            // // msk = !(its3_back_M.is_valid() && (its3_front_M.t > its3_back_M.t));
+            // msk = (its3_front_M.is_valid()) && (norm(its3_front_M.p - its.p) < (its3_back_M.p - its.p));
+            // Ray<ad> ray3M2(matePos2- eps*detach(projDir), detach(projDir)); //,tmax);
+            // Intersection<ad> its3_front_M2 = scene->ray_intersect<ad,ad>(ray3M2, active);
+            // Ray<ad> ray_backM2(matePos2+ eps*detach(projDir),-detach(projDir)); //tmax);
+            // Intersection<ad> its3_back_M2 = scene->ray_intersect<ad,ad>(ray_backM2,active);
+            // // msk = !(its3_back_M2.is_valid() && (its3_front_M2.t > its3_back_M2.t));
+            // msk = (its3_front_M2.is_valid()) && (norm(its3_front_M2.p - its.p) < (its3_back_M2.p - its.p));
+           // =============================  
     
-} // namespace psdr
+            its3M.n = select(msk1,its3_front_M.n,its3_back_M.n);
+            its3M.sh_frame.s = select(msk1,its3_front_M.sh_frame.s,its3_back_M.sh_frame.s);
+            its3M.sh_frame.t = select(msk1,its3_front_M.sh_frame.t,its3_back_M.sh_frame.t);
+            its3M.sh_frame.n = select(msk1,its3_front_M.sh_frame.n,its3_back_M.sh_frame.n);
+            its3M.uv = select(msk1,its3_front_M.uv,its3_back_M.uv);
+            its3M.J = select(msk1,its3_front_M.J,its3_back_M.J);
+            its3M.num = select(msk1,its3_front_M.num,its3_back_M.num);
+            its3M.wi = select(msk1,its3_front_M.wi,its3_back_M.wi);
+            its3M.p = select(msk1,its3_front_M.p,its3_back_M.p);
+            its3M.t = select(msk1,its3_front_M.t,its3_back_M.t);
+            its3M.shape = select(msk1,its3_front_M.shape,its3_back_M.shape);
+            its3M.poly_coeff = shapeFeatures;
+            
+            its3M2.n = select(msk2,its3_front_M2.n,its3_back_M2.n);
+            its3M2.sh_frame.s = select(msk2,its3_front_M2.sh_frame.s,its3_back_M2.sh_frame.s);
+            its3M2.sh_frame.t = select(msk2,its3_front_M2.sh_frame.t,its3_back_M2.sh_frame.t);
+            its3M2.sh_frame.n = select(msk2,its3_front_M2.sh_frame.n,its3_back_M2.sh_frame.n);
+            its3M2.uv = select(msk2,its3_front_M2.uv,its3_back_M2.uv);
+            its3M2.J = select(msk2,its3_front_M2.J,its3_back_M2.J);
+            its3M2.num = select(msk2,its3_front_M2.num,its3_back_M2.num);
+            its3M2.wi = select(msk2,its3_front_M2.wi,its3_back_M2.wi);
+            its3M2.p = select(msk2,its3_front_M2.p,its3_back_M2.p);
+            its3M2.t = select(msk2,its3_front_M2.t,its3_back_M2.t);
+            its3M2.shape = select(msk2,its3_front_M2.shape,its3_back_M2.shape);
+            its3M2.poly_coeff = shapeFeatures;
 
+        }
+
+        return RetTypeSampleSp<ad>(its3,sample[5],outPos,velocity,sigma_t_ch,its3M,its3M2);
+}
+    
 } // namespace psdr

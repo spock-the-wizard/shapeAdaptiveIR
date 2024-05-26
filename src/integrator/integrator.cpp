@@ -477,18 +477,14 @@ std::tuple<Vector3fC, Vector3fC, Vector3fC, Vector20fC, FloatC> Integrator::samp
     auto res = vaesub_array[0] -> __sample_sp<ad>(&scene, its, (sampler.next_nd<8, false>()),pdf, active);
     auto res1 = vaesub_array[0] -> __sample_sub<ad>(&scene, its, (sampler.next_nd<8, false>()), active);
     auto res2 = vaesub_array[0] -> __eval_sub<ad>(its, res1, active);
-    // std::cout << "res1 " << res1 << std::endl;
-    std::cout << "res1.pdf " << res1.pdf << std::endl;
-    // std::cout << "res2 " << res2.x() << std::endl;
     auto weight = res2.x() / res1.pdf;
     // auto weight = res2.x();
-    std::cout << "weight " << weight << std::endl;
     // poly_coeffs = its.poly_coeffs
     Intersection<ad> its_sub;
     Float<ad> second;
     Vector3f<ad> outPos;
     Vector3f<ad> projDir;
-    std::tie(its_sub,second,outPos,projDir,std::ignore,std::ignore) = res;
+    std::tie(its_sub,second,outPos,projDir,std::ignore,std::ignore,std::ignore) = res;
     its_sub = res1.po;
 
 
@@ -522,9 +518,9 @@ SpectrumD Integrator::renderD(const Scene &scene, int sensor_id) const {
     SpectrumD result = __render<true>(scene, sensor_id);
     
     // NOTE: Do not test interior term wehn spp is nonzero.
-    if ( likely(scene.m_opts.sppe > 0) ) {
-        result = detach(result);
-    }
+    // if ( likely(scene.m_opts.sppe > 0) ) {
+    //     result = detach(result);
+    // }
     
     // TODO: testing WAS-based boundary term
     // __render_boundary(scene,sensor_id,result);
@@ -534,9 +530,9 @@ SpectrumD Integrator::renderD(const Scene &scene, int sensor_id) const {
     //     render_primary_edges(scene, sensor_id, result);
     // }
 
-    if ( likely(scene.m_opts.sppse > 0) ) {
-        render_secondary_edges(scene, sensor_id, result);
-    }
+    // if ( likely(scene.m_opts.sppse > 0) ) {
+    //     render_secondary_edges(scene, sensor_id, result);
+    // }
     
     cuda_eval(); cuda_sync();
 

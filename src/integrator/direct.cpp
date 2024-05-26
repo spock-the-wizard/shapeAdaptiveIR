@@ -145,6 +145,7 @@ Spectrum<ad> DirectIntegrator::__Li(const Scene &scene, Sampler &sampler, const 
     std::cout << "ad " << ad << std::endl;
     std::cout<<"rendering ... "<<std::endl;
 
+    const RenderOption &opts = scene.m_opts;
     auto active_tmp1 = active;
     Intersection<ad> its = scene.ray_intersect<ad>(ray, active);
     std::cout<<"intersection ... "<<std::endl;
@@ -153,25 +154,12 @@ Spectrum<ad> DirectIntegrator::__Li(const Scene &scene, Sampler &sampler, const 
 
     Spectrum<ad> result = zero<Spectrum<ad>>();
     BSDFArray<ad> bsdf_array = its.shape->bsdf(active);
-    // Spectrum<ad> sigmaT = bsdf_array->getSigmaT(its);
-    // set_requires_gradient(sigmaT);
-    // std::cout << "sigmaT " << sigmaT << std::endl;
 
     Mask<ad> maskl = Mask<ad>(active);
     Vector3f<ad> lightpoint = (scene.m_emitters[0]->sample_position(Vector3f<ad>(1.0f), Vector2f<ad>(1.0f), maskl)).p;
 
     BSDFSample<ad> bs;
     bs = bsdf_array->sample(&scene, its, sampler.next_nd<8, ad>(), active);
-    // if constexpr(ad){
-    //     if(count(active)>0){
-    //         backward(bs.po.p[0],true);
-    //         backward(bs.po.p[1],true);
-    //         backward(bs.po.p[2],true);
-    //         std::cout << "gradient(sigmaT) " << gradient(sigmaT) << std::endl;
-    //     }
-    // }
-    // std::cout << "bs.velocity " << bs.velocity << std::endl;
-    // std::cout << "bs.maxDist " << bs.maxDist << std::endl;
     
     Mask<ad> active1 = active && bs.is_valid;
 
@@ -207,62 +195,97 @@ Spectrum<ad> DirectIntegrator::__Li(const Scene &scene, Sampler &sampler, const 
     else{
         Le = scene.m_emitters[0]->eval(bs.po, active1);
     }
-
-    BSDFSample<ad> bsM = bs;
-    bsM.po = bs.pair;
-    auto active2 = active && bs.pair.is_valid();
-    Vector3f<ad> woM= lightpoint - bsM.po.p;
-    Float<ad> dist_sqrM = squared_norm(detach(woM));
-    Float<ad> distM = safe_sqrt(dist_sqrM);
-    woM = woM / distM;
-
-    bsM.wo = bsM.po.sh_frame.to_local(woM);
-    bsM.po.wi = bsM.wo;
-    // bsM.wo =  bsM.po.sh_frame.to_local(d0);
-    // bsM.po.wi =  bsM.wo;
-    // bsM.po = bs.pair;
-    // bsM.wo =  bsM.po.sh_frame.to_local(_dir);
-    // bsM.po.wi =  bsM.wo;
-    bsM.rgb_rv = bs.rgb_rv;
-    bsM.po.abs_prob = bs.po.abs_prob;
-    bsM.is_sub = bs.is_sub;
-    // std::cout << "bsM.is_sub " << bsM.is_sub << std::endl;
-    // NOTE: don't forget this part...!! Important for eval_sub or ... error bomb will strike
-    bsM.is_valid = bs.pair.is_valid();
-    bsM.pdf = bs.pdf;
-    bsM.po.J = bs.po.J;
-    bsM.maxDist = bs.maxDist;
-    bsM.velocity = bs.velocity;
-    
-    Ray<ad> ray1M(bsM.po.p, woM, distM);
-    // TODO: check active
-    Intersection<ad> its1M = scene.ray_intersect<ad, ad>(ray1M, active2);
-    active2 &= !its1M.is_valid();
-
-    Spectrum<ad> LeM;
-    Spectrum<ad> bsdf_valM;
-    if constexpr(ad){
-        bsdf_valM = bsdf_array->eval(its, bsM, active2);
-        LeM = scene.m_emitters[0]->eval(bsM.po, active2);
-        // std::cout << "hsum(bsdf_valM) " << hsum(bsdf_valM) << std::endl;
-        // std::cout << "count(active1) " << count(active1) << std::endl;
-        // std::cout << "count(active2) " << count(active2) << std::endl;
+    // Ours, FD Mode
+    if (opts.sppse > 0){ 
+        masked(result, active1) +=  detach(Le) * detach(bsdf_val) / detach(pdfpoint); //Spectrum<ad>(detach(dd));  
+    }
+    else{
+        masked(result, active1) +=  Le * (bsdf_val) / detach(pdfpoint); //Spectrum<ad>(detach(dd));  
     }
     // masked(result, active1) +=  bsdf_val * detach(Le)/ detach(pdfpoint); //Spectrum<ad>(detach(dd));  
     // Note: detached bsdf_val
     // masked(result, active1) +=  Le * detach(bsdf_val) / detach(pdfpoint); //Spectrum<ad>(detach(dd));  
-    // FIXME: MATE2
-    masked(result, active1) +=  detach(Le) * detach(bsdf_val) / detach(pdfpoint); //Spectrum<ad>(detach(dd));  
     
-    if constexpr(ad){
-        std::cout << "[Var 208] Testin Mate Idea2 - Before anything discontinuous happens...";
+    if  constexpr(ad) {
+        if (opts.sppse != 0){
+
+        BSDFSample<ad> bsM = bs;
+        bsM.po = bs.pair;
+        auto active2 = active && bs.pair.is_valid();
+        Vector3f<ad> woM= lightpoint - bsM.po.p;
+        Float<ad> dist_sqrM = squared_norm(detach(woM));
+        Float<ad> distM = safe_sqrt(dist_sqrM);
+        woM = woM / distM;
+
+        bsM.wo = bsM.po.sh_frame.to_local(woM);
+        bsM.po.wi = bsM.wo;
+        bsM.rgb_rv = bs.rgb_rv;
+        bsM.po.abs_prob = bs.po.abs_prob;
+        bsM.is_sub = bs.is_sub;
+        bsM.is_valid = bs.pair.is_valid();
+        bsM.pdf = bs.pdf;
+        bsM.po.J = bs.po.J;
+        bsM.maxDist = bs.maxDist;
+        bsM.velocity = bs.velocity;
+        
+        Ray<ad> ray1M(bsM.po.p, woM, distM);
+        Intersection<ad> its1M = scene.ray_intersect<ad, ad>(ray1M, active2);
+        active2 &= !its1M.is_valid();
+
+        Spectrum<ad> LeM;
+        Spectrum<ad> bsdf_valM;
+        bsdf_valM = bsdf_array->eval(its, bsM, active2);
+        LeM = scene.m_emitters[0]->eval(bsM.po, active2);
+
+        // NOTE: Negative sample
+        BSDFSample<ad> bsM2 = bs;
+        bsM2.po = bs.pair2;
+        auto active3 = active && bs.pair2.is_valid();
+        Vector3f<ad> woM2= lightpoint - bsM2.po.p;
+        Float<ad> dist_sqrM2 = squared_norm(detach(woM2));
+        Float<ad> distM2 = safe_sqrt(dist_sqrM2);
+        woM2 = woM2 / distM2;
+
+        bsM2.wo = bsM2.po.sh_frame.to_local(woM2);
+        bsM2.po.wi = bsM2.wo;
+        bsM2.rgb_rv = bs.rgb_rv;
+        bsM2.po.abs_prob = bs.po.abs_prob;
+        bsM2.is_sub = bs.is_sub;
+        bsM2.is_valid = bs.pair2.is_valid();
+        bsM2.pdf = bs.pdf;
+        bsM2.po.J = bs.po.J;
+        bsM2.maxDist = bs.maxDist;
+        bsM2.velocity = bs.velocity;
+        
+        Ray<ad> ray1M2(bsM2.po.p, woM2, distM2);
+        Intersection<ad> its1M2 = scene.ray_intersect<ad, ad>(ray1M2, active3);
+        active3 &= !its1M2.is_valid();
+
+        Spectrum<ad> LeM2;
+        Spectrum<ad> bsdf_valM2;
+        bsdf_valM2 = bsdf_array->eval(its, bsM2, active2);
+        LeM2 = scene.m_emitters[0]->eval(bsM2.po, active2);
+        
+        // ==========================================
+        // Mode 1
         auto pair_f = (LeM*bsdf_valM); // &active2;
-        auto po_f = (Le*bsdf_val); // &active1;
+        auto pair2_f = (LeM2*bsdf_valM2); // &active1;
         pair_f = pair_f & active2;
-        po_f = po_f & active1;
-        auto diff = - (pair_f - po_f) / pdfpoint;
+        pair2_f = pair2_f & active3;
+        auto diff = (pair_f - pair2_f) / detach(pdfpoint);
+        diff /= 2.0f; // delta
+
+        // // Mode 2: Negative sample
+        // auto pair_f = (LeM*bsdf_valM); // &active2;
+        // auto po_f = (Le*bsdf_val); // &active1;
+        // pair_f = pair_f & active2;
+        // po_f = po_f & active1;
+        // // auto diff = (pair_f - po_f) / pdfpoint;
+        // auto diff = - (pair_f - po_f) / pdfpoint;
+        // // ==========================================
         diff = detach(diff);
         masked(result,active) += diff * bs.maxDist - diff * detach(bs.maxDist);
+        }
     }
     
 

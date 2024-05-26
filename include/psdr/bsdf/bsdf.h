@@ -16,7 +16,10 @@ struct BSDFSample_ : public SampleRecord_<Float_> {
     Vector3f<ad> wo;
     // Xi Deng added to support bssrdf
     Intersection<ad> po;
-    Intersection<ad> pair;
+    Intersection<ad> pair; 
+    Intersection<ad> pair2;
+    // IntersectionC pair; 
+    // IntersectionC pair2;
     Mask<ad> is_sub;
 
     // Joon added
@@ -30,7 +33,7 @@ struct BSDFSample_ : public SampleRecord_<Float_> {
 
     ENOKI_DERIVED_STRUCT(BSDFSample_, Base,
         ENOKI_BASE_FIELDS(pdf, is_valid),
-        ENOKI_DERIVED_FIELDS(wo, po, pair,is_sub, rgb_rv,maxDist,velocity) //m_alpha_u,m_alpha_v,m_eta,m_g,m_albedo,m_sigma_t,m_specular_reflectance)
+        ENOKI_DERIVED_FIELDS(wo, po, pair,pair2,is_sub, rgb_rv,maxDist,velocity) //m_alpha_u,m_alpha_v,m_eta,m_g,m_albedo,m_sigma_t,m_specular_reflectance)
     )
 };
 
@@ -131,7 +134,7 @@ PSDR_CLASS_DECL_END(BSDF)
 
 } // namespace psdr
 
-ENOKI_STRUCT_SUPPORT(psdr::BSDFSample_, pdf, is_valid, wo, po, pair,is_sub,rgb_rv,maxDist,velocity) 
+ENOKI_STRUCT_SUPPORT(psdr::BSDFSample_, pdf, is_valid, wo, po, pair,pair2,is_sub,rgb_rv,maxDist,velocity) 
 
 ENOKI_CALL_SUPPORT_BEGIN(psdr::BSDF)
     ENOKI_CALL_SUPPORT_METHOD(eval)

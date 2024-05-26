@@ -114,15 +114,17 @@ public:
     FloatD pdf(const IntersectionD &its, const BSDFSampleD &wo, MaskD active = true) const override;
     // template <bool ad>
     // std::pair<Intersection<ad>,Float<ad>> __sample_sp(const Scene *scene, const Intersection<ad> &its, const Vector8f<ad> &sample, Float<ad> &pdf, Mask<ad>active) const;
+    template <bool ad>
+    using RetTypeSampleSp = std::tuple<Intersection<ad>,Float<ad>,Vector3f<ad>,Vector3f<ad>,Float<ad>,Intersection<ad>,Intersection<ad>>;
+
    template <bool ad>
-    std::tuple<Intersection<ad>,Float<ad>,Vector3f<ad>,Vector3f<ad>,Float<ad>,Intersection<ad>> __sample_sp(const Scene *scene, const Intersection<ad> &its, const Vector8f<ad> &sample, Float<ad> &pdf, Mask<ad>active) const;
+    RetTypeSampleSp<ad> __sample_sp(const Scene *scene, const Intersection<ad> &its, const Vector8f<ad> &sample, Float<ad> &pdf, Mask<ad>active) const;
     template <bool ad>
     BSDFSample<ad> __sample_sub(const Scene *scene, const Intersection<ad> &its, const Vector8f<ad> &sample, Mask<ad> active) const;
     template <bool ad>
     Float<ad> __pdf_sub(const Intersection<ad> &its, const BSDFSample<ad> &bs, Mask<ad> active) const;
     template <bool ad>
     Spectrum<ad> __eval_sub(const Intersection<ad> &its, const BSDFSample<ad> &bs, Mask<ad> active) const;
-   
     void setMonochrome(bool isMonochrome){
         m_monochrome = isMonochrome;
     }
@@ -131,6 +133,8 @@ public:
     bool hasbssdf() const override { return true; }
     template <bool ad>
     Float<ad> getKernelEps(const Intersection<ad>& its,Float<ad> idx) const;
+    template <bool ad>
+    Float<ad> getFitScaleFactor(const Intersection<ad> &its, Float<ad> sigma_t_ch, Float<ad> albedo_ch, Float<ad> g_ch) const;
     
     // FloatD absorption(const IntersectionD &its, Vector8fD &sample) const override {
     FloatD absorption(const IntersectionD &its, Vector8fD sample) const override {
