@@ -23,6 +23,8 @@
 #include <enoki/autodiff.h>
 #include <enoki/special.h>
 #include <enoki/random.h>
+#include <iostream>
+#include <fstream>
 
 namespace psdr
 {
@@ -85,6 +87,7 @@ Intersection<ad> Integrator::getIntersection(const Scene &scene, int sensor_id) 
 SpectrumC Integrator::renderC(const Scene &scene, int sensor_id) const {
     using namespace std::chrono;
     auto start_time = high_resolution_clock::now();
+    
 
     SpectrumC result = __render<false>(scene, sensor_id);
     
@@ -588,24 +591,19 @@ Spectrum<ad> Integrator::__render(const Scene &scene, int sensor_id) const {
 
         Int<ad> idx = arange<Int<ad>>(num_samples);
         if ( likely(opts.spp > 1) ) idx /= opts.spp;
-        // std::cout<<"idx: "<<slices(idx)<<std::endl;
         Vector2f<ad> samples_base = gather<Vector2f<ad>>(meshgrid(arange<Float<ad>>(opts.cropwidth),
                                                         arange<Float<ad>>(opts.cropheight)),
                                                         idx);
-        // std::cout << "samples_base " << samples_base << std::endl;
-
 
         Vector2f<ad> samples = (samples_base + scene.m_samplers[0].next_2d<ad>())
                                 / ScalarVector2f(opts.cropwidth, opts.cropheight);
-        // std::cout<<"sampled: "<<slices(samples)<<std::endl;
+        // Vector2f<ad> samples = (samples_base)
+        //                         / ScalarVector2f(opts.cropwidth, opts.cropheight);
+        
         Ray<ad> camera_ray = scene.m_sensors[sensor_id]->sample_primary_ray(samples);
-        // std::cout<<"camera_ray: "<<slices(camera_ray)<<std::endl;
         Spectrum<ad> value = Li(scene, scene.m_samplers[0], camera_ray, true, sensor_id);
         masked(value, ~enoki::isfinite<Spectrum<ad>>(value)) = 0.f;
-        // FIXME: tmp setting
         scatter_add(result, value, idx);
-        // scatter_add(result, detach(value), idx);
-        // std::cout << "max(value) " << count(value!=0.0f) << std::endl;
         }
 
         if ( likely(opts.spp > 1) ) {
@@ -613,7 +611,6 @@ Spectrum<ad> Integrator::__render(const Scene &scene, int sensor_id) const {
         }
             
 
-    // // TODO: Normal
     return result;
     // // Debugging
     // return zero<Spectrum<ad>>(num_pixels);

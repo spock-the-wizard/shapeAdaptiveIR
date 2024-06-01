@@ -139,6 +139,34 @@ Spectrum<ad> DirectIntegrator::__Li_shape(const Scene &scene, Sampler &sampler, 
 }
 
 
+template <bool ad>
+Spectrum<ad> DirectIntegrator::getContribution(const Scene &scene, BSDFArray<ad> bsdf_array, Intersection<ad> its, BSDFSample<ad> bs, Mask<ad> active) const {
+    // active: validity of input bs
+    const RenderOption &opts = scene.m_opts;
+
+    Vector3f<ad> lightpoint = (scene.m_emitters[0]->sample_position(Vector3f<ad>(1.0f), Vector2f<ad>(1.0f), active)).p;
+    Vector3f<ad> wo = lightpoint - bs.po.p;
+    Float<ad> dist_sqr = squared_norm(detach(wo));
+    Float<ad> dist = safe_sqrt(dist_sqr);
+    wo = wo / dist;
+
+    bs.wo = bs.po.sh_frame.to_local(wo);
+    bs.po.wi = bs.wo;
+
+    auto active1 = active;
+    Ray<ad> ray(bs.po.p, wo, dist);
+    Intersection<ad> its1 = scene.ray_intersect<ad, ad>(ray, active1);
+    active1 &= !its1.is_valid(); 
+
+    Spectrum<ad> bsdf_val = bsdf_array->eval(its, bs, active1);
+    Float<ad> pdfpoint = bsdf_array->pdfpoint(its, bs, active1);
+    Spectrum<ad> Le = scene.m_emitters[0]->eval(bs.po, active1);
+
+    // return ((bsdf_val)) & active1;
+    // return (bsdf_val / pdfpoint) & active1;
+    return ((Le * bsdf_val) / pdfpoint);// & active1;
+    // return ((Le)); // / pdfpoint) & active1;
+}
 
 template <bool ad>
 Spectrum<ad> DirectIntegrator::__Li(const Scene &scene, Sampler &sampler, const Ray<ad> &ray, Mask<ad> active) const {
@@ -146,134 +174,265 @@ Spectrum<ad> DirectIntegrator::__Li(const Scene &scene, Sampler &sampler, const 
     std::cout<<"rendering ... "<<std::endl;
 
     const RenderOption &opts = scene.m_opts;
-    auto active_tmp1 = active;
+
+    // Intersection<false> its_ = scene.ray_intersect<false>(detach(ray), detach(active));
     Intersection<ad> its = scene.ray_intersect<ad>(ray, active);
     std::cout<<"intersection ... "<<std::endl;
-
+    // Float<ad> cos_theta_i = Frame<ad>::cos_theta(its.wi);
+    // active &= (cos_theta_i > 0.f); //
     active &= its.is_valid();
+
+    // std::ofstream outfile_("its_.txt");
+    // auto tmp_ = its.p[0]; 
+    // masked(tmp_,~isfinite(tmp_)) = 0.0f;
+    // for (int i=0;i<slices(its);i++){
+    //     outfile_ << tmp_[i] << std::endl;;
+    // }
+    // outfile_.close();
 
     Spectrum<ad> result = zero<Spectrum<ad>>();
     BSDFArray<ad> bsdf_array = its.shape->bsdf(active);
 
-    Mask<ad> maskl = Mask<ad>(active);
-    Vector3f<ad> lightpoint = (scene.m_emitters[0]->sample_position(Vector3f<ad>(1.0f), Vector2f<ad>(1.0f), maskl)).p;
-
     BSDFSample<ad> bs;
+
+    // std::cout << "[var267] Testing with fixed random seed " << std::endl;
+    // Sampler sampler_debug;
+    // sampler_debug.seed(arange<UInt64C>(sampler.m_sample_count));
+    // bs = bsdf_array->sample(&scene, its, sampler_debug.next_nd<8, ad>(), active);
     bs = bsdf_array->sample(&scene, its, sampler.next_nd<8, ad>(), active);
-    
+
     Mask<ad> active1 = active && bs.is_valid;
-
-    Vector3f<ad> wo = lightpoint - bs.po.p;
-    Float<ad> dist_sqr = squared_norm(detach(wo));
-    Float<ad> dist = safe_sqrt(dist_sqr);
-    wo = wo / dist;
-
-    // Directly connect to point light
-    bs.wo = bs.po.sh_frame.to_local(wo);
-    bs.po.wi = bs.wo;
-    Ray<ad> ray1(bs.po.p, wo, dist);
-    Intersection<ad> its1 = scene.ray_intersect<ad, ad>(ray1, active1);
-
-    // Note the negation as we are casting rays TO the light source.
-    // Occlusion indicates Invisibility
-    active1 &= !its1.is_valid(); 
-
-    Spectrum<ad> bsdf_val;
-    if constexpr ( ad ) {
-        bsdf_val = bsdf_array->eval(its, bs, active1);
-    } else {
-        bsdf_val = bsdf_array->eval(its, bs, active1);
-    }
-    
-    Float<ad> pdfpoint = bsdf_array->pdfpoint(its, bs, active1);
-    Spectrum<ad> Le;
-    // Spectrum<ad> Le_inv;
-
-    if constexpr ( ad ) {
-        Le = scene.m_emitters[0]->eval(bs.po, active1);
+    // if (opts.sppse > 0){ 
+    if ( likely(opts.sppse > 0) ) {
+        // auto value = getContribution<false>(scene,detach(bsdf_array),detach(its),detach(bs),detach(active1));
+        auto value = getContribution<true>(scene,bsdf_array,its,bs,active1);
+        masked(result, active1) += detach(value);
+        // auto tmp3 = bs.po.p[1] & active1;
+        // std::ofstream outfile("off_.txt");//
+        // for (int i=0;i<slices(bs.po.p);i++){
+        //    outfile << tmp3[i] << std::endl;
+        // }
+        // std::cout << "value " << value << std::endl;
+        // outfile.close();
+        // std::cout << "wrote to file off_.txt " << std::endl;
+        // std::ofstream outfile_("f_.txt");
+        // for (int i=0;i<slices(bs.po.p);i++){
+        //     // outfile_ << active1[i] << std::endl;;
+        //     outfile_ << value[1][i] << std::endl;;
+        // }
+        // outfile_.close();
+        // std::cout << "wrote to file f_.txt " << std::endl;
     }
     else{
-        Le = scene.m_emitters[0]->eval(bs.po, active1);
+        auto value = getContribution<ad>(scene,bsdf_array,its,bs,active1);
+        masked(result, active1) +=  value; //active; //Le * (bsdf_val) / detach(pdfpoint); //Spectrum<ad>(detach(dd));  
     }
-    // Ours, FD Mode
-    if (opts.sppse > 0){ 
-        masked(result, active1) +=  detach(Le) * detach(bsdf_val) / detach(pdfpoint); //Spectrum<ad>(detach(dd));  
-    }
-    else{
-        masked(result, active1) +=  Le * (bsdf_val) / detach(pdfpoint); //Spectrum<ad>(detach(dd));  
-    }
-    // masked(result, active1) +=  bsdf_val * detach(Le)/ detach(pdfpoint); //Spectrum<ad>(detach(dd));  
-    // Note: detached bsdf_val
-    // masked(result, active1) +=  Le * detach(bsdf_val) / detach(pdfpoint); //Spectrum<ad>(detach(dd));  
     
+
+
     if  constexpr(ad) {
         if (opts.sppse != 0){
-
         BSDFSample<ad> bsM = bs;
         bsM.po = bs.pair;
-        auto active2 = active && bs.pair.is_valid();
-        Vector3f<ad> woM= lightpoint - bsM.po.p;
-        Float<ad> dist_sqrM = squared_norm(detach(woM));
-        Float<ad> distM = safe_sqrt(dist_sqrM);
-        woM = woM / distM;
-
-        bsM.wo = bsM.po.sh_frame.to_local(woM);
-        bsM.po.wi = bsM.wo;
+        auto activeM = active && bs.pair.is_valid();
         bsM.rgb_rv = bs.rgb_rv;
         bsM.po.abs_prob = bs.po.abs_prob;
         bsM.is_sub = bs.is_sub;
-        bsM.is_valid = bs.pair.is_valid();
+        bsM.is_valid = activeM;
         bsM.pdf = bs.pdf;
         bsM.po.J = bs.po.J;
         bsM.maxDist = bs.maxDist;
         bsM.velocity = bs.velocity;
+        auto value_0 = getContribution<false>(scene,detach(bsdf_array),detach(its),detach(bsM),detach(activeM));
+        // auto value_0 = getContribution<true>(scene,bsdf_array,its,bsM,Mask<ad>(activeM));
+        // std::cout << "value_0 " << value_0 << std::endl;
+        // auto value_0 = detach(value_0_);
         
-        Ray<ad> ray1M(bsM.po.p, woM, distM);
-        Intersection<ad> its1M = scene.ray_intersect<ad, ad>(ray1M, active2);
-        active2 &= !its1M.is_valid();
-
-        Spectrum<ad> LeM;
-        Spectrum<ad> bsdf_valM;
-        bsdf_valM = bsdf_array->eval(its, bsM, active2);
-        LeM = scene.m_emitters[0]->eval(bsM.po, active2);
-
-        // NOTE: Negative sample
         BSDFSample<ad> bsM2 = bs;
         bsM2.po = bs.pair2;
-        auto active3 = active && bs.pair2.is_valid();
-        Vector3f<ad> woM2= lightpoint - bsM2.po.p;
-        Float<ad> dist_sqrM2 = squared_norm(detach(woM2));
-        Float<ad> distM2 = safe_sqrt(dist_sqrM2);
-        woM2 = woM2 / distM2;
-
-        bsM2.wo = bsM2.po.sh_frame.to_local(woM2);
-        bsM2.po.wi = bsM2.wo;
+        auto activeM2 = active && bs.pair2.is_valid();
+        bsM2.is_valid = activeM2;
         bsM2.rgb_rv = bs.rgb_rv;
         bsM2.po.abs_prob = bs.po.abs_prob;
         bsM2.is_sub = bs.is_sub;
-        bsM2.is_valid = bs.pair2.is_valid();
         bsM2.pdf = bs.pdf;
         bsM2.po.J = bs.po.J;
         bsM2.maxDist = bs.maxDist;
         bsM2.velocity = bs.velocity;
+        auto value_1 = getContribution<false>(scene,detach(bsdf_array),detach(its),detach(bsM2),detach(activeM2));
+        // auto value_1 = getContribution<true>(scene,bsdf_array,its,bsM2,activeM2);
+        // auto value_1 = detach(value_1_);
         
-        Ray<ad> ray1M2(bsM2.po.p, woM2, distM2);
-        Intersection<ad> its1M2 = scene.ray_intersect<ad, ad>(ray1M2, active3);
-        active3 &= !its1M2.is_valid();
+        // masked(value_0, ~enoki::isfinite<SpectrumD>(value_0)) = 0.f;
+        // masked(value_1, ~enoki::isfinite<SpectrumD>(value_1)) = 0.f;
+        masked(value_0, ~enoki::isfinite<SpectrumC>(value_0)) = 0.f;
+        masked(value_1, ~enoki::isfinite<SpectrumC>(value_1)) = 0.f;
 
-        Spectrum<ad> LeM2;
-        Spectrum<ad> bsdf_valM2;
-        bsdf_valM2 = bsdf_array->eval(its, bsM2, active2);
-        LeM2 = scene.m_emitters[0]->eval(bsM2.po, active2);
+        // std::ofstream outfile1("off_plus.txt");
+        // auto tmp1 = bsM.po.p[1] & activeM;
+        // for (int i=0;i<slices(bs.po.p);i++){
+        //     outfile1 << tmp1[i] << std::endl;;
+        // }
+        // outfile1.close();
+        // std::ofstream outfile2("off_minus.txt");
+        // auto tmp2 = bsM2.po.p[1] & activeM2;
+        // for (int i=0;i<slices(bs.po.p);i++){
+        //     outfile2 << tmp2[i] << std::endl;;
+        // }
+        // outfile2.close();
+
+        // std::ofstream outfile_1("f_plus.txt");
+        // for (int i=0;i<slices(bs.po.p);i++){
+        //     outfile_1 << value_0[1][i] << std::endl;;
+        //     // outfile_1 << activeM[i] << std::endl;;
+        // }
+        // outfile_1.close();
+        // std::cout << "wrote to file f + .txt " << std::endl;
+        // std::ofstream outfile_2("f_minus.txt");
+        // for (int i=0;i<slices(bs.po.p);i++){
+        //     // outfile_2 << activeM2[i] << std::endl;;
+        //     outfile_2 << value_1[1][i] << std::endl;;
+        // }
+        // outfile_2.close();
+        // std::cout << "wrote to file f - .txt " << std::endl;
+
+        // std::ofstream outfile1("f_plus.txt");
+        // for (int i=0;i<slices(bs.po.p);i++){
+        //     outfile1 << value_0[0][i] << std::endl;;
+        // }
+        // outfile1.close();
+        // std::cout << "wrote to file f + .txt " << std::endl;
+        // std::ofstream outfile2("f_minus.txt");
+        // for (int i=0;i<slices(bs.po.p);i++){
+        //     outfile2 << value_1[0][i] << std::endl;;
+        // }
+        // outfile2.close();
+        // std::cout << "wrote to file f - .txt " << std::endl;
+
+        float epsM = 5.0f;
+        // TODO: support multi channel
+        Vector3fD diff = (value_0 - value_1) / 2.0f / epsM;
+        result += bs.maxDist * diff - diff * detach(bs.maxDist);
+        // bs.maxDist = bs.maxDist * diff;
+        // bsdf_array->set_grad(0,diff);
+        // set_gradient(bs.maxDist,diff);
+        // auto active_ = activeM | activeM2;
+        // result += diff * bs.maxDist - diff * detach(bs.maxDist);
+        // masked(result, active_) += diff * bs.maxDist - diff * detach(bs.888maxDist);
+        
+        // Vector3f<ad> woM= lightpoint - bsM.po.p;
+        // Float<ad> dist_sqrM = squared_norm(detach(woM));
+        // Float<ad> distM = safe_sqrt(dist_sqrM);
+        // woM = woM / distM;
+
+        // bsM.wo = bsM.po.sh_frame.to_local(woM);
+        // bsM.po.wi = bsM.wo;
+        
+        // Ray<ad> ray1M(bsM.po.p, woM, distM);
+        // Intersection<ad> its1M = scene.ray_intersect<ad, ad>(ray1M, active2);
+        // active2 &= !its1M.is_valid();
+
+        // Spectrum<ad> LeM;
+        // Spectrum<ad> bsdf_valM;
+        // bsdf_valM = bsdf_array->eval(its, bsM, active2);
+        // LeM = scene.m_emitters[0]->eval(bsM.po, active2);
+
+        // NOTE: Negative sample
+        // BSDFSample<ad> bsM2 = bs;
+        // bsM2.po = bs.pair2;
+        // auto active3 = active && bs.pair2.is_valid();
+
+        // Vector3f<ad> woM2= lightpoint - bsM2.po.p;
+        // Float<ad> dist_sqrM2 = squared_norm(detach(woM2));
+        // Float<ad> distM2 = safe_sqrt(dist_sqrM2);
+        // woM2 = woM2 / distM2;
+
+        // bsM2.wo = bsM2.po.sh_frame.to_local(woM2);
+        // bsM2.po.wi = bsM2.wo;
+        // bsM2.rgb_rv = bs.rgb_rv;
+        // bsM2.po.abs_prob = bs.po.abs_prob;
+        // bsM2.is_sub = bs.is_sub;
+        // bsM2.is_valid = bs.pair2.is_valid();
+        // bsM2.pdf = bs.pdf;
+        // bsM2.po.J = bs.po.J;
+        // bsM2.maxDist = bs.maxDist;
+        // bsM2.velocity = bs.velocity;
+        
+        // Ray<ad> ray1M2(bsM2.po.p, woM2, distM2);
+        // Intersection<ad> its1M2 = scene.ray_intersect<ad, ad>(ray1M2, active3);
+        // active3 &= !its1M2.is_valid();
+
+        // Spectrum<ad> LeM2;
+        // Spectrum<ad> bsdf_valM2;
+        // bsdf_valM2 = bsdf_array->eval(its, bsM2, active3);
+        // LeM2 = scene.m_emitters[0]->eval(bsM2.po, active3);
+        
+        // Float<ad> pdfpoint1 = bsdf_array->pdfpoint(its, bsM, active2);
+        // Float<ad> pdfpoint2 = bsdf_array->pdfpoint(its, bsM2, active3);
         
         // ==========================================
+        
+        // DEBUG: compare location
+        // std::ofstream outfile("offset_plus.txt");
+        // for (int i=0;i<slices(bsM.po.p);i++){
+        //     auto sl = bsM.po.p.x()[i];
+        //     outfile << sl << std::endl;;
+        // }
+        // outfile.close();
+        // std::ofstream outfile2("offset_minus.txt");
+        // for (int i=0;i<slices(bsM2.po.p);i++){
+        //     auto sl = bsM2.po.p.x()[i];
+        //     outfile2 << sl << std::endl;;
+        // }
+        // outfile2.close();
+
         // Mode 1
-        auto pair_f = (LeM*bsdf_valM); // &active2;
-        auto pair2_f = (LeM2*bsdf_valM2); // &active1;
-        pair_f = pair_f & active2;
-        pair2_f = pair2_f & active3;
-        auto diff = (pair_f - pair2_f) / detach(pdfpoint);
-        diff /= 2.0f; // delta
+        // auto pair_f = (LeM*bsdf_valM) / detach(pdfpoint1); // &active2;
+        // auto pair2_f = (LeM2*bsdf_valM2) / detach(pdfpoint2); // &active1;
+        // pair_f = pair_f & active2;
+        // pair2_f = pair2_f & active3;
+        
+        // [var 251] show positive sample
+        // auto diff = (pair_f) / detach(pdfpoint);
+        // auto diff = (pair2_f) / detach(pdfpoint);
+        // auto diff = (pair_f - pair2_f) / detach(pdfpoint);
+        // auto diff = (pair_f - pair2_f); //- pair2_f) / detach(pdfpoint);
+        // diff /= (5.0f*2.0f); // delta
+        // diff = detach(diff);
+        // // [var239] Include invalid samples in the primal domain
+        // // ==========================================
+        // result += diff * bs.maxDist;
+        // result -= diff * detach(bs.maxDist);
+        
+        // std::ofstream outfile1("f_plus.txt");
+        // auto pair_fm = hmean(LeM) & active2; // / detach(pdfpoint1);
+        // masked(pair_fm,isnan(pair_fm)) = 0.0f;
+        // for (int i=0;i<slices(bs.po.p);i++){
+        //     outfile1 << pair_fm[i] << std::endl;;
+        // }
+        // outfile1.close();
+        // std::cout << "wrote to file f + .txt " << std::endl;
+        // std::ofstream outfile2("f_minus.txt");
+        // auto pair2_fm = hmean(LeM2) & active3; //*bsdf_valM2) / detach(pdfpoint2);
+        // masked(pair2_fm,isnan(pair2_fm)) = 0.0f;
+        // for (int i=0;i<slices(bs.po.p);i++){
+        //     outfile2 << pair2_fm[i] << std::endl;;
+        // }
+        // outfile2.close();
+        // std::cout << "wrote to file f - .txt " << std::endl;
+        // masked(result,active) += diff * bs.maxDist - diff * detach(bs.maxDist);
+        // ==========================================
+
+        // ==========================================
+        // FIXME: tmp disabled FD idea
+        // ------------------------------------------
+        // std::cout << "[var 223] Integrate into boundary integral" << std::endl;
+        // auto velocity = bs.velocity.x(); //
+        // auto velocity = norm(bs.velocity);
+        // diff = detach(diff);
+        // masked(result,active) += diff * velocity - diff * detach(velocity);
+        // ==========================================
+        
 
         // // Mode 2: Negative sample
         // auto pair_f = (LeM*bsdf_valM); // &active2;
@@ -281,13 +440,13 @@ Spectrum<ad> DirectIntegrator::__Li(const Scene &scene, Sampler &sampler, const 
         // pair_f = pair_f & active2;
         // po_f = po_f & active1;
         // // auto diff = (pair_f - po_f) / pdfpoint;
-        // auto diff = - (pair_f - po_f) / pdfpoint;
+        // auto diff = (pair_f - po_f) / pdfpoint;
+        // diff /= (2.0f*2.0f); // delta
+        // diff = detach(diff);
+        // masked(result,active) += diff * bs.maxDist - diff * detach(bs.maxDist);
         // // ==========================================
-        diff = detach(diff);
-        masked(result,active) += diff * bs.maxDist - diff * detach(bs.maxDist);
         }
     }
-    
 
     return result;
 }

@@ -82,6 +82,7 @@ PYBIND11_MODULE(psdr_cuda, m) {
         .def_readwrite("sppse", &RenderOption::sppse)
         .def_readwrite("sppsce", &RenderOption::sppsce)
         .def_readwrite("log_level", &RenderOption::log_level)
+        .def_readwrite("rgb", &RenderOption::rgb)
         .def("__repr__",
             [](const RenderOption &ro) {
                 std::stringstream oss;

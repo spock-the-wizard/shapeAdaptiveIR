@@ -42,6 +42,7 @@ SpectrumD HeterSub::eval(const IntersectionD &its, const BSDFSampleD &bs, MaskD 
 }
 
 FloatC HeterSub::pdfpoint(const IntersectionC &its, const BSDFSampleC &bs, MaskC active) const {
+    return __pdf_sub<false>(its,bs,active) & active;
     FloatC cos_theta_i = Frame<false>::cos_theta(detach(its.wi));
     SpectrumC Fersnelterm = __FersnelDi<false>(1.0f, m_eta.eval<false>(detach(its.uv)), cos_theta_i);
     FloatC F = Fersnelterm.x();
@@ -50,6 +51,7 @@ FloatC HeterSub::pdfpoint(const IntersectionC &its, const BSDFSampleC &bs, MaskC
 }
 
 FloatD HeterSub::pdfpoint(const IntersectionD &its, const BSDFSampleD &bs, MaskD active) const {
+    return __pdf_sub<true>(its,bs,active) & active;
     FloatD cos_theta_i = Frame<true>::cos_theta(its.wi);
     SpectrumD Fersnelterm = __FersnelDi<true>(1.0f, m_eta.eval<true>(its.uv), cos_theta_i);
     FloatD F = Fersnelterm.x();
@@ -250,21 +252,9 @@ Spectrum<ad> HeterSub::__eval_sub(const Intersection<ad> &its, const BSDFSample<
     Spectrum<ad> sw =  __Sw<ad>(bs.po, bs.wo, active);
     
     Spectrum<ad> value;
-    if constexpr(ad){
-        // auto sigma_t = m_sigma_t.eval<ad>(its.uv);
-        // set_requires_gradient(sigma_t);
-        // auto albedo = m_albedo.eval<ad>(its.uv);
-        // set_requires_gradient(albedo);
-        value = sp * sw * (1.0f - F) * cos_theta_o;
-    //     forward(albedo[0]);
-    //     forward(albedo[1]);
-    //     forward(albedo[2]);
-    // std::cout << "gradient(value[0]) " << gradient(value) << std::endl;
-        
-    }
-    else{
-        value = sp * sw * (1.0f - F) * cos_theta_o;
-    }
+    // Joon modified: testing null BSDF
+    value = sp * sw  * cos_theta_o;
+    // value = sp * sw * (1.0f - F) * cos_theta_o;
     if constexpr ( ad ) {
         value = value * bs.po.J;    
     }
@@ -284,6 +274,7 @@ BSDFSampleD HeterSub::sample(const Scene *scene, const IntersectionD &its, const
 template <bool ad>
 BSDFSample<ad> HeterSub::__sample(const Scene *scene, const Intersection<ad> &its, const Vector8f<ad> &sample, Mask<ad> active) const {
     BSDFSample<ad> bs = __sample_sub<ad>(scene, its, sample, active);
+    return bs;
     BSDFSample<ad> bsdf_bs =  __sample_bsdf<ad>(its, sample, active);
 
     FloatC cos_theta_i = Frame<false>::cos_theta(detach(its.wi));

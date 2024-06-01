@@ -218,11 +218,11 @@ using UInt64C   = Type<uint64_t, false>;
 // Render options
 
 struct RenderOption {
-    RenderOption() : width(128), height(128), spp(1), sppe(1), log_level(1) { cropwidth = width; cropheight = height; cropoffset_x = 0, cropoffset_y = 0;}
-    RenderOption(int w, int h, int s) : width(w), height(h), spp(s), sppe(s), sppse(s), log_level(1) {cropwidth = width; cropheight = height; cropoffset_x = 0, cropoffset_y = 0;}
-    RenderOption(int w, int h, int s1, int s2) : width(w), height(h), spp(s1), sppe(s2), sppse(s2), log_level(1) {cropwidth = width; cropheight = height; cropoffset_x = 0, cropoffset_y = 0;}
-    RenderOption(int w, int h, int s1, int s2, int s3) : width(w), height(h), spp(s1), sppe(s2), sppse(s3), log_level(1) {cropwidth = width; cropheight = height; cropoffset_x = 0, cropoffset_y = 0;}
-    RenderOption(int w, int h, int s1, int s2, int s3, int s4) : width(w), height(h), spp(s1), sppe(s2), sppse(s3), sppsce(s4), log_level(1) {cropwidth = width; cropheight = height; cropoffset_x = 0, cropoffset_y = 0;}
+    RenderOption() : width(128), height(128), spp(1), sppe(1), log_level(1) { cropwidth = width; cropheight = height; cropoffset_x = 0, cropoffset_y = 0,rgb=0;}
+    RenderOption(int w, int h, int s) : width(w), height(h), spp(s), sppe(s), sppse(s), log_level(1) {cropwidth = width; cropheight = height; cropoffset_x = 0, cropoffset_y = 0,rgb=0;}
+    RenderOption(int w, int h, int s1, int s2) : width(w), height(h), spp(s1), sppe(s2), sppse(s2), log_level(1) {cropwidth = width; cropheight = height; cropoffset_x = 0, cropoffset_y = 0,rgb=0;}
+    RenderOption(int w, int h, int s1, int s2, int s3) : width(w), height(h), spp(s1), sppe(s2), sppse(s3), log_level(1) {cropwidth = width; cropheight = height; cropoffset_x = 0, cropoffset_y = 0,rgb=0;}
+    RenderOption(int w, int h, int s1, int s2, int s3, int s4) : width(w), height(h), spp(s1), sppe(s2), sppse(s3), sppsce(s4), log_level(1) {cropwidth = width; cropheight = height; cropoffset_x = 0, cropoffset_y = 0,rgb=0;}
 
     int width, height;  // Image resolution
     int spp;            // Spp for the main image/interior integral
@@ -232,6 +232,7 @@ struct RenderOption {
     int log_level;
     int cropwidth, cropheight;
     int cropoffset_x, cropoffset_y;
+    int rgb = 0; // [1,2,3] for [R,G,B], 0 for random
 };
 
 } // namespace psdr

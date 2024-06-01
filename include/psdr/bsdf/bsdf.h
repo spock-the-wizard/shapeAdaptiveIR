@@ -58,6 +58,7 @@ public:
     virtual SpectrumC eval(const IntersectionC &its, const Vector3fC &wo, MaskC active = true) const = 0;
     virtual SpectrumD eval(const IntersectionD &its, const Vector3fD &wo, MaskD active = true) const = 0;
 
+
     // virtual BSDFSampleC sample(const IntersectionC &its, const Vector3fC &sample, MaskC active = true) const = 0;
     // virtual BSDFSampleD sample(const IntersectionD &its, const Vector3fD &sample, MaskD active = true) const = 0;
 
@@ -103,6 +104,9 @@ public:
     virtual FloatD getFresnel(const IntersectionD& its) const { 
         return full<FloatD>(1.0f);
     }
+
+    virtual void set_grad(int id, const Vector3fC grad)  {}
+    virtual void set_grad(int id, const Vector3fD grad)  {}
     // virtual FloatC absorption(const IntersectionC& its,FloatC rnd) const {
     //     return full<FloatC>(1.0f);
     // }
@@ -148,6 +152,7 @@ ENOKI_CALL_SUPPORT_BEGIN(psdr::BSDF)
     ENOKI_CALL_SUPPORT_METHOD(getKernelEps)
     ENOKI_CALL_SUPPORT_METHOD(getFresnel)
     ENOKI_CALL_SUPPORT_METHOD(getAlbedo)
+    ENOKI_CALL_SUPPORT_METHOD(set_grad)
     ENOKI_CALL_SUPPORT_METHOD(getSigmaT)
     ENOKI_CALL_SUPPORT_METHOD(absorption)
     ENOKI_CALL_SUPPORT_METHOD(hasbssdf)

@@ -25,6 +25,8 @@ protected:
     Spectrum<ad> __Li_shape(const Scene &scene, Sampler &sampler, const Intersection<ad> &its, Mask<ad> active) const;
     
     IntC _compress(IntC input, MaskC mask) const;
+    template <bool ad>
+    Spectrum<ad> getContribution(const Scene &scene,BSDFArray<ad> bsdf_array, Intersection<ad> its, BSDFSample<ad> bs, Mask<ad> active) const;
 
     template <bool ad>
     Spectrum<ad> __Li(const Scene &scene, Sampler &sampler, const Ray<ad> &ray, Mask<ad> active) const;

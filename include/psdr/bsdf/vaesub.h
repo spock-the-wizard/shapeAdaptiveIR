@@ -226,6 +226,14 @@ public:
 protected:
     template <bool ad>
     BSDFSample<ad> __sample(const Scene *scene, const Intersection<ad>&, const Vector8f<ad>&, Mask<ad>) const;
+    
+    void set_grad(int id, const Vector3fC grad) override {
+        if(id==0){
+            set_gradient(m_sigma_t.m_data,grad);
+        }
+        //else : other parameters
+
+    }
    
     template <bool ad>
     Float<ad> __pdf(const Intersection<ad> &, const BSDFSample<ad> &, Mask<ad>) const;
@@ -236,6 +244,11 @@ protected:
 
     template <bool ad>
     Spectrum<ad> __eval(const Intersection<ad>&, const BSDFSample<ad>&, Mask<ad>) const;
+
+    // template<bool ad>
+    // Intersection<ad> projectPointToSurface(const Intersection<ad> &its, Vector3f<ad> outPos, Float<ad> sigma_t_ch, Float<ad> rnd, Vector20f shapeFeatures) const;
+    template<bool ad>
+    Intersection<ad> projectPointToSurface(const Scene* scene, const Intersection<ad> &its, Vector3f<ad> outPos, Float<ad> fitScaleFactor, Vectorf<20,ad> shapeFeatures, Vector3f<ad> projDir,Mask<ad> active,bool isPlane = false) const;
     
     // Joon added
     // template <bool ad,size_t size>

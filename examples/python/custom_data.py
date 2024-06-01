@@ -34,7 +34,7 @@ def datasetIRON2PSDR(src_dir,dst_dir,light_out,xml_file,xml_out,mesh_name,n_ligh
         lines = open(light_file,'r').readlines()
         light_pos.append([float(i) for i in lines[1][:-2].split(' ')])
     
-    breakpoint()
+    # breakpoint()
     # Update medium info
     file_medium = os.path.join(src_dir,"medium.txt")
     if not os.path.exists(file_medium):
@@ -172,6 +172,7 @@ if __name__ == "__main__":
     name = "head1"
     name = "buddha1"
     name = "kettle1"
+    # name="horse1"
     name = sys.argv[1]
     
     # Step 1. Copy scene file
