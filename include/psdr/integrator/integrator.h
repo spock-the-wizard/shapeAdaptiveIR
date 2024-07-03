@@ -15,6 +15,9 @@ public:
     SpectrumD renderD(const Scene &scene, int sensor_id = 0) const;
     SpectrumC renderC_shape(const Scene &scene, const IntersectionC &its, int sensor_id) const {} 
     SpectrumD renderD_shape(const Scene &scene, const IntersectionD &its, int sensor_id) const {}
+    // SpectrumD render_adaptive(const Scene &scene, int sensor_id, IntC idx) const;
+    std::pair<SpectrumD,FloatC> render_adaptive(const Scene &scene, int sensor_id, IntC idx_,FloatC pdf) const;
+    
     // Vector3f<false> sample_sub(const Scene &scene, Vector3f<false> pts, Vector3f<false> dir);
     // std::tuple<Vector3fC,Vector3fC,Vector3fC,Array<Array<Float<false>,20>,3>> sample_sub(const Scene &scene, Vector3f<false> pts, Vector3f<false> dir);
     // std::tuple<Vector3fC,Vector3fC,Vector3fC,Array<Array<float,20>,3>> sample_sub(const Scene &scene, Vector3f<false> pts, Vector3f<false> dir);

@@ -103,7 +103,7 @@ import utils.mtswrapper
 
 import random
 def reset_random():
-    random_seed = 0
+    random_seed = 2
     torch.manual_seed(random_seed)
     torch.cuda.manual_seed(random_seed)
     torch.cuda.manual_seed_all(random_seed) # if use multi-GPU
@@ -196,6 +196,7 @@ parser.add_argument('--eta_lr',             type=float,    default=0.01)
 parser.add_argument('--albedo_lr',          type=float,    default=0.02)
 parser.add_argument('--mesh_lr',            type=float,    default=0.05)
 parser.add_argument('--rough_lr',            type=float,   default=0.02)
+parser.add_argument('--epsM_lr',            type=float,   default=0.001)
 
 parser.add_argument('--img_weight',         type=float,    default=1.0)
 parser.add_argument('--range_weight',         type=float,    default=0.0)
@@ -222,6 +223,7 @@ parser.add_argument('--integrator',         type=str,      default='direct')
 parser.add_argument('--albedo_texture',     type=int,      default=256)
 parser.add_argument('--sigma_texture',      type=int,      default=256)
 parser.add_argument('--rough_texture',      type=int,      default=256)
+parser.add_argument('--epsM_texture',      type=int,      default=256)
 
 parser.add_argument('--ref_spp',            type=int,      default=50)
 parser.add_argument('--no_init',            type=str,     default="yes")
@@ -268,7 +270,18 @@ def rmse_total(predictions, targets):
     # Computes error map for each pixel
     return np.sqrt(((predictions - targets) ** 2).mean())
 
+def enoki2img(arr,shape=(512,512,-1),filename='test.png'):
+    img = arr.numpy().reshape(shape)
+    cv2.imwrite(filename, img * 255.0)
+
 def opt_task(args):
+    if args.scene.endswith("het"):
+        args.scene = args.scene[:-3]
+    if args.scene == 'kiwi':
+        args.d_type = 'real'
+    if args.scene == 'soap':
+        args.d_type = 'real'
+
     # write intermedia results to ... 
     destdir = RESULT_DIR + "/{}/".format(args.scene)
     checkpath(destdir)
@@ -419,6 +432,14 @@ def opt_task(args):
             'albedo': [0.90, 0.90, 0.90],
             'sigmat': [70.0,70.0,70.0],
         },
+        'kiwi':{
+            'albedo': [0.90, 0.90, 0.90],
+            'sigmat': [70.0,70.0,70.0],
+        },
+        'soap':{
+            'albedo': [0.90, 0.90, 0.90],
+            'sigmat': [70.0,70.0,70.0],
+        },
         'pig1':{
             'albedo': [0.52584,0.102227,0.51597],
             'sigmat': [25.0,25.0,25.0],
@@ -435,6 +456,7 @@ def opt_task(args):
         sc.load_file(SCENES_DIR + "/{}_out.xml".format(args.scene))
     else: 
         sc.load_file(SCENES_DIR + "/{}_real.xml".format(args.scene))
+    
     
     # sc.opts.cropheight = 256
     # sc.opts.cropwidth = 256
@@ -483,7 +505,7 @@ def opt_task(args):
     else:
         myIntegrator = psdr_cuda.ColocateIntegrator()
     silhouetteIntegrator = psdr_cuda.FieldExtractionIntegrator("silhouette")
-
+    
     # load reference images
     if args.d_type == "syn":
         refdir = RESULT_DIR + "/{}/{}/".format(args.scene, args.ref_folder)
@@ -531,6 +553,10 @@ def opt_task(args):
         mesh_file = "../../smoothshape/vicini/pyramid_.obj"
     elif args.scene == "plane":
         mesh_file = "../../smoothshape/plane_almost_v2.obj"
+    elif args.scene == "kiwi":
+        mesh_file = "../../smoothshape/cube_3_init_uv.obj"
+    elif args.scene == "soap":
+        mesh_file = "../../smoothshape/soap_init.obj"
     else:
         raise NotImplementedError
 
@@ -539,6 +565,10 @@ def opt_task(args):
         albedo = sc.param_map[material_key].albedo.data.numpy()
         sigma_t = sc.param_map[material_key].sigma_t.data.numpy()
         g = sc.param_map[material_key].g.data.numpy()[0]
+        if sigma_t.size > 3:
+            sigma_t = sigma_t.mean(axis=0,keepdims=True)
+        if albedo.size > 3:
+            albedo = albedo.mean(axis=0,keepdims=True)
 
         # Setup mesh and precompute mesh_polys
         alb = albedo[:,0]
@@ -610,12 +640,13 @@ def opt_task(args):
 
     def active_sensors(batch, num_sensors):
         indices = torch.tensor(random.sample(range(num_sensors), batch))
-        # indices = torch.tensor([1])
+        # indices = torch.tensor([0])
         # print(indices)
         return indices
 
     def active_light(batch, num_lights):
         indices = torch.tensor(random.sample(range(num_lights), batch))
+        indices = torch.tensor([1]) #random.sample(range(num_lights), batch))
         return indices
 
     def texture_range_loss(A, S, R, G, weight):
@@ -725,7 +756,11 @@ def opt_task(args):
         out = cv2.cvtColor(out, cv2.COLOR_BGR2RGB)
         return out
 
-    def compute_render_loss(our_img1, our_img2, ref_img, weight,rgb=0):
+    def compute_render_loss(our_img1, our_img2, ref_img, weight,rgb=0,weight_map=None):
+        size = our_img1.numpy().shape
+        size = (int(np.sqrt(size[0])),int(np.sqrt(size[0])))
+        if weight_map is None:
+            weight_map = FloatD(1.0)
         loss = 0
         if rgb == 0:
             for i in range(3): 
@@ -736,8 +771,10 @@ def opt_task(args):
                 # I2 = ek.select(I2_ > 1, 1.0, I2_)
                 # T = ek.select(T_ > 1, 1.0, T_) 
                 # #TODO: Calibrate light value
-                # diff1 = ek.hmean((I1_ - T_) * (I2_ - T_))
-                diff1 = (I1_ - T_) * (I2_ - T_)
+                # diff1 = (I1 - T) * (I2 - T)
+                # diff1 = diff1 * weight_map
+                diff1 = ek.hmean((I1_ - T_) * (I2_ - T_))
+                # diff1 = (I1_ - T_) * (I2_ - T_)
                 # diff1 /= T_
                 loss += ek.hmean(diff1) / 3.0 # + ek.hmean(diff2) / 3.0
         else:
@@ -745,9 +782,25 @@ def opt_task(args):
             I1_ = our_img1[i] / 3.0
             I2_ = our_img2[i] / 3.0
             T_ = ref_img[i] 
+            # tmp = T_.numpy().reshape((512,512,-1)) * 255
+            # tmp2 = I1_.numpy().reshape((512,512,-1)) * 255
+            # cv2.imwrite('test1.png',tmp)
+            # cv2.imwrite('test2.png',tmp2)
+            # breakpoint()
             # print(I1_.numpy().max())
             # print(T_.numpy().max())
             diff1 = (I1_ - T_) * (I2_ - T_)
+            
+            # Clipping
+            # I1 = ek.select(I1_ > 1, 1.0, I1_)
+            # I2 = ek.select(I2_ > 1, 1.0, I2_)
+            # T = ek.select(T_ > 1, 1.0, T_) 
+            # enoki2img(I1,filename='img_out.png',shape=size)
+            # enoki2img(T,filename='img_gt.png',shape=size)
+            # breakpoint()
+            # diff1 = (I1 - T) * (I2 - T)
+            diff1 = diff1 * weight_map
+
             loss = ek.hmean(diff1)
             
         return loss * weight
@@ -767,6 +820,46 @@ def opt_task(args):
         h_variance = torch.mean(torch.pow(img.reshape((width, width, chanel))[:,:-1,:] - img.reshape((width, width, chanel))[:,1:,:], 2))
         loss = weight * (h_variance + w_variance)
         return loss
+
+    def compute_FD(A,S,sensor_id,delta=1.0,poly_fit=False,chunk=False):
+        # Render image
+        seed = 2
+        npixels = ro.cropheight * ro.cropwidth
+        sc.opts.spp = 1
+        # set to 1 for fixing random seed
+        sc.opts.debug = 0
+        sc.setseed(seed*npixels)
+        sc.setlightposition(Vector3fD(lights[sensor_id][0], lights[sensor_id][1], lights[sensor_id][2]))
+        if not chunk:
+            sc.opts.crop_offset_x = 0
+            sc.opts.crop_offset_y = 0
+            sc.opts.cropheight = sc.opts.height
+            sc.opts.cropwidth = sc.opts.width
+        if poly_fit and not isBaseline:
+            precompute_mesh_polys()
+
+        # Create single differentiable variable
+        if A is not None:
+            sc.param_map[material_key].albedo.data   = A + delta #a
+        elif S is not None:
+            sc.param_map[material_key].sigma_t.data   = S + delta #a
+        else:
+            raise NotImplementedError
+        sc.configure()
+
+        img_pos = renderNtimes(sc, myIntegrator, args.ref_spp, sensor_id)
+        
+        # Create single differentiable variable
+        if A is not None:
+            sc.param_map[material_key].albedo.data   = A - delta #a
+        elif S is not None:
+            sc.param_map[material_key].sigma_t.data   = S - delta #a
+        sc.configure()
+        img_neg = renderNtimes(sc, myIntegrator, args.ref_spp, sensor_id)
+        
+        grad = (img_pos - img_neg) / (2*delta) 
+
+        return grad 
 
 
     def compute_forward_derivative(A,S,sensor_id,idx_param=0,FD=False,poly_fit=False,chunk=False):
@@ -793,6 +886,7 @@ def opt_task(args):
         sc.opts.spp = args.spp if not FD else 1
         sc.setseed(seed*npixels)
         sc.setlightposition(Vector3fD(lights[sensor_id][0], lights[sensor_id][1], lights[sensor_id][2]))
+        # sc.opts.debug = 1 # Fix random seed for comparison w. FD
         sc.configure()
 
         if not FD:
@@ -877,19 +971,21 @@ def opt_task(args):
     # isMonochrome = sc.param_map[material_key].monochrome
     class Renderer(torch.autograd.Function):
         @staticmethod
-        def forward(ctx, V, A, S, R, G, batch_size, seed,crop_idx=0):
+        def forward(ctx, V, A, S, R, G, E, batch_size, seed,crop_idx=0):
             # Roughness = R
             _vertex     = Vector3fD(V)
             _albedo     = Vector3fD(A)
             _sigma_t    = Vector3fD(S)
             _rough      = FloatD(R)
             _eta        = FloatD(G)
+            _epsM       = Vector3fD(E)
 
             ek.set_requires_gradient(_vertex,       V.requires_grad)
             ek.set_requires_gradient(_albedo,       A.requires_grad)
             ek.set_requires_gradient(_sigma_t,      S.requires_grad)
             ek.set_requires_gradient(_rough,        R.requires_grad)
             ek.set_requires_gradient(_eta,          G.requires_grad)
+            ek.set_requires_gradient(_epsM,         E.requires_grad)
 
         
             ctx.input1 = _vertex
@@ -897,13 +993,14 @@ def opt_task(args):
             ctx.input3 = _sigma_t
             ctx.input4 = _rough
             ctx.input5 = _eta
+            ctx.input6 = _epsM
 
         
             albedo  = ek.select(_albedo     > 0.99995,     0.99995, ek.select(_albedo < 0.0, 0.0, _albedo))
             sigma_t = ek.select(_sigma_t    < 0.0,      0.01,  _sigma_t)
             roughness = ek.select(_rough    < 0.01,      0.01,  _rough)
             eta       = ek.select(_eta      < 1.0,       1.0,   _eta)
-            # sigma_t = ek.exp(_s)
+            epsM       = ek.select(_epsM      < 0.0 ,       0.01,   ek.select(_epsM > 10.0, 10.0,_epsM))
 
 
             sc.param_map[mesh_key].vertex_positions  = _vertex
@@ -911,6 +1008,8 @@ def opt_task(args):
             sc.param_map[material_key].sigma_t.data  = sigma_t
             sc.param_map[material_key].alpha_u.data  = roughness
             sc.param_map[material_key].eta.data      = eta
+            sc.param_map[material_key].epsM.data      = epsM
+
             if not isBaseline:
                 ctx.mono = sc.param_map[material_key].monochrome
             else:
@@ -920,11 +1019,20 @@ def opt_task(args):
             npixels = ro.cropheight * ro.cropwidth
             sc.opts.spp = args.spp
             sc.setseed(seed*npixels)
+            
+            # Set epsM
+            # sc.opts.epsM = 1.0 
+            # sc.opts.epsM = 5.0 
+
+            isFD = sc.opts.sppse < 0
+            
             # Random select channel
             if isBaseline:
                 sc.opts.rgb = 0
             else:
                 sc.opts.rgb = random.randint(1,3)
+                # print("testing rgb mode ")
+                sc.opts.rgb = 0 # blue only
             sc.configure()
             
             render_loss= 0    
@@ -944,14 +1052,15 @@ def opt_task(args):
                     # our_imgB = myIntegrator.renderD(sc, sensor_id)
                     our_imgB = our_imgA
 
-                # DEBUG: testing gradient map
-                # ctx.img = our_imgA.torch()
-                # ctx.diff = our_imgA - tar_img
-                # ctx.d_pixel = compute_forward_derivative(A=A, S=S, sensor_id=sensor_id,poly_fit=False,chunk=True).reshape(-1,3)
-                # breakpoint()
-                # render_loss += torch.nn.F.mse_loss(ctx.img,tar_img.torch())
 
                 render_loss += compute_render_loss(our_imgA, our_imgB, tar_img, args.img_weight,sc.opts.rgb) / batch_size
+                if isFD:
+                    fd_delta= 1
+                    param_delta = torch.ones(3).cuda()
+                    param_delta= param_delta *fd_delta
+                    fd = compute_FD(None,S,sensor_id,fd_delta,chunk=True)
+                    ctx.d_pixel = fd.reshape(-1,3)
+                    ctx.diff = our_imgA - tar_img
 
             if args.silhouette == "yes":
                 sc.opts.spp = 1
@@ -971,7 +1080,7 @@ def opt_task(args):
             try:
                 ek.set_gradient(ctx.output, FloatC(grad_out))
             except:
-                result = (None, None, None, None, None, None, None)
+                result = (None, None, None, None, None, None, None, None)
         
             # print("--------------------------------------------------------")
             FloatD.backward()
@@ -989,27 +1098,19 @@ def opt_task(args):
             
             if not isBaseline and ctx.mono:
                 gradA[...,:] = torch.mean(gradA,dim=-1)
+            else:
+                print("shold not be happening! Not monochorme")
             # gradA= None
+            # result = compute_forward_derivative(A=A, S=S, sensor_id=sensor_id,idx_param=idx_param,poly_fit=True)
             # print("-------------------------S-----------------------------")
-            gradS = ek.gradient(ctx.input3).torch()
-
-
-            # img = ctx.d_pixel.reshape(512,512,-1)[...,0]
-            # sensor_id = ctx.sensor_indices[0]
-            # tmp = compute_forward_derivative(A=ctx.input2, S=ctx.input3, sensor_id=sensor_id,poly_fit=False,chunk=True).reshape(-1,3)
-            # img = (img - img.min()) / (img.max() - img.min())
-            # cv2.imwrite('test1.png',img*255)
-            # img2 = ctx.diff.torch().cpu().numpy().reshape(512,512,-1)[...,0]
-            # grad_test = img * 2*img2
-            # cv2.imwrite('grad.png', grad_test)
-            # img2 = (img2 - img2.min()) / (img2.max() - img2.min())
-            # cv2.imwrite('test2.png',img2*255)
-            # gradS = torch.from_numpy(ctx.d_pixel * 2*(ctx.diff)).cuda().mean(dim=0,keepdim=True)
-            # print(gradS)
-            # # breakpoint()
+            isFD = sc.opts.sppse < 0
+            if isFD:
+                gradS = torch.from_numpy(ctx.d_pixel * 2*(ctx.diff)).cuda().mean(dim=0,keepdim=True)
+            else:
+                gradS = ek.gradient(ctx.input3).torch()
+            # breakpoint()
             gradS[torch.isnan(gradS)] = 0.0
             gradS[torch.isinf(gradS)] = 0.0
-
             if not isBaseline and ctx.mono:
                 gradS[...,:] = torch.mean(gradS,dim=-1,)
 
@@ -1022,11 +1123,18 @@ def opt_task(args):
             gradG[torch.isnan(gradG)] = 0.0 
             gradG[torch.isinf(gradG)] = 0.0
 
-            result = (gradV, gradA, gradS, gradR, gradG, None, None)
-            del ctx.output, ctx.input1, ctx.input2, ctx.input3, ctx.input4, ctx.input5
+            # print("-------------------------E-----------------------------")
+            gradE = ek.gradient(ctx.input6).torch()
+            gradE[torch.isnan(gradE)] = 0.0
+            gradE[torch.isinf(gradE)] = 0.0
+            if not isBaseline and ctx.mono:
+                gradE[...,:] = torch.mean(gradE,dim=-1,keepdim=True)
+
+            result = (gradV, gradA, gradS, gradR, gradG, gradE, None,None)
+            del ctx.output, ctx.input1, ctx.input2, ctx.input3, ctx.input4, ctx.input5, ctx.input6
             print("==========================")
             print("Estimated gradients")
-            print("gradA ",gradA,"gradS ",gradS)
+            print("gradA ",gradA,"gradS ",gradS,"gradV ", gradV)
             # assert(torch.all(gradA==0.0))
             # assert(torch.all(gradS == 0.0))
             return result
@@ -1034,6 +1142,7 @@ def opt_task(args):
     
     render = Renderer.apply
     render_batch = 1
+    # render_batch = 5
     # render_batch = 6
 
     def resize(MyTexture, texturesize, textstr, i, channel=3):
@@ -1085,6 +1194,8 @@ def opt_task(args):
             target2 = np.clip(target2,a_min=0.0, a_max=1.0)
             cv2.imwrite(statsdir + "/iter_{}_{}_out.png".format(i+1,idx), img2*255.0)
             cv2.imwrite(statsdir + "/iter_{}_{}_gt.png".format(i+1,idx), target2*255.0)
+            cv2.imwrite(statsdir + "/iter_{}_{}_out.exr".format(i+1,idx), img2)
+            cv2.imwrite(statsdir + "/iter_{}_{}_gt.exr".format(i+1,idx), target2)
             absdiff2 = np.abs(img2 - target2)
                                 
             rmse2 = rmse(img2,target2)
@@ -1092,10 +1203,10 @@ def opt_task(args):
             plt.tight_layout()
             plt.colorbar()
             plt.axis('off')
-            plt.show()
-            target_max = target2.mean(axis=-1)
-            target_max[target_max==0.0] = 1.0
-            rmse_rel = rmse2 / target_max
+            # plt.show()
+            # target_max = target2.mean(axis=-1)
+            # target_max[target_max==0.0] = 1.0
+            # rmse_rel = rmse2 / target_max
 
             outfile_error = statsdir + "/error_{}_{}.png".format(i+1,idx)
             plt.savefig(outfile_error,bbox_inches='tight')
@@ -1118,12 +1229,12 @@ def opt_task(args):
                 "images/out" : wandb.Image(cv2.cvtColor(img2,cv2.COLOR_BGR2RGB)),
                 "images/error": wandb.Image(cv2.cvtColor(cv2.imread(outfile_error),cv2.COLOR_BGR2RGB)),              
                 "loss/rmse_image": rmse(img2,target2).mean(),
-                "loss/relative_rmse_image": rmse_rel.mean(),
+                # "loss/relative_rmse_image": rmse_rel.mean(),
                 "loss/ssim_image": ssim_val,
             })
             
             rmse_list.append(rmse(img2,target2).mean())
-            rel_rmse_list.append(rmse_rel.mean())
+            # rel_rmse_list.append(rmse_rel.mean())
             ssim_list.append(ssim_val)
 
         # rmse2 = cmap(rmse(img2,target2)).astype(np.float32)[...,:3] * 255.0
@@ -1132,10 +1243,12 @@ def opt_task(args):
         # breakpoint()
         cv2.imwrite(statsdir + "/iter_{}.exr".format(i+1), output)
         # cv2.imwrite(statsdir + "/error_{}.png".format(i+1), error)
+        rmse_avg_img = sum(rmse_list) / len(rmse_list)
         wandb_log({
-            "loss/rmse_avg_image": sum(rmse_list) / len(rmse_list), #rmse(img2,target2).mean(),
+            "loss/rmse_avg_image": rmse_avg_img, #rmse(img2,target2).mean(),
             "loss/ssim_avg_image": sum(ssim_list) / len(rmse_list), #rmse(img2,target2).mean(),
         })
+        return rmse_avg_img
 
     def wandb_log(wandb_args,):
         if not args.debug:
@@ -1165,6 +1278,7 @@ def opt_task(args):
         alb_texture_width = args.albedo_texture
         sig_texture_width = args.sigma_texture
         rgh_texture_width = args.rough_texture
+        epsM_texture_width = args.epsM_texture
 
         if args.albedo_texture > 0:
             if args.no_init == "yes":
@@ -1192,14 +1306,22 @@ def opt_task(args):
                 cv2.imwrite(destdir + "/rough_resize_init.exr", init_rough)
                 del init_rough
                 sc.param_map[material_key].setAlphaTexture(destdir + "/rough_resize_init.exr")
+
+        if args.epsM_texture > 0:
+            if args.no_init == "yes":
+                print("excuting-------------------sigma----------------------", args.no_init)
+                init_epsM = np.zeros((epsM_texture_width, epsM_texture_width, 1), dtype=np.float32)
+                init_epsM[:,:,:] = [2.0]
+                cv2.imwrite(destdir + "/epsM_resize_init.exr", init_epsM)
+                sc.param_map[material_key].setEpsMTexture(destdir + "/epsM_resize_init.exr")
             
         
         S = Variable(torch.log(sc.param_map[material_key].sigma_t.data.torch()), requires_grad=True)
         A = Variable(sc.param_map[material_key].albedo.data.torch(), requires_grad=True)
         R = Variable(sc.param_map[material_key].alpha_u.data.torch(), requires_grad=True)
         G = Variable(sc.param_map[material_key].eta.data.torch(), requires_grad=True)
+        E = Variable(sc.param_map[material_key].epsM.data.torch(), requires_grad=True)
 
-        # TODO: disabled for now
         V = Variable(sc.param_map[mesh_key].vertex_positions.torch(), requires_grad=not(args.mesh_lr==0))
         F = sc.param_map[mesh_key].face_indices.torch().long()
         M = compute_matrix(V, F, lambda_ = args.laplacian)
@@ -1239,10 +1361,13 @@ def opt_task(args):
         else:
             params.append({'params': R, 'lr': args.rough_lr})
 
+        params.append({'params': E, 'lr': args.epsM_lr})
         params.append({'params': G, 'lr': args.eta_lr})
 
         
+        # optimizer = torch.optim.Adam(params, lr=args.sigma_lr) 
         optimizer = UAdam(params)                        
+        # scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(optimizer,mode='min', factor=0.9, patience=5, verbose=True)
 
         for i in range(args.n_iters):
             # NOTE: added chunk training
@@ -1273,7 +1398,7 @@ def opt_task(args):
                 # image_loss = renderV, A, S, R, G, render_batch, i)
                 sc.opts.crop_offset_x = ix * sc.opts.cropwidth
                 sc.opts.crop_offset_y = iy * sc.opts.cropheight
-                image_loss_ = render(V, A, torch.exp(S), R, G, render_batch, i,)
+                image_loss_ = render(V, A, torch.exp(S), R, G, E, render_batch, i,)
                 range_loss_ = texture_range_loss(A, S, R, G, args.range_weight)
                 loss_ = image_loss_ + range_loss_
 
@@ -1287,8 +1412,6 @@ def opt_task(args):
                     print(R.shape)
                     loss_ += total_variation_loss(R, args.tot_weight, args.rough_texture, 1)
                 loss_.backward()
-                optimizer.step()
-                optimizer.zero_grad()
 
                 loss += loss_.item()
                 image_loss += image_loss_.item()
@@ -1297,46 +1420,9 @@ def opt_task(args):
                 del loss_, range_loss_, image_loss_
                 n_crops += 1
                 
+            optimizer.step()
+            optimizer.zero_grad()
 
-
-            #     for rb_idx in range(render_batch):
-            #         image_loss_ = render(V, A, torch.exp(S), R, G, 1, i,)
-            #         range_loss_ = texture_range_loss(A, S, R, G, args.range_weight)
-            #         loss_ = image_loss_ + range_loss_
-
-            #         # total variation loss_
-            #         if args.albedo_texture > 0:
-            #             loss_ += total_variation_loss(A, args.tot_weight, args.albedo_texture, 3)
-            #         if args.sigma_texture > 0:
-            #             print(S.shape)
-            #             loss_ += total_variation_loss(S, args.tot_weight,  args.sigma_texture, 3)
-            #         if args.rough_texture > 0:
-            #             print(R.shape)
-            #             loss_ += total_variation_loss(R, args.tot_weight, args.rough_texture, 1)
-            #         # print("before",S.grad)
-            #         loss_.backward()
-            #         # gradS += S.grad.clone()
-            #         # print(S.grad)
-            #         # print(gradS)
-                    
-
-            #         # DEBUG: var 78
-            #         # optimizer.step()
-            #         # optimizer.zero_grad()
-
-            #         loss += loss_.item()
-            #         image_loss += image_loss_.item()
-            #         range_loss += range_loss_.item()
-                    
-
-            #         del loss_, range_loss_, image_loss_
-            #     n_crops += 1
-                
-            #     optimizer.step()
-            #     optimizer.zero_grad()
-
-            # # DEBUG: optimizer bug?
-            # # optimizer.step()
 
             loss /= n_crops
             image_loss /= n_crops
@@ -1407,13 +1493,16 @@ def opt_task(args):
                 lrs = []
                 args.mesh_lr = args.mesh_lr * 0.95
                 args.albedo_lr = args.albedo_lr * 0.95
+                # args.sigma_lr = args.sigma_lr * 0.8
                 args.sigma_lr = args.sigma_lr * 0.95
                 args.rough_lr = args.rough_lr * 0.95
+                args.epsM_lr = args.epsM_lr * 0.95
                 args.eta_lr = args.eta_lr * 0.95
                 lrs.append(args.mesh_lr)
                 lrs.append(args.albedo_lr)
                 lrs.append(args.sigma_lr)
                 lrs.append(args.rough_lr)
+                lrs.append(args.epsM_lr)
                 lrs.append(args.eta_lr)
 
                 optimizer.setLearningRate(lrs)
@@ -1435,7 +1524,9 @@ def opt_task(args):
 
                 # preview_sensors = np.random.choice(num_sensors,size=5)
                 # renderPreview(i, preview_sensors)
-                renderPreview(i, np.array([0, 1, 4, 10, 19], dtype=np.int32))
+                rmse_avg_img = renderPreview(i, np.array([0, 1, 4, 10, 19], dtype=np.int32))
+                # scheduler.step(rmse_avg_img)
+
                 if args.albedo_texture > 0:
                     albedomap = A.detach().cpu().numpy().reshape((alb_texture_width, alb_texture_width, 3))
                     albedomap = cv2.cvtColor(albedomap, cv2.COLOR_RGB2BGR)
@@ -1450,6 +1541,12 @@ def opt_task(args):
                     sigmamap = np.exp(sigmamap)
                     cv2.imwrite(statsdir + "/sigma_{}.exr".format(i+1), sigmamap)
 
+                if args.epsM_texture > 0:
+                    print(E.detach().cpu().numpy().shape)
+                    epsMmap = E.detach().cpu().numpy().reshape((epsM_texture_width, epsM_texture_width, 3))
+                    epsMmap = cv2.cvtColor(epsMmap, cv2.COLOR_RGB2BGR)
+                    epsMmap = np.exp(epsMmap)
+                    cv2.imwrite(statsdir + "/epsM_{}.exr".format(i+1), epsMmap)
 
                 if args.rough_texture > 0:
                     roughmap = R.detach().cpu().numpy().reshape((rgh_texture_width, rgh_texture_width, 1))
@@ -1517,6 +1614,9 @@ def opt_task(args):
                     params.append({'params': G, 'lr': args.eta_lr})
                         
                     optimizer = UAdam(params)
+                    # optimizer = torch.optim.Adam(params, lr=args.sigma_lr)                        
+                    # scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(optimizer,mode='min', factor=0.9, patience=5, verbose=True)
+                    # optimizer = torch.optim.Adam(params)
             torch.cuda.empty_cache()
             ek.cuda_malloc_trim()
 
@@ -1529,16 +1629,22 @@ def opt_task(args):
         sensor_id = args.sensor_id #30 #0
         idx_param = 2 #0
         param_delta = torch.ones(3).cuda()
+        param_delta = torch.zeros(3).cuda()
+        param_delta[idx_param] = 1.0
         param_delta = param_delta * fd_delta
         # param_delta[idx_param] = fd_delta
         isAlbedo = True
-        isAlbedo = False
+        # isAlbedo = False
+        sc.opts.rgb = idx_param + 1
+        sc.opts.debug = 1 # Fix random seed for comparison w. FD
+        sc.opts.debug = 0 # Fix random seed for comparison w. FD
+        sc.configure()
 
         # Joon added: mode for gradient evaluation
         mode = 0 # fd 0
         mode = 1 # fd 1
-        # mode = 2 # diff
-        # mode = 3 # ours (img derivative)
+        mode = 2 # diff
+        mode = 3 # ours (img derivative)
         mode = 4 # all
         
         grad_dir = f"grad/{args.stats_folder.replace('/','_')}"
@@ -1608,7 +1714,18 @@ def opt_task(args):
             A0 = Variable(sc.param_map[material_key].albedo.data.torch() - param_delta, requires_grad=True)
             A1 = Variable(sc.param_map[material_key].albedo.data.torch() + param_delta, requires_grad=True)
             result0 = compute_forward_derivative(A0,S=S,sensor_id=sensor_id,idx_param=idx_param,FD=True)
+            fname=f"{grad_dir}/{args.scene}_{sensor_id}_{fd_delta}_fd_0"
+            np.save(fname,result0.mean(axis=-1))
+            print(f"Write gradient image to {fname}")
+            img0 = result0 * 255.0
+            cv2.imwrite(f"{filename.replace('FD','FD_0')}",img0)
             result1 = compute_forward_derivative(A1,S=S,sensor_id=sensor_id,idx_param=idx_param,FD=True)
+            fname=f"{grad_dir}/{args.scene}_{sensor_id}_{fd_delta}_fd_1"
+            np.save(fname,result1.mean(axis=-1))
+            print(f"Write gradient image to {fname}")
+            img1 = result1 * 255.0
+            cv2.imwrite(f"{filename.replace('FD','FD_1')}",img1)
+        
         else:
             if mode != 1:
                 S0 = Variable(sc.param_map[material_key].sigma_t.data.torch() - param_delta , requires_grad=True)
@@ -1620,7 +1737,7 @@ def opt_task(args):
                 img0 = result0 * 255.0
                 cv2.imwrite(f"{filename.replace('FD','FD_0')}",img0)
             if mode != 0:
-                S1 = Variable(sc.param_map[material_key].sigma_t.data.torch() + param_delta , requires_grad=True)
+                S1 = Variable(sc.param_map[material_key].sigma_t.data.torch() + 2*param_delta , requires_grad=True)
                 reset_random()
                 result1 = compute_forward_derivative(A,S=S1,sensor_id=sensor_id,idx_param=idx_param,FD=True)
                 fname=f"{grad_dir}/{args.scene}_{sensor_id}_{fd_delta}_fd_1"

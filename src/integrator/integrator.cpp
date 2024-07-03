@@ -574,6 +574,58 @@ Spectrum<ad> Integrator::__render_shape(const Scene &scene, const Intersection<a
     return result;
 }
 
+std::pair<SpectrumD,FloatC> Integrator::render_adaptive(const Scene &scene, int sensor_id, IntC idx_,FloatC pdf) const {
+    PSDR_ASSERT_MSG(scene.is_ready(), "Input scene must be configured!");
+    PSDR_ASSERT_MSG(sensor_id >= 0 && sensor_id < scene.m_num_sensors, "Invalid sensor id!");
+    // scene->m_gradient_distrb.sample()
+
+    std::cout << "Entering render_adaptive " << std::endl;
+    const RenderOption &opts = scene.m_opts;
+    const int num_pixels = opts.cropwidth*opts.cropheight;
+    Spectrum<true> result = zero<Spectrum<true>>(num_pixels);
+    FloatC weight_map = zero<FloatC>(num_pixels);
+    if ( likely(opts.spp > 0) ) {
+        int64_t num_samples = static_cast<int64_t>(slices(idx_))*opts.spp;
+        PSDR_ASSERT(num_samples <= std::numeric_limits<int>::max());
+        // std::cout<<"sample number values: "<<num_samples<<std::endl;
+        
+        IntC idx = zero<IntC>(num_samples);
+        IntC mappingIdx = arange<IntC>(slices(idx_));
+        // set_slices(mappingIdx,slices(idx_));
+
+        
+        for (int i=0;i<opts.spp;i++){
+            scatter_add(idx,idx_,mappingIdx * opts.spp + i); // Map idx_ to sample domain
+        }
+
+        // Int<true> idx = arange<Int<true>>(num_samples);
+        // if ( likely(opts.spp > 1) ) idx /= opts.spp;
+        Vector2f<true> samples_base = gather<Vector2f<true>>(meshgrid(arange<Float<true>>(opts.cropwidth),
+                                                        arange<Float<true>>(opts.cropheight)),
+                                                        IntD(idx));
+
+        Sampler sampler;
+        sampler.seed(arange<IntC>(slices(idx)));
+        Vector2f<true> samples;
+        samples = (samples_base + sampler.next_2d<true>())
+                                / ScalarVector2f(opts.cropwidth, opts.cropheight);
+        // if(opts.debug == 1){
+        //     samples = (samples_base)
+        //                             / ScalarVector2f(opts.cropwidth, opts.cropheight);
+        // }
+        
+        Ray<true> camera_ray = scene.m_sensors[sensor_id]->sample_primary_ray(samples);
+        Spectrum<true> value = Li(scene, sampler, camera_ray, true, sensor_id);
+        std::cout << "hmean(hmean(value)) " << hmean(hmean(value)) << std::endl;
+        masked(value, ~enoki::isfinite<Spectrum<true>>(value)) = 0.f;
+        scatter_add(result, value, IntD(idx));
+        scatter_add(weight_map, 1.0f / pdf, idx_);
+        }
+        if ( likely(opts.spp > 1) ) {
+            result /= static_cast<float>(opts.spp);
+        }
+    return std::make_pair(result,weight_map);
+}
 
 template <bool ad>
 Spectrum<ad> Integrator::__render(const Scene &scene, int sensor_id) const {
@@ -595,32 +647,23 @@ Spectrum<ad> Integrator::__render(const Scene &scene, int sensor_id) const {
                                                         arange<Float<ad>>(opts.cropheight)),
                                                         idx);
 
-        Vector2f<ad> samples = (samples_base + scene.m_samplers[0].next_2d<ad>())
+        Vector2f<ad> samples;
+        samples = (samples_base + scene.m_samplers[0].next_2d<ad>())
                                 / ScalarVector2f(opts.cropwidth, opts.cropheight);
-        // Vector2f<ad> samples = (samples_base)
-        //                         / ScalarVector2f(opts.cropwidth, opts.cropheight);
+        // if(opts.debug == 1){
+        //     samples = (samples_base)
+        //                             / ScalarVector2f(opts.cropwidth, opts.cropheight);
+        // }
         
         Ray<ad> camera_ray = scene.m_sensors[sensor_id]->sample_primary_ray(samples);
         Spectrum<ad> value = Li(scene, scene.m_samplers[0], camera_ray, true, sensor_id);
         masked(value, ~enoki::isfinite<Spectrum<ad>>(value)) = 0.f;
         scatter_add(result, value, idx);
         }
-
         if ( likely(opts.spp > 1) ) {
             result /= static_cast<float>(opts.spp);
         }
-            
-
     return result;
-    // // Debugging
-    // return zero<Spectrum<ad>>(num_pixels);
-    
-    // if constexpr(ad){
-    //     return result;
-    // }
-    // else{
-    //     return zero<Spectrum<ad>>(num_pixels);
-    // }
 }
 
 // void Integrator::render_primary_edges(const Scene &scene, int sensor_id, SpectrumD &result) const {

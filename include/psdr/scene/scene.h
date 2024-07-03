@@ -113,6 +113,7 @@ public:
     EnvironmentMap          *m_emitter_env;
     EmitterArrayD           m_emitters_cuda;
     DiscreteDistribution    *m_emitters_distrb;
+    DiscreteDistribution    *m_gradient_distrb; // domain: pixel. models intensity of gradient
 
     std::vector<BSDF*>      m_bsdfs;
 

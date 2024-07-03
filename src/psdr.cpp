@@ -83,6 +83,8 @@ PYBIND11_MODULE(psdr_cuda, m) {
         .def_readwrite("sppsce", &RenderOption::sppsce)
         .def_readwrite("log_level", &RenderOption::log_level)
         .def_readwrite("rgb", &RenderOption::rgb)
+        .def_readwrite("debug", &RenderOption::debug)
+        .def_readwrite("epsM", &RenderOption::epsM)
         .def("__repr__",
             [](const RenderOption &ro) {
                 std::stringstream oss;
@@ -256,11 +258,14 @@ PYBIND11_MODULE(psdr_cuda, m) {
         .def_readwrite("g", &HeterSub::m_g)
         .def_readwrite("albedo", &HeterSub::m_albedo)
         .def_readwrite("sigma_t", &HeterSub::m_sigma_t)
+        .def_readwrite("epsM", &VaeSub::m_epsM)
         .def_readwrite("specular_reflectance", &HeterSub::m_specular_reflectance)
         .def("setAlbedo", &HeterSub::setAlbedo, "albedo"_a)
         .def("setSigmaT", &HeterSub::setSigmaT, "sigma_t"_a)
         .def("setAlbedoTexture", &HeterSub::setAlbedoTexture, "filename"_a)
         .def("setSigmaTexture", &HeterSub::setSigmaTexture, "filename"_a)  
+        .def("setEpsM", &HeterSub::setEpsM, "epsM"_a)
+        .def("setEpsMTexture", &HeterSub::setEpsMTexture, "filename"_a)
         .def("setAlphaTexture", &HeterSub::setAlphaTexture, "filename"_a);    
 
     // Linking new VaeBSDF
@@ -270,6 +275,7 @@ PYBIND11_MODULE(psdr_cuda, m) {
         .def_readwrite("alpha_v", &VaeSub::m_alpha_v)
         .def_readwrite("eta", &VaeSub::m_eta)
         .def_readwrite("g", &VaeSub::m_g)
+        .def_readwrite("epsM", &VaeSub::m_epsM)
         .def_readwrite("albedo", &VaeSub::m_albedo)
         .def_readwrite("sigma_t", &VaeSub::m_sigma_t)
         .def_readwrite("specular_reflectance", &VaeSub::m_specular_reflectance)
@@ -277,6 +283,8 @@ PYBIND11_MODULE(psdr_cuda, m) {
         .def("setSigmaT", &VaeSub::setSigmaT, "sigma_t"_a)
         .def("setAlbedoTexture", &VaeSub::setAlbedoTexture, "filename"_a)
         .def("setSigmaTexture", &VaeSub::setSigmaTexture, "filename"_a)  
+        .def("setEpsM", &VaeSub::setEpsM, "epsM"_a)
+        .def("setEpsMTexture", &VaeSub::setEpsMTexture, "filename"_a)
         .def("setAlphaTexture", &VaeSub::setAlphaTexture, "filename"_a) ;  
         // .def("getKernelEps", &VaeSub::getKernelEps<true>, "Intersection"_a,"idx"_a);    
 
@@ -354,6 +362,7 @@ PYBIND11_MODULE(psdr_cuda, m) {
         .def("setlightposition", &Scene::setlightposition, "p"_a)
         .def("sample_boundary_segment_direct", &Scene::sample_boundary_segment_direct, "sample3"_a, "active"_a = true)
         .def_readwrite("opts", &Scene::m_opts, "Render options")
+        .def_readwrite("m_gradient_distrb", &Scene::m_gradient_distrb, "Gradient distribution")
         .def_readonly("num_sensors", &Scene::m_num_sensors)
         .def_readonly("num_meshes", &Scene::m_num_meshes)
         .def_readonly("param_map", &Scene::m_param_map, "Parameter map");
@@ -367,6 +376,7 @@ PYBIND11_MODULE(psdr_cuda, m) {
         .def("renderC_shape", &Integrator::renderC_shape, "scene"_a, "intersection"_a, "sensor_id"_a = 0)
         .def("renderD_shape", &Integrator::renderD_shape, "scene"_a, "intersection"_a, "sensor_id"_a = 0)
         .def("renderD", &Integrator::renderD, "scene"_a, "sensor_id"_a = 0)
+        .def("render_adaptive", &Integrator::render_adaptive, "scene"_a, "sensor_id"_a = 0, "idx"_a=0,"pdf"_a=0)
         .def("preprocess_secondary_edges", &Integrator::preprocess_secondary_edges, "scene"_a, "sensor_id"_a, "resolution"_a, "nrounds"_a = 1)
         .def("sample_boundaryC", &Integrator::sample_boundary<false>, "scene"_a, "camera_ray"_a)
         .def("sample_boundaryD", &Integrator::sample_boundary<true>, "scene"_a, "camera_ray"_a)

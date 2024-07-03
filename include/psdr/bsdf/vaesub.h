@@ -63,10 +63,16 @@ public:
         m_alpha_v.load_openexr(filename.c_str());
     }
 
-    
+    void setEpsMTexture(std::string filename){
+        m_epsM.load_openexr(filename.c_str());
+    }
 
     void setAlbedo(ScalarVector3f &albedo){
         m_albedo.fill(albedo);
+    }
+
+    void setEpsM(ScalarVector3f &epsM){
+        m_epsM.fill(epsM);
     }
 
     void setSigmaT(ScalarVector3f &sigma_t){
@@ -172,31 +178,58 @@ public:
     // Bitmap3fD m_albedo, m_sigma_t; // medium features
     // Bitmap3fD m_specular_reflectance; // reflectance
 
-                                    
+    // const static int hidden_dim = 32;
+    // const static int hidden_dim_abs = 16; //hidden_dim / 2;
+    // using Matrix64f = Matrix<float,hidden_dim>;
+    // using Matrix68f = Matrix<float,hidden_dim+4>;
+    // using Vector64f = Array<float,hidden_dim>;
+    // using Vector1f = Array<float,1>;
+    // using Vector20f = Array<float,20>;
+    // using Vector32f = Array<float,hidden_dim_abs>;
+    
+    // using Matrix64_23 = Array<Array<float,hidden_dim>,23>;
+    // using Matrix32_64 = Array<Array<float,hidden_dim_abs>,hidden_dim>;
+    // using Matrix64_64 = Array<Array<float,hidden_dim>,hidden_dim>;
+    // using Matrix1_32= Array<Array<float,1>,hidden_dim_abs>;
+    // using Matrix64_68 = Array<Array<float,hidden_dim>,hidden_dim + 4>;
+    // using Matrix3_64 = Array<Array<float,3>,hidden_dim>;
+    
 
-    using Matrix64f = Matrix<float,64>;
-    using Matrix68f = Matrix<float,68>;
-    using Vector64f = Array<float,64>;
+    using Matrix64f = Matrix<float,32>;
+    using Matrix68f = Matrix<float,36>;
+    using Vector64f = Array<float,32>;
     using Vector1f = Array<float,1>;
     using Vector20f = Array<float,20>;
-    using Vector32f = Array<float,32>;
+    using Vector32f = Array<float,16>;
     
-    // using Matrix32_64 = Array<Array<float,64>,32>;
-    using Matrix64_23 = Array<Array<float,64>,23>;
-    // using Matrix23_64 = Array<Array<float,23>,64>;
-    using Matrix32_64 = Array<Array<float,32>,64>;
-    using Matrix64_64 = Array<Array<float,64>,64>;
-    using Matrix1_32= Array<Array<float,1>,32>;
-    // using Matrix68_64 = Array<Array<float,64>,68>;
-    // using Vector3f = Array<float,3>;
+    using Matrix64_23 = Array<Array<float,32>,23>;
+    using Matrix32_64 = Array<Array<float,16>,32>;
+    using Matrix64_64 = Array<Array<float,32>,32>;
+    using Matrix1_32= Array<Array<float,1>,16>;
+    using Matrix64_68 = Array<Array<float,32>,36>;
+    using Matrix3_64 = Array<Array<float,3>,32>;
+
+    // // NOTE: before pruning
+    // using Matrix64f = Matrix<float,64>;
+    // using Matrix68f = Matrix<float,68>;
+    // using Vector64f = Array<float,64>;
+    // using Vector1f = Array<float,1>;
+    // using Vector20f = Array<float,20>;
+    // using Vector32f = Array<float,32>;
+    
+    // using Matrix64_23 = Array<Array<float,64>,23>;
+    // using Matrix32_64 = Array<Array<float,32>,64>;
+    // using Matrix64_64 = Array<Array<float,64>,64>;
+    // using Matrix1_32= Array<Array<float,1>,32>;
+    // using Matrix64_68 = Array<Array<float,64>,64 + 4>;
+    // using Matrix3_64 = Array<Array<float,3>,64>;
     
     
     Matrix32_64 m_absorption_mlp_fcn_0_weights = zero<Matrix32_64>(); // Eigen::Matrix<float,32,64>
     Vector32f m_absorption_mlp_fcn_0_biases = zero<Vector32f>();
     Matrix1_32 m_absorption_dense_kernel = zero<Matrix1_32>();
     Vector1f m_absorption_dense_bias = zero<Vector1f>();
-    using Matrix64_68 = Array<Array<float,64>,68>;
-    using Matrix3_64 = Array<Array<float,3>,64>;
+
 
     Matrix64_68 m_scatter_decoder_fcn_fcn_0_weights = zero<Matrix64_68>(); // [64,68]
     Matrix64_64 m_scatter_decoder_fcn_fcn_1_weights = zero<Matrix64_64>();

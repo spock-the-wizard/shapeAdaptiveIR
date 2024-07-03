@@ -32,6 +32,7 @@ Scene::Scene() {
     m_optix = new Scene_OptiX();
     m_emitter_env = nullptr;
     m_emitters_distrb = new DiscreteDistribution();
+    m_gradient_distrb = new DiscreteDistribution();
     m_sec_edge_distrb = new DiscreteDistribution();
 }
 
@@ -45,6 +46,7 @@ Scene::~Scene() {
     delete[]    m_samplers;
     delete      m_optix;
     delete      m_emitters_distrb;
+    delete      m_gradient_distrb;
     delete      m_sec_edge_distrb;
 }
 
@@ -253,6 +255,9 @@ void Scene::configure() {
         }
     }
 
+    // m_sec_edge_info = empty<SecondaryEdgeInfo>();
+    // m_sec_edge_distrb->init(zero<FloatC>(1)); //slices(m_sec_edge_info.e1)));
+    
     // Generate global sec. edge arrays
     if ( m_opts.sppse > 0 ) {
         m_sec_edge_info = empty<SecondaryEdgeInfo>(edge_offset.back());
@@ -279,6 +284,7 @@ void Scene::configure() {
         FloatC edge_lengths = norm(detach(m_sec_edge_info.e1));
         // edge_lengths = select(edge_lengths > 0.005f,edge_lengths,0.0f);
         m_sec_edge_distrb->init(edge_lengths);
+
         // IntC edge_idx = arange<IntC>(slices(edge_lengths));
         // // int num = 40450;
         // int num = 10;
@@ -300,12 +306,13 @@ void Scene::configure() {
         m_sec_edge_info = empty<SecondaryEdgeInfo>();
     }
 
-    // std::cout << "m_sec_edge_distrb " << m_sec_edge_distrb << std::endl;
-    // std::cout << "m_sec_edge_info " << m_sec_edge_info << std::endl;
+    FloatC grads = full<FloatC>(1.0f);
+    set_slices(grads,m_opts.cropheight * m_opts.cropwidth);
+    m_gradient_distrb->init(grads);
+
     // Initialize OptiX
     cuda_eval();
     m_optix->configure(m_meshes);
-    // TODO: don't want any accidental gradient flow
     
     // auto p1 = m_sec_edge_info.p0 + m_sec_edge_info.e1;
     // auto p0 = m_sec_edge_info.p0;

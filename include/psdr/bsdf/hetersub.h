@@ -29,6 +29,9 @@ public:
         m_sigma_t.load_openexr(filename.c_str());
     }
 
+    void setEpsMTexture(std::string filename){
+        m_epsM.load_openexr(filename.c_str());
+    }
     void setAlphaTexture(std::string filename){
         m_alpha_u.load_openexr(filename.c_str());
         m_alpha_v.load_openexr(filename.c_str());
@@ -38,6 +41,9 @@ public:
         m_albedo.fill(albedo);
     }
 
+    void setEpsM(ScalarVector3f &epsM){
+        m_epsM.fill(epsM);
+    }
     void setSigmaT(ScalarVector3f &sigma_t){
         m_sigma_t.fill(sigma_t);
     }

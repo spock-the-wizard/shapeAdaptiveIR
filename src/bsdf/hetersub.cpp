@@ -42,6 +42,7 @@ SpectrumD HeterSub::eval(const IntersectionD &its, const BSDFSampleD &bs, MaskD 
 }
 
 FloatC HeterSub::pdfpoint(const IntersectionC &its, const BSDFSampleC &bs, MaskC active) const {
+    // FIXME
     return __pdf_sub<false>(its,bs,active) & active;
     FloatC cos_theta_i = Frame<false>::cos_theta(detach(its.wi));
     SpectrumC Fersnelterm = __FersnelDi<false>(1.0f, m_eta.eval<false>(detach(its.uv)), cos_theta_i);
@@ -51,6 +52,7 @@ FloatC HeterSub::pdfpoint(const IntersectionC &its, const BSDFSampleC &bs, MaskC
 }
 
 FloatD HeterSub::pdfpoint(const IntersectionD &its, const BSDFSampleD &bs, MaskD active) const {
+    // FIXME
     return __pdf_sub<true>(its,bs,active) & active;
     FloatD cos_theta_i = Frame<true>::cos_theta(its.wi);
     SpectrumD Fersnelterm = __FersnelDi<true>(1.0f, m_eta.eval<true>(its.uv), cos_theta_i);
@@ -208,6 +210,9 @@ template <bool ad>
 Spectrum<ad> HeterSub::__eval(const Intersection<ad> &its, const BSDFSample<ad> &bs, Mask<ad> active) const {
     using namespace std::chrono;
     // auto start_time = high_resolution_clock::now();
+    // [var 151] baseline with no bsdf
+    // FIXME
+    return __eval_sub<ad>(its, bs, active);
 
     auto res = select(bs.is_sub, __eval_sub<ad>(its, bs, active), __eval_bsdf<ad>(its, bs, active));
 
@@ -274,7 +279,7 @@ BSDFSampleD HeterSub::sample(const Scene *scene, const IntersectionD &its, const
 template <bool ad>
 BSDFSample<ad> HeterSub::__sample(const Scene *scene, const Intersection<ad> &its, const Vector8f<ad> &sample, Mask<ad> active) const {
     BSDFSample<ad> bs = __sample_sub<ad>(scene, its, sample, active);
-    return bs;
+    // return bs;
     BSDFSample<ad> bsdf_bs =  __sample_bsdf<ad>(its, sample, active);
 
     FloatC cos_theta_i = Frame<false>::cos_theta(detach(its.wi));
@@ -344,9 +349,6 @@ BSDFSample<ad> HeterSub::__sample_sub(const Scene *scene, const Intersection<ad>
     std::tie(bs.po, bs.rgb_rv,dummy,dummy) = __sample_sp<ad>(scene, its, sample, pdf_po, active);
     bs.wo = warp::square_to_cosine_hemisphere<ad>(tail<2>(sample));
     bs.pdf = pdf_po;
-    // TODO: add an id check
-    // std::cout << "=======sample_sub======== " << std::endl;
-    // std::cout << "count(bs.po.is_valid()) " << count(bs.po.is_valid()) << std::endl;
     bs.is_valid = active && (cos_theta_i > 0.f) && bs.po.is_valid();// && ( == its.shape->m_id);&& 
     bs.is_sub = true;
     

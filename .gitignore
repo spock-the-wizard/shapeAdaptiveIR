@@ -10,7 +10,8 @@ __pycache__/
 CMakeFiles/
 .vscode/
 
-variables/
+variables*/
+*.nsys-rep
 data/
 build_*/
 
@@ -25,6 +26,15 @@ core*
 *.mp4
 *.npz
 *.pth
+*_tmp.xml
+*.obj
+*.npy
+*.txt
+*.exr
+*.xml
+*.mtl
+*.sh
+.ipynb_checkpoints
 
 *.cmake
 Makefile

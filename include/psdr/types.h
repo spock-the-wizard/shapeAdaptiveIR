@@ -233,6 +233,8 @@ struct RenderOption {
     int cropwidth, cropheight;
     int cropoffset_x, cropoffset_y;
     int rgb = 0; // [1,2,3] for [R,G,B], 0 for random
+    int debug = 0;
+    float epsM = 2.0f;
 };
 
 } // namespace psdr

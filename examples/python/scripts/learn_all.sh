@@ -17,48 +17,38 @@ root=/sss/InverseTranslucent/examples/python/scripts
 # for name in duck kettle1 head1 # head1 # botijo cone4 pyramid4 cube4 cylinder4
 for name in duck #kettle1 cylinder4 #head1 # botijo cone4 pyramid4 cube4 cylinder4
 do
-    # echo Running $name
-
-    # # Exp 0. Rendering with complex geometry
-    # echo $exp_name
-    # bash ./template/learn_$name.sh $exp_name $spp None
-    
-    # Exp 1. Rendering with subdivided meshes for basic shapes
-    # echo $exp_name
-    # bash ./template/learn_$name.sh $exp_name $spp ../../scenes/subdiv/${name}_out.xml
-
-    # Exp 2. Rendering with mismatching shape descriptor medium values
-    # for med in 0 1 2 3 4 5
-    # do
-    #     exp_name=exp2/var$med
-    #     echo Running $exp_name
-    #     bash ./template/learn_$name.sh $exp_name $spp ../../scenes/subdiv_medium/${name}_med${med}.xml
-    # done
-    
-    # Exp 3. Forward Rendering Baseline method
-    # bash ./template/learn_$name.sh $exp_name $spp ../../scenes/scenes_baseline/${name}_out.xml
 
     # Exp 4. Inverse Rendering experiment
-    exp_name="exp4/var35"
+    exp_name="exp4/var196"
+    # exp_name="exp5/var10"
+    exp_name="exp6/var24"
+    exp_name="exp7/var18"
+    # exp_name="exp1/var91"
+    # exp_name="exp7/var13"
 
     name=$1
     echo $exp_name
     xml_file=$root/../../scenes/inverse/${name}_out.xml
     out_file=$root/../../scenes/inverse/${name}_out_tmp.xml
-    sigma_t="80.0, 80.0, 80.0" # init
-    # sigma_t="40.0" # init
+    sigma_t="100.0, 70.0, 60.0" # init
+    sigma_t='3.3824356, 4.320124, 5.453843' # init
+    # sigma_t="12.0" # init (duck)
+
+    # sigma_t="40.0" # init (pig1)
+
     albedo="0.9, 0.9, 0.9" #sphere1
+    # albedo="0.8, 0.9, 0.7" # green init (duck) 
+    # albedo="0.6, 0.3, 0.9" # blue init (pig)
     python $root/replace_xml.py --sigma_t "$sigma_t" \
     --albedo "$albedo" \
     --in_xml "$xml_file" \
     --out_xml "$out_file" \
     # --is_baseline
     
-    spp=32
-    spp_inv=32 # don't go lower than this...
-    n_crops=4
-    # sppse=128
-    sppse=0
+    spp=128
+    spp_inv=8
+    n_crops=1
+    sppse=1 # 0 for autograd -1 for naive FD 1 for FD_ours
     sppe=0 # set to nonzero when disabling interior term
     bash ./inverse/learn_inverse.sh $exp_name $name $spp $out_file $spp_inv $n_crops $sppse $sppe
 

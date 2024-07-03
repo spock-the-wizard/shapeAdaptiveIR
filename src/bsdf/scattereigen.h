@@ -114,7 +114,7 @@ public:
         for (size_t i = 0; i < rows; ++i)
         {
             for (size_t j = 0; j < cols; ++j) {
-                f.read(reinterpret_cast<char *>(array+j*size + i), sizeof(float));
+                f.read(reinterpret_cast<char *>(array+j*rows + i), sizeof(float));
             }
         }
     }

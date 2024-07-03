@@ -34,6 +34,8 @@ namespace psdr
         const std::string featStatsFilePath = "../../../data_stats.json";
         const std::string shapeFeaturesName = "mlsPolyLS3";
         int PolyOrder = 3;
+
+        int size = 32;
         
         NetworkHelpers::loadMat(variablePath + "/scatter_decoder_fcn_fcn_0_weights.bin",(float*) &m_scatter_decoder_fcn_fcn_0_weights);
         NetworkHelpers::loadMat(variablePath + "/scatter_decoder_fcn_fcn_1_weights.bin",(float*) &m_scatter_decoder_fcn_fcn_1_weights);
@@ -114,7 +116,7 @@ FloatC VaeSub::pdfpoint(const IntersectionC &its, const BSDFSampleC &bs, MaskC a
 }
 
 FloatD VaeSub::pdfpoint(const IntersectionD &its, const BSDFSampleD &bs, MaskD active) const {
-    return __pdf_sub<true>(its,bs,active) & active;
+    // return __pdf_sub<true>(its,bs,active) & active;
 
     FloatD cos_theta_i = Frame<true>::cos_theta(its.wi);
     SpectrumD Fersnelterm = __FersnelDi<true>(1.0f, m_eta.eval<true>(its.uv), cos_theta_i);
@@ -135,7 +137,6 @@ Spectrum<ad> VaeSub::__Sp(const Intersection<ad>&its, const Intersection<ad>&bs)
     Spectrum<ad> albedo = m_albedo.eval<ad>(its.uv);
     Spectrum<ad> sigma_s = m_sigma_t.eval<ad>(its.uv) * albedo;
     Spectrum<ad> sigma_a = m_sigma_t.eval<ad>(its.uv) - sigma_s;
-
 
     Spectrum<ad> miu_s_p = (1.0f - m_g.eval<ad>(its.uv)) * sigma_s;
     Spectrum<ad> miu_t_p = miu_s_p + sigma_a;
@@ -566,24 +567,28 @@ Array<Float<ad>,R> matmul(Array<Array<float,R>,C> mat, Array<Float<ad>,C> vec) {
 
 template <bool ad>
 std::pair<Vector3f<ad>,Float<ad>> VaeSub::_run(Array<Float<ad>,23> x,Array<Float<ad>,4> latent) const {
+    Vector3f<ad> outPos2;
+    Float<ad> absorption;
         
-        auto tmp = matmul<23,64,ad>(m_shared_preproc_mlp_2_shapemlp_fcn_0_weights,x);
-        auto features = max(matmul<23,64,ad>(m_shared_preproc_mlp_2_shapemlp_fcn_0_weights,x) + shared_preproc_mlp_2_shapemlp_fcn_0_biases,0.0f);
-        features = max(matmul<64,64,ad>(m_shared_preproc_mlp_2_shapemlp_fcn_1_weights,features) + shared_preproc_mlp_2_shapemlp_fcn_1_biases,0.0f);
-        features = max(matmul<64,64,ad>(m_shared_preproc_mlp_2_shapemlp_fcn_2_weights,features) + shared_preproc_mlp_2_shapemlp_fcn_2_biases,0.0f);
+        // auto tmp = matmul<23,64,ad2>(m_shared_preproc_mlp_2_shapemlp_fcn_0_weights,x);
+        // auto features = max(matmul<23,64,ad>(m_shared_preproc_mlp_2_shapemlp_fcn_0_weights,x) + shared_preproc_mlp_2_shapemlp_fcn_0_biases,0.0f);
+        // features = max(matmul<64,64,ad>(m_shared_preproc_mlp_2_shapemlp_fcn_1_weights,features) + shared_preproc_mlp_2_shapemlp_fcn_1_biases,0.0f);
+        // features = max(matmul<64,64,ad>(m_shared_preproc_mlp_2_shapemlp_fcn_2_weights,features) + shared_preproc_mlp_2_shapemlp_fcn_2_biases,0.0f);
         
-        Array<Float<ad>,32> abs1 = max(matmul<64,32,ad>(m_absorption_mlp_fcn_0_weights, features) + m_absorption_mlp_fcn_0_biases,0.0f); // Vector 32
-        auto abs2 = matmul<32,1,ad>(m_absorption_dense_kernel, abs1) + m_absorption_dense_bias[0];
-        auto absorption = NetworkHelpers::sigmoid<ad>(abs2.x());
+        // Array<Float<ad>,32> abs1 = max(matmul<64,32,ad>(m_absorption_mlp_fcn_0_weights, features) + m_absorption_mlp_fcn_0_biases,0.0f); // Vector 32
+        // auto abs2 = matmul<32,1,ad>(m_absorption_dense_kernel, abs1) + m_absorption_dense_bias[0];
+        // auto absorption = NetworkHelpers::sigmoid<ad>(abs2.x());
 
-        // Gaussian noise
-        latent = float(M_SQRT2) * erfinv(2.f*latent - 1.f);
-        auto featLatent = concat(latent,features);
-        auto y2 = max(matmul<68,64,ad>(m_scatter_decoder_fcn_fcn_0_weights,featLatent)+m_scatter_decoder_fcn_fcn_0_biases,0.0f);
-        y2 = max(matmul<64,64,ad>(m_scatter_decoder_fcn_fcn_1_weights,y2)+m_scatter_decoder_fcn_fcn_1_biases,0.0f);
-        y2 = max(matmul<64,64,ad>(m_scatter_decoder_fcn_fcn_2_weights,y2)+m_scatter_decoder_fcn_fcn_2_biases,0.0f);
-        auto outPos2 = matmul<64,3,ad>(m_scatter_dense_2_kernel,y2) + m_scatter_dense_2_bias;
+        // // Gaussian noise
+        // latent = float(M_SQRT2) * erfinv(2.f*latent - 1.f);
+        // std::cout << "latent" << latent << std::endl;
+        // auto featLatent = concat(latent,features);
+        // auto y2 = max(matmul<68,64,ad>(m_scatter_decoder_fcn_fcn_0_weights,featLatent)+m_scatter_decoder_fcn_fcn_0_biases,0.0f);
+        // y2 = max(matmul<64,64,ad>(m_scatter_decoder_fcn_fcn_1_weights,y2)+m_scatter_decoder_fcn_fcn_1_biases,0.0f);
+        // y2 = max(matmul<64,64,ad>(m_scatter_decoder_fcn_fcn_2_weights,y2)+m_scatter_decoder_fcn_fcn_2_biases,0.0f);
+        // auto outPos2 = matmul<64,3,ad>(m_scatter_dense_2_kernel,y2) + m_scatter_dense_2_bias;
 
+        // std::cout << "outPos " << outPos2 << std::endl;
         return std::pair(outPos2,absorption);
 }
 
@@ -607,9 +612,7 @@ Array<Float<ad>,23> VaeSub::_preprocessFeatures(const Intersection<ad>&its, Floa
 
     std::cout << "m_sigma_t" << m_sigma_t.eval<ad>(its.uv)  << std::endl;
     std::cout << "m_albedo" << m_albedo.eval<ad>(its.uv)  << std::endl;
-    // std::cout << "g " << g << std::endl;
     
-    // NOTE: Modified
     // auto effectiveAlbedo = -log(1.0f-albedo * (1.0f - exp(-8.0f))) / 8.0f;
     auto effectiveAlbedo = -log(1.0f-alpha_p * (1.0f - exp(-8.0f))) / 8.0f;
     // std::cout << "alpha_p " << alpha_p << std::endl;
@@ -638,6 +641,7 @@ Array<Float<ad>,23> VaeSub::_preprocessFeatures(const Intersection<ad>&its, Floa
     }
     auto shapeFeaturesNorm = (shapeFeatures - m_shapeFeatMean)*m_shapeFeatStdInv;
     
+    // FIXME: can we make this part more efficient?
     using Vector23f = Array<Float<ad>,23>;
     Vector23f x = full<Vector23f>(0.0f); // = zero<Array<Float<ad>,23>>();
     for (int i=0;i<20;i++){
@@ -714,7 +718,9 @@ template <bool ad>
 Float<ad> VaeSub::getFitScaleFactor(const Intersection<ad> &its, Float<ad> sigma_t_ch, Float<ad> albedo_ch, Float<ad> g_ch) const
     {
         float scaleFactor = 1.0f;
-        // float scaleFactor = 4.0f;
+        // float scaleFactor = 2.0f;
+        // TODO: tmp increase scaleFactor
+        // float scaleFactor = 40.0f;
         // Spectrum<ad> albedo = m_albedo.eval<ad>(its.uv);
         // Float<ad> albedo_ch = select(rnd < (1.0f / 3.0f), albedo.x(),albedo.y());
         // albedo_ch = select(rnd > (2.0f / 3.0f), albedo.z(),albedo_ch);
@@ -743,22 +749,29 @@ template<bool ad>
 Intersection<ad> VaeSub::projectPointToSurface(const Scene* scene, const Intersection<ad> &its, Vector3f<ad> outPos, Float<ad> fitScaleFactor, Vectorf<20,ad> shapeFeatures,Vector3f<ad> projDir, Mask<ad> active,  bool isPlane) const{
 
     // Projection algorithm parameters
-    float eps = 0.05f;
-    float maxDistScale = 10.0f;
+    float eps = 0.01f;
+    // float maxDistScale = 2.0f;
     // float eps = 0.01f;
     // float maxDistScale = 2.0f;
-    // float maxDistScale = 10.0f;
+    float maxDistScale = 10.0f;
 
     Intersection<ad> its3;
-    Float<ad> polyVal;
     auto vz = its.sh_frame.n;
         
     auto maxDist = maxDistScale/fitScaleFactor + eps;
+    
+    projDir = -vz;
+    Float<ad> polyVal;
+    if (!isPlane){
+        std::tie(polyVal,projDir) = evalGradient<ad>(its.p,shapeFeatures,outPos,3,fitScaleFactor,true,vz);
+        projDir = normalize(detach(projDir));
+        projDir = -sign(polyVal) * projDir;
+    }
 
     Ray<ad> ray3(outPos- eps*projDir, projDir,maxDist); //,tmax);
     Intersection<ad> its3_front = scene->ray_intersect<ad, ad>(ray3, active);
-    its3 = its3_front;
-    return its3;
+    // its3 = its3_front;
+    // return its3;
     
     Ray<ad> ray_back(outPos+ eps*projDir,-projDir,maxDist); //tmax);
     Intersection<ad> its3_back = scene->ray_intersect<ad, ad>(ray_back,active);
@@ -782,18 +795,21 @@ Intersection<ad> VaeSub::projectPointToSurface(const Scene* scene, const Interse
 template <bool ad>
 VaeSub::RetTypeSampleSp<ad> VaeSub::__sample_sp(const Scene *scene, const Intersection<ad> &its, const Vector8f<ad> &sample, Float<ad> &pdf, Mask<ad> active) const {        
         using namespace std::chrono;
+        
+        auto opts = scene->m_opts;
+        auto isFD = opts.sppse > 0.0f;
+
         Float<ad> rnd = sample[5];
         if(scene->m_opts.rgb != 0){
             rnd = rnd * 0.0f + (scene->m_opts.rgb / 3.0f) - 0.1f;
             std::cout << "Testing RGB single channel" << rnd << std::endl;
         }
 
-        float is_plane = false;
-        float is_light_space = true;
-        // float is_plane = true;
-        // float is_light_space = true; //false;
+        // float is_plane = false;
+        // float is_light_space = true;
+        float is_plane = true;
+        float is_light_space = true; //false;
 
-        auto x = _preprocessFeatures<ad>(its,rnd,is_plane,its.wi,is_light_space);
         Spectrum<ad> albedo = m_albedo.eval<ad>(its.uv);
         Float<ad> albedo_ch = select(rnd < (1.0f / 3.0f), albedo.x(),albedo.y());
         albedo_ch = select(rnd > (2.0f / 3.0f), albedo.z(),albedo_ch);
@@ -803,6 +819,10 @@ VaeSub::RetTypeSampleSp<ad> VaeSub::__sample_sp(const Scene *scene, const Inters
         Spectrum<ad> g = m_g.eval<ad>(its.uv);
         auto g_ch = select(rnd < (1.0f / 3.0f), g.x(),g.y());
         g_ch = select(rnd > (2.0f / 3.0f), g.z(),g_ch);
+        Spectrum<ad> epsM = m_epsM.eval<ad>(its.uv);
+        auto epsM_ch = select(rnd < (1.0f / 3.0f), epsM.x(),epsM.y());
+        epsM_ch = select(rnd > (2.0f / 3.0f), epsM.z(),epsM_ch);
+        // std::cout << "siepsMma_t_ch " << siepsMma_t_ch << std::endl;
 
         // Float<ad> sigma_s = sigma_t_ch * albedo_ch;
         // auto sigma_a = sigma_t_ch - sigma_s;
@@ -817,12 +837,50 @@ VaeSub::RetTypeSampleSp<ad> VaeSub::__sample_sp(const Scene *scene, const Inters
         // Float<ad> kernelEps = 4.0f * val * val / (miu_t_p * miu_t_p);
         // auto kernelEps = getKernelEps<ad>(its,rnd);
         // auto fitScaleFactor = 1.0f / sqrt(kernelEps);
+        // std::cout << "sigma_t_ch " << sigma_t_ch << std::endl;
+        // std::cout << "albedo_ch " << albedo_ch << std::endl;
         auto fitScaleFactor = getFitScaleFactor<ad>(its,sigma_t_ch,albedo_ch,g_ch);
         
         Array<Float<ad>,4> latent(sample[2],sample[3],sample[6],sample[7]);
+        // std::cout << "latent" << latent << std::endl;
         Spectrum<ad> outPos,outPosVae;
-        Float<ad> absorption;;
-        std::tie(outPosVae,absorption)= _run<ad>(x,latent);
+        Float<ad> absorption;
+        auto x = _preprocessFeatures<ad>(its,rnd,is_plane,its.wi,is_light_space);
+        
+        Int<ad> xoIdx = arange<Int<ad>>(slices(its)) / opts.spp;
+        auto isFirstXo = arange<Int<ad>>(slices(its)) % opts.spp == 0;
+        // Intersection<ad> its_tmp = gather<Intersection<ad>>(its,xoIdx); //isFirstXo);
+    // compute idx for matrix entry
+
+        // std::tie(outPosVae,absorption)= _run<ad>(x,latent);
+        //
+        // ============================= Testing reuse
+        // auto x_xo = _preprocessFeatures<ad>()
+        
+        const int hidden_dim = 32; 
+        const int hidden_dim_abs = 16; //hidden_dim / 2;
+        // const int hidden_dim = 64; 
+        // const int hidden_dim_abs = 32;
+        
+        // auto tmp = matmul<23,hidden_dim,ad>(m_shared_preproc_mlp_2_shapemlp_fcn_0_weights,x);
+        auto features = max(matmul<23,hidden_dim,ad>(m_shared_preproc_mlp_2_shapemlp_fcn_0_weights,x) + shared_preproc_mlp_2_shapemlp_fcn_0_biases,0.0f);
+        features = max(matmul<hidden_dim,hidden_dim,ad>(m_shared_preproc_mlp_2_shapemlp_fcn_1_weights,features) + shared_preproc_mlp_2_shapemlp_fcn_1_biases,0.0f);
+        // features = max(matmul<hidden_dim,hidden_dim,ad>(m_shared_preproc_mlp_2_shapemlp_fcn_2_weights,features) + shared_preproc_mlp_2_shapemlp_fcn_2_biases,0.0f);
+        
+        
+        Array<Float<ad>,hidden_dim_abs> abs1 = max(matmul<hidden_dim,hidden_dim_abs,ad>(m_absorption_mlp_fcn_0_weights, features) + m_absorption_mlp_fcn_0_biases,0.0f); // Vector hidden_dim_abs
+        auto abs2 = matmul<hidden_dim_abs,1,ad>(m_absorption_dense_kernel, abs1) + m_absorption_dense_bias;
+        absorption = NetworkHelpers::sigmoid<ad>(abs2.x());
+
+        // Gaussian noise
+        latent = float(M_SQRT2) * erfinv(2.f*latent - 1.f);
+
+        auto featLatent = concat(latent,features);
+        auto y2 = max(matmul<hidden_dim + 4,hidden_dim,ad>(m_scatter_decoder_fcn_fcn_0_weights,featLatent)+m_scatter_decoder_fcn_fcn_0_biases,0.0f);
+        y2 = max(matmul<hidden_dim,hidden_dim,ad>(m_scatter_decoder_fcn_fcn_1_weights,y2)+m_scatter_decoder_fcn_fcn_1_biases,0.0f);
+        // y2 = max(matmul<hidden_dim,hidden_dim,ad>(m_scatter_decoder_fcn_fcn_2_weights,y2)+m_scatter_decoder_fcn_fcn_2_biases,0.0f);
+        outPosVae = matmul<hidden_dim,3,ad>(m_scatter_dense_2_kernel,y2) + m_scatter_dense_2_bias;
+        // ============================= Testing reuse
     
         Vector3f<ad> vz = its.sh_frame.n;
         pdf = 1.0f;
@@ -839,26 +897,6 @@ VaeSub::RetTypeSampleSp<ad> VaeSub::__sample_sp(const Scene *scene, const Inters
         outPos = inPos + local_frame.to_world(outPosVae);
         outPos = inPos + (outPos - inPos) / fitScaleFactor;
         
-        
-        // std::ofstream outfile0("mate_.txt");
-        // auto tmp0 = outPos[1];
-        // for (int i=0;i<slices(outPos);i++){
-        //     outfile0 << tmp0[i] << std::endl;;
-        // }
-        // outfile0.close();
-        // std::ofstream outfile1("mate_plus.txt");
-        // auto tmp1 = matePos[1];
-        // for (int i=0;i<slices(outPos);i++){
-        //     outfile1 << tmp1[i] << std::endl;;
-        // }
-        // outfile1.close();
-        // std::ofstream outfile2("mate_minus.txt");
-        // auto tmp2 = matePos2[1];
-        // for (int i=0;i<slices(outPos);i++){
-        //     outfile2 << tmp2[i] << std::endl;;
-        // }
-        // outfile2.close();
-
 
         if(is_light_space)
             inNormal = local_frame.to_world(its.wi);
@@ -871,67 +909,30 @@ VaeSub::RetTypeSampleSp<ad> VaeSub::__sample_sp(const Scene *scene, const Inters
             shapeFeatures = zero<Array<Float<ad>,20>>();
             shapeFeatures[3] = 1.0f;
         }
-
-        
-        // if (ad)
-        //     std::tie(polyVal,projDir) = evalGradient<ad>(its.p,shapeFeatures,outPos,3,detach(fitScaleFactor),true,vz);
-        // else
-        //     std::tie(polyVal,projDir) = evalGradient<ad>(detach(its.p),detach(shapeFeatures),detach(outPos),3,detach(fitScaleFactor),true,vz);
-
-        
-        // projDir = normalize(detach(projDir));
-        // projDir = -sign(polyVal) * projDir;
         
         Vector3f<ad> projDir = -vz;
         Float<ad> polyVal;
-        if (!is_plane){
-            std::tie(polyVal,projDir) = evalGradient<ad>(its.p,shapeFeatures,outPos,3,fitScaleFactor,true,vz);
-            projDir = normalize(detach(projDir));
-            projDir = -sign(polyVal) * projDir;
-        }
+        // if (!is_plane){
+        //     std::tie(polyVal,projDir) = evalGradient<ad>(its.p,shapeFeatures,outPos,3,fitScaleFactor,true,vz);
+        //     projDir = normalize(detach(projDir));
+        //     projDir = -sign(polyVal) * projDir;
+        // }
 
         Intersection<ad> its3 = projectPointToSurface<ad>(scene,its,outPos,fitScaleFactor,shapeFeatures,projDir,active,is_plane);
         its3.abs_prob = absorption;
         
-        if constexpr(ad){
-            // // Idea #3. Tangential Direction (w.o. Normalization)
-            // auto relVector = detach(its3.p) - detach(its.p);
-            // auto s = cross(Vector3fD(relVector),its3.n);
-            // auto t = cross(its3.n,s); 
-            // its3.p = t / fitScaleFactor - t/detach(fitScaleFactor) + detach(its3.p);
-
-            // Idea #4. Tangential Direction (w. Normalization)
-            // auto relVector = detach(its3.p) - detach(its.p);
-            // auto s = cross(Vector3fD(relVector),its3.n);
-            // auto t = normalize(cross(its3.n,s)); 
-            // its3.p = t/fitScaleFactor - t/detach(fitScaleFactor) + detach(its3.p);
-
-            // // Idea #5. Tangential direction. cosine weighted
-            // auto relVector = detach(its3.p) - detach(its.p);
-            // auto s = cross(Vector3fD(relVector),its3.n);
-            // auto t = normalize(cross(its3.n,s)); 
-            // its3.p = t/fitScaleFactor - t/detach(fitScaleFactor) + detach(its3.p);
-        }
+        auto relVector = detach(its3.p) - detach(its.p);
+        auto s = cross(Vector3f<ad>(relVector),its3.n);
+        auto t = normalize(cross(its3.n,s)); 
+        its3.p = t/fitScaleFactor - t/detach(fitScaleFactor) + Vector3f<ad>(detach(its3.p));
 
         Vector3f<ad> velocity(0.0f); 
-        if constexpr(ad){
-            // // Idea #3. Tangential velocity, w. Normalization
-            // auto s = cross(Vector3fD(relVector),its3.n);
-            // auto t = cross(its3.n,s); 
-            // t = normalize(t);
-            // velocity =(-1.0f/detach(fitScaleFactor)/detach(fitScaleFactor)) * t * dfit;
-            
-            // Idea#4. var224
-            // auto relVector = detach(its3.p) - detach(its.p);
-            // auto s = cross(Vector3fD(relVector),its3.n);
-            // auto t = normalize(cross(its3.n,s)); 
-            // auto tmp = dot(t,relVector) * detach(fitScaleFactor);
-            // velocity = Vector3fD(detach(its3.p)) + tmp/fitScaleFactor - tmp/detach(fitScaleFactor); 
-            velocity = its3.p;
-        }
+        velocity = its3.p;
         Intersection<ad> its3M, its3M2;
-        if constexpr(ad){
-            float epsM = 5.0f;
+        if (isFD && ad) { //(constexpr(isFD && ad)){ //&& isFD){
+            float epsM = 1.0f;
+            // float epsM = opts.epsM;
+            // auto  epsM = epsM_ch; 
             auto fitScaleFactor1 = getFitScaleFactor<ad>(its,sigma_t_ch+epsM,albedo_ch,g_ch);
             auto fitScaleFactor2 = getFitScaleFactor<ad>(its,sigma_t_ch-epsM,albedo_ch,g_ch);
 
@@ -939,20 +940,22 @@ VaeSub::RetTypeSampleSp<ad> VaeSub::__sample_sp(const Scene *scene, const Inters
             matepos = inPos + (matepos - inPos) / fitScaleFactor1;
             auto matepos2 = inPos + local_frame.to_world(outPosVae);
             matepos2 = inPos + (matepos2 - inPos) / fitScaleFactor2;
-            Vector3fC matePos = detach(matepos);
-            Vector3fC matePos2 = detach(matepos2);
-            its3M = projectPointToSurface<ad>(scene,its,matePos,fitScaleFactor1,shapeFeatures,projDir,active,is_plane);
-            its3M2 = projectPointToSurface<ad>(scene,its,matePos2,fitScaleFactor2,shapeFeatures,projDir,active,is_plane);
+            // Vector3fC matePos = detach(matepos);
+            // Vector3fC matePos2 = detach(matepos2);
+            // its3M = projectPointToSurface<ad>(scene,its,matePos,fitScaleFactor1,shapeFeatures,projDir,active,is_plane);
+            // its3M2 = projectPointToSurface<ad>(scene,its,matePos2,fitScaleFactor2,shapeFeatures,projDir,active,is_plane);
+            its3M = projectPointToSurface<ad>(scene,its,matepos,fitScaleFactor1,shapeFeatures,projDir,active,is_plane);
+            its3M2 = projectPointToSurface<ad>(scene,its,matepos2,fitScaleFactor2,shapeFeatures,projDir,active,is_plane);
         }
         else{
             its3M = its3;
             its3M2 = its3;
         }
-        // Spectrum<ad> sigma_t = m_sigma_t.eval<ad>(its.uv);
-        // auto _sigma_t_ch = select(rnd < (1.0f / 3.0f), sigma_t.x(),sigma_t.y());
-        // _sigma_t_ch = select(rnd > (2.0f / 3.0f), sigma_t.z(),_sigma_t_ch);
-        return RetTypeSampleSp<ad>(its3,rnd,outPos,velocity,sigma_t_ch,its3M,its3M2);
-        // return RetTypeSampleSp<ad>(its3,sample[5],outPos,velocity,sigma_t[2],its3M,its3M2);
+        // NOTE: return projDir for viz
+        Vector3f<ad> epsM_ch_vector = epsM_ch;
+        return RetTypeSampleSp<ad>(its3,rnd,outPos,epsM_ch_vector,sigma_t_ch,its3M,its3M2);
+        // For debugging viz
+        // return RetTypeSampleSp<ad>(its3,rnd,outPos,projDir,sigma_t_ch,its3M,its3M2);
 }
     
 } // namespace psdr

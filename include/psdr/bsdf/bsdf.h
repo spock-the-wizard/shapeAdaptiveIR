@@ -44,12 +44,12 @@ public:
     BSDF() : 
     m_alpha_u(0.1f), m_alpha_v(0.1f), m_eta(0.8f), 
     m_albedo(1.0f), m_sigma_t(0.5f),
-    m_specular_reflectance(1.0f), m_g(0.0f) {}
+    m_specular_reflectance(1.0f), m_g(0.0f), m_epsM(2.0f) {}
 
     BSDF(const Bitmap1fD&alpha, const Bitmap1fD &eta, const Bitmap3fD &reflectance, const Bitmap3fD &sigma_t, const Bitmap3fD &albedo)
         : 
     m_alpha_u(alpha), m_alpha_v(alpha), m_eta(eta), m_specular_reflectance(1.0f), 
-    m_albedo(albedo), m_sigma_t(sigma_t), m_g(0.0f) {} 
+    m_albedo(albedo), m_sigma_t(sigma_t), m_g(0.0f), m_epsM(2.0f) {} 
         // {   
         //     m_anisotropic = false;
         // loadNetwork();
@@ -105,6 +105,7 @@ public:
         return full<FloatD>(1.0f);
     }
 
+
     virtual void set_grad(int id, const Vector3fC grad)  {}
     virtual void set_grad(int id, const Vector3fD grad)  {}
     // virtual FloatC absorption(const IntersectionC& its,FloatC rnd) const {
@@ -132,6 +133,7 @@ public:
     Bitmap1fD m_alpha_u, m_alpha_v; // surface roughness
     Bitmap1fD m_eta, m_g;
     Bitmap3fD m_albedo, m_sigma_t; // medium features
+    Bitmap3fD m_epsM; // FD step size
     Bitmap3fD m_specular_reflectance; // reflectance
 
 PSDR_CLASS_DECL_END(BSDF)

@@ -402,11 +402,13 @@ void SceneLoader::load_bsdf(const pugi::xml_node &node, Scene &scene) {
         load_texture(specular_reflectance, b->m_specular_reflectance);
         load_texture(sigma_tr, b->m_sigma_t);
         load_texture(albedo, b->m_albedo);
+        
         bsdf = b;
     }
     else if(strcmp(bsdf_type, "vaesub") == 0){
         pugi::xml_node alpha = find_child_by_name(node, {"alpha"});
         pugi::xml_node eta = find_child_by_name(node, {"eta"});
+        // pugi::xml_node epsM = find_child_by_name(node, {"epsM"});
         pugi::xml_node albedo = find_child_by_name(node, {"albedo"});
         pugi::xml_node sigma_tr = find_child_by_name(node, {"sigma_t"});
         pugi::xml_node specular_reflectance = find_child_by_name(node, {"specular_reflectance"});
@@ -418,6 +420,7 @@ void SceneLoader::load_bsdf(const pugi::xml_node &node, Scene &scene) {
         load_texture(specular_reflectance, b->m_specular_reflectance);
         load_texture(sigma_tr, b->m_sigma_t);
         load_texture(albedo, b->m_albedo);
+        // load_texture(epsM, b->m_epsM);
         bsdf = b;
         
         // Set monochromaticity

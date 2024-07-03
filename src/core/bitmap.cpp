@@ -57,7 +57,6 @@ typename Bitmap<channels>::template Value<ad> Bitmap<channels>::eval(Vector2f<ad
         else
             return detach(m_data);
     } else {
-        PSDR_ASSERT(false);
         if ( width < 2 || height < 2 )
             throw Exception("Bitmap: invalid resolution!");
 
