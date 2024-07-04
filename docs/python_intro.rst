@@ -5,7 +5,7 @@ Introduction
 
 Although the core functionalities of PSDR-CUDA are written in C++17 and CUDA, to enable easy integration into Python-based inference and learning pipelines, running PSDR-CUDA requires using its Python bindings.
 
-This section focuses on the use of the bindings for *forward* rendering.
+This section focuses on the use of the bindings for ** rendering.
 We will show how to perform differentiable and inverse rendering in the :ref:`next section <Inverse intro>`.
 
 

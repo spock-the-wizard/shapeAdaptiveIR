@@ -39,6 +39,9 @@ class TriangleMesh:
 
         glBindTexture(GL_TEXTURE_3D, self.texture)
         glBindTexture(GL_TEXTURE_1D, self.texture2)
+        # glPolygonMode(GL_FRONT,GL_LINE)
+        # glPolygonMode(GL_BACK,GL_LINE)
+
 
         if filename is not None:
             if os.path.isfile(filename):
@@ -61,6 +64,7 @@ class TriangleMesh:
             self.mesh_positions = self.mesh.vertices.astype(np.float32).T
             self.mesh_normal = self.mesh.vertex_normals.astype(np.float32).T
             self.mesh_faces = self.mesh.faces.astype(np.int32).T
+            # glPolygonMode(GL_FRONT_AND_BACK,GL_FILL)
 
     def draw_contents(self, camera, context, scatter_data, in_color=None, 
                       bb_min=np.array([-1, -1, -1], np.float32), bb_max=np.array([1, 1, 1], np.float32), vertex_colors=None):

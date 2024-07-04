@@ -1,3 +1,4 @@
+
 import sys
 # sys.path.append("/sss/InverseTranslucent/build")
 # sys.path.append("/sss/InverseTranslucent/build/lib")
@@ -1806,13 +1807,3 @@ if __name__ == "__main__":
 
     reset_random()
     opt_task(args)
-    
-    # img1 = cv2.imread("../../../data_kiwi_soap/results/head1/exp1/for_deng_clip_2/iter_1_0_out.png")
-    # img2 = cv2.imread("../../../data_kiwi_soap/results/head1/exp1/for_deng_clip_2/iter_1_0_gt.png")
-    
-    # tmp1 = img1 / 255.0
-    # tmp2 = img2 / 255.0
-    # error2 = rmse_total(tmp1,tmp2)
-    # print(error2)
-
-    # breakpoint()

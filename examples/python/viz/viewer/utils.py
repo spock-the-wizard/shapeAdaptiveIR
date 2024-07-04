@@ -311,6 +311,31 @@ def get_coeff_trianglemesh(in_pos, in_dir, normal, poly_coeffs, poly_order, scal
     verts = (verts / res) * (max_pos - min_pos) + min_pos
     return TriangleMesh(None, verts, faces)
 
+def find_closest_edge(p, camera, mesh):
+    """Point on mesh picking routine"""
+    if not mesh:
+        return None, None
+    d = get_view_ray_dir(p, camera)
+    intersector = mesh.mesh.ray
+    its_loc, _, hit_triangles = intersector.intersects_location(
+        camera.pos[np.newaxis, :], d[np.newaxis, :])
+    edge_indices = -1
+    face_normal = None
+    if len(its_loc) > 0:
+        dist_to_cam = np.sum((its_loc - camera.pos) ** 2, axis=1)
+        min_dist_point = np.argmin(dist_to_cam)
+        hit_triangle = hit_triangles[min_dist_point]
+        vertices = mesh.mesh.faces[hit_triangle, :]
+        edge_indices = np.where(mesh.mesh.edges_face == hit_triangle)[0]
+        edge_indices = edge_indices[0]
+
+       # its_loc = np.array(its_loc[min_dist_point, :], dtype=np.float32)
+        # barycentric = trimesh.triangles.points_to_barycentric(
+        #     mesh.mesh.vertices[vertices][np.newaxis, :, :], np.atleast_2d(its_loc))
+        # vertex_normals = mesh.mesh.vertex_normals[vertices]
+        # face_normal = utils.math.normalize(np.sum(barycentric.T * vertex_normals, 0))
+    return edge_indices #its_loc, face_normal
+
 
 def intersect_mesh(p, camera, mesh):
     """Point on mesh picking routine"""

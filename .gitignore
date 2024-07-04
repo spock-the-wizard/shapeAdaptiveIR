@@ -39,4 +39,7 @@ core*
 *.cmake
 Makefile
 test
-
+examples/python/viz/outputs/
+examples/python/viz
+forward_model_weights/
+figures/

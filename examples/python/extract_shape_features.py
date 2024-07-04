@@ -39,7 +39,7 @@ from vae.global_config import (DATADIR3D, FIT_REGULARIZATION, OUTPUT3D,
 
 # import vae.model
 # from vae.model import generate_new_samples, sample_outgoing_directions
-# from vae.predictors import (AbsorptionPredictor, #AngularScatterPredictor,
+# from vae.predictors import (Predictor, #AngularScatterPredictor,
 #                             ScatterPredictor)
 from viewer.datasources import PointCloud, VectorCloud
 # from viewer.utils import *
@@ -78,7 +78,7 @@ class Scatter3DViewer(ViewerApp):
     def extract_mesh_polys(self):
         all_coeffs = []
         t0 = time.time()
-        feat_name = self.absorption_config.shape_features_name
+        feat_name = self._config.shape_features_name
         for i in tqdm.tqdm(range(self.mesh.mesh_positions.shape[1])):
             # breakpoint()
             pos = self.mesh.mesh_positions[:, i].ravel()
@@ -108,11 +108,11 @@ class Scatter3DViewer(ViewerApp):
             thickness = None
             nor_hist = None
             # NOTE: tmp
-            # if not self.visualize_gt_absorption:
-            if not self.visualize_gt_absorption:
+            # if not self.visualize_gt_:
+            if not self.visualize_gt_:
 
-                absorption = vae.model.estimate_absorption(self.session, pos, -normal, normal,
-                                                           self.absorption_config, self.absorption_pred, self.feature_statistics, self.albedo,
+                 = vae.model.estimate_(self.session, pos, -normal, normal,
+                                                           self._config, self._pred, self.feature_statistics, self.albedo,
                                                            self.sigma_t, self.g, self.eta, features)
 
                 t0 = time.time()
@@ -155,8 +155,8 @@ class Scatter3DViewer(ViewerApp):
                                                                            False, scale_fac, medium, 128, 128, 256,
                                                                            ref_pos_mts, ref_dir_mts, self.ignore_zero_scatter,
                                                                            self.disable_rr, seed)
-                absorption = np.mean(tmp_result['absorptionProb'])
-                absorption = np.array([[absorption]])
+                 = np.mean(tmp_result['Prob'])
+                 = np.array([[]])
 
                 t0 = time.time()
                 thickness = mitsuba.render.Volpath3D.samplePolyThickness([float(c) for c in coeffs], ref_pos_mts, ref_dir_mts, False,
@@ -164,7 +164,7 @@ class Scatter3DViewer(ViewerApp):
                                                                          ref_pos_mts, ref_dir_mts, seed, 0.0, 3.0 * float(kernel_eps))
                 thickness = np.array([[thickness]])
 
-            feat_to_show = [1.0 - absorption]
+            feat_to_show = [1.0 - ]
             if False:  # For now, do not visualize any of these extra features
                 if nor_hist is not None:
                     feat_to_show.append(nor_hist)
@@ -212,7 +212,7 @@ class Scatter3DViewer(ViewerApp):
         self.pos_constraints_pc = None
 
         self.normalize = args.normalize
-        self.absorption_config, self.scatter_config, self.angular_scatter_config = None, None, None
+        self._config, self.scatter_config, self.angular_scatter_config = None, None, None
         self.viewer_output_dir = os.path.join(OUTPUT3D, 'viewer')
         os.makedirs(self.viewer_output_dir, exist_ok=True)
 
@@ -319,12 +319,12 @@ class Scatter3DViewer(ViewerApp):
         popup = popupBtn.popup()
         popup.setLayout(GroupLayout())
         add_checkbox(self, popup, 'print_camera_position', False, cb_compute_poly, label='Print camera position to CMD')
-        add_checkbox(self, popup, 'visualize_gt_absorption', False,
-                     cb_compute_poly, label='Visualize Groundtruth Absorption')
+        add_checkbox(self, popup, 'visualize_gt_', False,
+                     cb_compute_poly, label='Visualize Groundtruth ')
         add_checkbox(self, popup, 'show_no_gd_samples', False,
                      self.update_displayed_scattering, label='show_no_gd_samples')
-        add_checkbox(self, popup, 'predict_absorption', False,
-                     self.update_displayed_scattering, label='Run the absorption prediction')
+        add_checkbox(self, popup, 'predict_', False,
+                     self.update_displayed_scattering, label='Run the  prediction')
         add_checkbox(self, popup, 'show_projection_debug_info', False, label='Show Projection Debug Info')
         add_checkbox(self, popup, 'show_off_surface_error', False,
                      self.update_displayed_scattering, label='Show Off-Surface Error')
@@ -419,27 +419,27 @@ class Scatter3DViewer(ViewerApp):
         if args.n < len(self.networks):
             self.networks = self.networks[-args.n:]
 
-        self.absorption_networks = sorted(glob.glob(os.path.join(OUTPUT3D, 'models_abs', '*')))
+        self._networks = sorted(glob.glob(os.path.join(OUTPUT3D, 'models_abs', '*')))
         self.angular_networks = sorted(glob.glob(os.path.join(OUTPUT3D, 'models_angular', '*')))
         self.networks_short = [os.path.split(n)[-1] for n in self.networks]
-        self.absorption_networks_short = [os.path.split(n)[-1] for n in self.absorption_networks]
+        self._networks_short = [os.path.split(n)[-1] for n in self._networks]
         self.angular_networks_short = [os.path.split(n)[-1] for n in self.angular_networks]
         self.session = None
 
         self.scatter_net = self.networks[-1]
-        # self.absorption_net = self.absorption_networks[-1]
+        # self._net = self._networks[-1]
         # self.angular_scatter_net = self.angular_networks[-1]
-        self.absorption_net = self.networks[-1]
+        self._net = self.networks[-1]
         self.angular_scatter_net = self.networks[-1]
 
         # NOTE: temporary
         args.net = "0487_FinalSharedLs7Mixed3_AbsSharedSimComplexMixed3"
-        args.net = "0532_VaeScatter_AbsorptionModel"
+        args.net = "0532_VaeScatter_Model"
         if args.net:
             self.scatter_net = os.path.join(OUTPUT3D, 'models', args.net)
         if args.absnet:
-            self.absorption_net = os.path.join(OUTPUT3D, 'models_abs', args.absnet)
-            self.predict_absorption = True
+            self._net = os.path.join(OUTPUT3D, 'models_abs', args.absnet)
+            self.predict_ = True
 
         self.load_networks()
 
@@ -453,13 +453,13 @@ class Scatter3DViewer(ViewerApp):
         popoutList.setSelectedIndex(len(self.networks_short) - 1)
 
         # def cb(value):
-        #     self.absorption_net = self.absorption_networks[value]
+        #     self._net = self._networks[value]
         #     self.load_networks()
         #     self.update_displayed_scattering()
-        # Label(tools, 'Absorption Network')
-        # popoutList = FilteredPopupListPanel(tools, self.absorption_networks_short, self)
+        # Label(tools, ' Network')
+        # popoutList = FilteredPopupListPanel(tools, self._networks_short, self)
         # popoutList.setCallback(cb)
-        # popoutList.setSelectedIndex(len(self.absorption_networks_short) - 1)
+        # popoutList.setSelectedIndex(len(self._networks_short) - 1)
 
         # def cb(value):
         #     self.angular_scatter_net = self.angular_networks[value]
@@ -514,13 +514,13 @@ class Scatter3DViewer(ViewerApp):
         if len(sub_configs) > 1:
             abs_config_name = sub_configs[1]
             separate_abs_model = False
-            self.predict_absorption = True
+            self.predict_ = True
             if len(sub_configs) > 2:
                 angular_config_name = sub_configs[2]
                 separate_angular_model = False
 
         if separate_abs_model:
-            loaded_abs_config = load_config(self.absorption_net)
+            loaded_abs_config = load_config(self._net)
             abs_config_name = loaded_abs_config['args']['config']
 
         if separate_angular_model:
@@ -538,11 +538,11 @@ class Scatter3DViewer(ViewerApp):
         if self.autoload_dataset:
             self.set_dataset(self.scatter_config.dataset)
 
-        abs_config_name = "AbsorptionModel"
-        self.absorption_config = vae.config.get_config(vae.config_abs, abs_config_name)
-        self.absorption_config.dim = 3
-        if self.predict_absorption:
-            self.absorption_pred = AbsorptionPredictor(self.ph_manager, self.absorption_config, None)
+        abs_config_name = "Model"
+        self._config = vae.config.get_config(vae.config_abs, abs_config_name)
+        self._config.dim = 3
+        if self.predict_:
+            self._pred = Predictor(self.ph_manager, self._config, None)
 
         # self.angular_scatter_config = vae.config.get_config(vae.config_angular, angular_config_name)
         # self.angular_scatter_config.dim = 3
@@ -562,8 +562,8 @@ class Scatter3DViewer(ViewerApp):
             vae.tf_utils.restore_model(self.session, self.scatter_net, None)
         else:
             vae.tf_utils.restore_model(self.session, self.scatter_net, self.scatter_pred.prefix)
-        if self.predict_absorption and separate_abs_model:
-            vae.tf_utils.restore_model(self.session, self.absorption_net, self.absorption_pred.prefix)
+        if self.predict_ and separate_abs_model:
+            vae.tf_utils.restore_model(self.session, self._net, self._pred.prefix)
         if self.sample_outdirs and separate_angular_model:
             vae.tf_utils.restore_model(self.session, self.angular_scatter_net, self.angular_scatter_pred.prefix)
 
@@ -656,7 +656,7 @@ class Scatter3DViewer(ViewerApp):
                                                                        vae.utils.mts_v(
                                                                            self.inDirection), self.ignore_zero_scatter,
                                                                        self.disable_rr, seed + k)
-                print(f"mts_result['absorptionProb'][0]: {mts_result['absorptionProb'][0]}")
+                print(f"mts_result['Prob'][0]: {mts_result['Prob'][0]}")
                 result = {'mode': Mode.REF,
                           'outPos': vae.utils.mts_to_np(mts_result['outPos']),
                           'outNormal': vae.utils.mts_to_np(mts_result['outNormal']),
@@ -708,12 +708,12 @@ class Scatter3DViewer(ViewerApp):
                                                                                            self.its_loc, -self.inDirection, extra_info['coeffs_ws'],
                                                                                            self.scatter_config.poly_order(),
                                                                                            False, scale_factor, False)
-                if self.predict_absorption:
-                    absorption = vae.model.estimate_absorption(self.session, self.its_loc, self.inDirection, self.face_normal,
-                                                               self.absorption_config, self.absorption_pred, self.feature_statistics, self.albedo,
+                if self.predict_:
+                     = vae.model.estimate_(self.session, self.its_loc, self.inDirection, self.face_normal,
+                                                               self._config, self._pred, self.feature_statistics, self.albedo,
                                                                self.sigma_t, self.g, self.eta, extra_info)
-                    print(f"Absorption self.its_loc: {self.its_loc}")
-                    print(f"absorption: {absorption.ravel()[0]}")
+                    print(f" self.its_loc: {self.its_loc}")
+                    print(f": {.ravel()[0]}")
 
                 # Evaluate polynomial gradient
 
@@ -758,12 +758,12 @@ class Scatter3DViewer(ViewerApp):
                 self.sampling_task.thread.join(0.001)
                 self.event_queue = Queue()
             # self.sampling_task = AsynchronousTask(4, f, self)
-            # High absorption 0.91
+            # High  0.91
             #true_its_loc = self.its_loc
             #self.its_loc = np.array([-3.9024332, 3.6581001, 3.98363])
             #result = f(0, 0)
 
-           # Low absorption
+           # Low 
             #self.its_loc = np.array([-3.897561, 3.6556835, 3.98363])
             #result = f(0, 0)
             #self.its_loc = true_its_loc
@@ -809,10 +809,10 @@ class Scatter3DViewer(ViewerApp):
                                                                        False, scale_factor, medium, self.n_scatter_samples, 1, 1,
                                                                        ref_pos_mts, ref_dir_mts, self.ignore_zero_scatter,
                                                                        self.disable_rr, seed)
-            gt_absorption = np.mean(tmp_result['absorptionProb'])
+            gt_ = np.mean(tmp_result['Prob'])
             outPos = vae.utils.mts_to_np(tmp_result['outPos'])
             print('Took {} s'.format(time.time() - t0))
-            print('absorption: {}'.format(gt_absorption))
+            print(': {}'.format(gt_))
 
             # 2. Try to reconstruct them using the VAE: Are they far from the surface?
             reconstructed_samples = vae.model.vae_reconstruct_samples(self.session, outPos, coeffs_ls, self.its_loc, self.inDirection, self.face_normal,
@@ -878,8 +878,8 @@ class Scatter3DViewer(ViewerApp):
                 tmp_result = utils.mtswrapper.sample_scattering_poly2(
                     self.its_loc, trace_dir, sample_counts[k], 1, 1, medium, coeffs, seed + k, {})
                 print('Took {} s'.format(time.time() - t0))
-                gt_absorption = np.mean(tmp_result['absorptionProb'])
-                print('absorption: {}'.format(gt_absorption))
+                gt_ = np.mean(tmp_result['Prob'])
+                print(': {}'.format(gt_))
                 result = {'mode': Mode.POLYREF,
                           'outPos': vae.utils.mts_to_np(tmp_result['outPos']),
                           'outNormal': vae.utils.mts_to_np(tmp_result['outNormal']),
