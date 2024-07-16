@@ -19,20 +19,23 @@ def datasetIRON2PSDR(src_dir,dst_dir,light_out,xml_file,xml_out,mesh_name,n_ligh
     root = et.getroot()
 
     lightdir = [a for a in os.listdir(src_dir) if os.path.isdir(os.path.join(src_dir,a))]
-    # lightdir = lightdir[:-1]
     list_imgfile = sorted(os.listdir(os.path.join(src_dir,lightdir[0],"train/image")))
     
     if n_lights == 1:
         lightdir = [lightdir[0]]
     list_lightidx = np.random.choice(len(lightdir),size=len(list_imgfile))
+    # list_lightidx = np.arange(len(list_imgfile))
     cam_dict = json.load(open(os.path.join(src_dir,lightdir[0],"train/cam_dict_norm.json"),"r"))
+    breakpoint()
     
     # Record Light position and save to file
     files_light = glob(os.path.join(src_dir,"*/light.txt"))
     light_pos = []
     for light_file in files_light:
         lines = open(light_file,'r').readlines()
-        light_pos.append([float(i) for i in lines[1][:-2].split(' ')])
+        for line in lines[1:]:
+            light_pos.append([float(i) for i in line[:-2].split(' ')])
+        # light_pos.append([float(i) for i in lines[1][:-2].split(' ')])
     
     # breakpoint()
     # Update medium info
@@ -91,7 +94,9 @@ def datasetIRON2PSDR(src_dir,dst_dir,light_out,xml_file,xml_out,mesh_name,n_ligh
         dst_file = os.path.join(dst_dir,"exr_ref",f"{idx}.exr")
         print(dst_file)
         shutil.copy(src_file,dst_file)
-        list_lightpos.append(light_pos[list_lightidx[idx]])
+        # breakpoint()
+        list_lightpos.append(light_pos[idx])
+        # list_lightpos.append(light_pos[list_lightidx[idx]])
         
         cam = cam_dict[img_file.replace("exr","png")]
         K = np.array(cam["K"]).reshape(4,4)[:3,:3]
@@ -185,10 +190,10 @@ if __name__ == "__main__":
          mesh_name=f"{sys.argv[3]}",
          n_lights=1)
     
-    # Step 2. Copy Script file
-    script_pth = "./examples/python/scripts/learn_custom.sh"
-    dst_pth = script_pth.replace("custom",name)
-    shutil.copy(script_pth,dst_pth)
+    # # Step 2. Copy Script file
+    # script_pth = "./examples/python/scripts/learn_custom.sh"
+    # dst_pth = script_pth.replace("custom",name)
+    # shutil.copy(script_pth,dst_pth)
     
 # if __name__ == "__main__":
 #     src_dir = "data/duck/light00/test/image"

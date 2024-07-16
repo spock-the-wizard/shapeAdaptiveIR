@@ -279,23 +279,7 @@ void Scene::configure() {
                               safe_acos(dot(detach(m_sec_edge_info.n0), detach(m_sec_edge_info.n1))));
         m_sec_edge_distrb->init(norm(detach(m_sec_edge_info.e1))*angle);
 #else
-
-        // Joon addded: debugging edge sampling
-        FloatC edge_lengths = norm(detach(m_sec_edge_info.e1));
-        // edge_lengths = select(edge_lengths > 0.005f,edge_lengths,0.0f);
-        m_sec_edge_distrb->init(edge_lengths);
-
-        // IntC edge_idx = arange<IntC>(slices(edge_lengths));
-        // // int num = 40450;
-        // int num = 10;
-        // edge_lengths = select(edge_idx > num && edge_idx < num+10 ,edge_lengths,0.0f);
-        // // edge_lengths = select(edge_idx > 8000,edge_lengths,0.0f);
-        // // edge_lengths = select(edge_idx < 40450 && edge_idx > 40440,edge_lengths,0.0f);
-        // std::cout << "edge_lengths " << edge_lengths << std::endl;
-        // m_sec_edge_distrb->init(edge_lengths);
-
-        // m_sec_edge_distrb->init(norm(detach(m_sec_edge_info.e1)));
-        
+        m_sec_edge_distrb->init(norm(detach(m_sec_edge_info.e1)));
 #endif
         if ( m_opts.log_level > 0 ) {
             std::stringstream oss;
@@ -465,6 +449,7 @@ Intersection<ad> Scene::ray_all_intersect(const Ray<ad> &ray, Mask<ad> active, c
                                             tri_info.poly1[i] - tri_info.poly0[i],
                                             tri_info.poly2[i] - tri_info.poly0[i],
                                             uv);
+            // its.poly_coeff[i] = tri_info.poly0[i]; 
 
         }
         // std::cout << "poly_coeff " << poly_coeff << std::endl;
@@ -497,6 +482,7 @@ Intersection<ad> Scene::ray_all_intersect(const Ray<ad> &ray, Mask<ad> active, c
                                             tri_info.poly1[i] - tri_info.poly0[i],
                                             tri_info.poly2[i] - tri_info.poly0[i],
                                             uv);
+            // its.poly_coeff[i] = tri_info.poly0[i]; 
             
         }
         // int num_samples = static_cast<int>(slices(ray.o));
@@ -648,11 +634,8 @@ Intersection<ad> Scene::ray_intersect(const Ray<ad> &ray, Mask<ad> active, Trian
                                             tri_info.poly1[i] - tri_info.poly0[i],
                                             tri_info.poly2[i] - tri_info.poly0[i],
                                             uv);
+            // its.poly_coeff[i] = tri_info.poly0[i]; 
         }
-        // its.poly_coeff = bilinear20<ad>(tri_info.poly0,
-        //                                 tri_info.poly1 - tri_info.poly0,
-        //                                 tri_info.poly2 - tri_info.poly0,
-        //                                 uv);
     } else {
         // Standard (solid-angle) formulation
         auto [uv, t] = ray_intersect_triangle<true>(vertex0, edge1, edge2, ray);

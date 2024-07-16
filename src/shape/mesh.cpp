@@ -83,7 +83,6 @@ void Mesh::instance(const Mesh * origin_mesh, float offset){
     }
 
 #ifdef PSDR_MESH_ENABLE_1D_VERTEX_OFFSET
-    // std::cout << "AAAAAAAAAAAAAAAAAAAAAAARRRRRRRRRRHHHHHHHHHHHHHH" << std::endl;
     m_vertex_offset = zero<FloatD>(m_num_vertices) + offset;
 #endif
 
@@ -372,12 +371,15 @@ void Mesh::configure() {
     std::tie(std::ignore, m_vertex_normals_raw) = process_mesh<true>(m_vertex_positions_raw, m_face_indices,m_poly_coeff);
     // std::cout<<"new mesh: "<<slices(m_vertex_positions_raw)<<std::endl;
     // std::cout<<"new mesh: "<<slices(m_face_indices)<<std::endl;
+    // NOTE: joon added
+    m_num_vertices = slices(m_vertex_normals_raw);
+    m_num_faces = slices(m_face_indices);
 
     Matrix4fD to_world = m_to_world_left * m_to_world_raw * m_to_world_right;
 
     // Calculating the world-space vertex positions
 #ifdef PSDR_MESH_ENABLE_1D_VERTEX_OFFSET
-    std::cout<<m_vertex_offset<<std::endl;
+    m_vertex_offset = zero<FloatD>(m_num_vertices);
     m_vertex_positions = transform_pos(
         to_world, fnmadd(m_vertex_normals_raw, m_vertex_offset, m_vertex_positions_raw)
     ); // xi deng changed from fmadd to fnmadd to fit for shell texture

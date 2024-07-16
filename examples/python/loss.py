@@ -10,6 +10,8 @@ from scipy.sparse import csc_matrix, eye
 from scipy.sparse.linalg import factorized
 import random
 
+from scipy.spatial import cKDTree
+
 def active_sensors(batch, num_sensors):
     indices = torch.tensor(random.sample(range(num_sensors), batch))
     return indices
@@ -277,6 +279,27 @@ def mesh_edge_loss(verts, edges, weight, target_length: float = 0.0):
 	loss = ((v0 - v1).norm(dim=1, p=2) - target_length) ** 2.0
 	
 	return loss.mean() * weight
+
+def hausdorff_distance(vertices1, vertices2):
+	# Get vertices from both meshes
+	# vertices1 = mesh1.vertices
+	# vertices2 = mesh2.vertices
+
+	# Build KD-trees for efficient nearest neighbor queries
+	tree1 = cKDTree(vertices1)
+	tree2 = cKDTree(vertices2)
+
+	# Compute distances from mesh1 to mesh2
+	distances1, _ = tree2.query(vertices1)
+	
+	# Compute distances from mesh2 to mesh1
+	distances2, _ = tree1.query(vertices2)
+
+	# Compute Hausdorff distance
+	hausdorff_dist = max(np.max(distances1), np.max(distances2))
+
+	return hausdorff_dist
+		
 
 if __name__ == "__main__":
 	ImageLaplacianUniform(16)

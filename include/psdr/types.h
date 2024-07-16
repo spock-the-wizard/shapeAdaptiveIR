@@ -235,6 +235,12 @@ struct RenderOption {
     int rgb = 0; // [1,2,3] for [R,G,B], 0 for random
     int debug = 0;
     float epsM = 2.0f;
+    // Options for vaesub
+    // 0: shape-adaptive, light-space, 1: shape-adaptive: tangent-space
+    // 2: planar, light-space, 3: planar, tangent-space
+    int vaeMode; 
+    int isFull;
+    int mode; // 0 for SSS+opaque, 1 for opaque, 2 for SSS
 };
 
 } // namespace psdr

@@ -16,6 +16,7 @@ namespace psdr
 {
 SpectrumC HeterSub::eval(const IntersectionC &its, const Vector3fC &wo, MaskC active) const {
     // check and reverse this
+    std::cout << "hieval2 " << std::endl;
     BSDFSampleC bs;
     bs.po = its;
     bs.wo = wo;
@@ -24,6 +25,7 @@ SpectrumC HeterSub::eval(const IntersectionC &its, const Vector3fC &wo, MaskC ac
 }
 
 SpectrumD HeterSub::eval(const IntersectionD &its, const Vector3fD &wo, MaskD active) const {
+    std::cout << "hieval " << std::endl;
     // check and reverse this
     BSDFSampleD bs;
     bs.po = its;
@@ -43,7 +45,7 @@ SpectrumD HeterSub::eval(const IntersectionD &its, const BSDFSampleD &bs, MaskD 
 
 FloatC HeterSub::pdfpoint(const IntersectionC &its, const BSDFSampleC &bs, MaskC active) const {
     // FIXME
-    return __pdf_sub<false>(its,bs,active) & active;
+    // return __pdf_sub<false>(its,bs,active) & active;
     FloatC cos_theta_i = Frame<false>::cos_theta(detach(its.wi));
     SpectrumC Fersnelterm = __FersnelDi<false>(1.0f, m_eta.eval<false>(detach(its.uv)), cos_theta_i);
     FloatC F = Fersnelterm.x();
@@ -53,7 +55,7 @@ FloatC HeterSub::pdfpoint(const IntersectionC &its, const BSDFSampleC &bs, MaskC
 
 FloatD HeterSub::pdfpoint(const IntersectionD &its, const BSDFSampleD &bs, MaskD active) const {
     // FIXME
-    return __pdf_sub<true>(its,bs,active) & active;
+    // return __pdf_sub<true>(its,bs,active) & active;
     FloatD cos_theta_i = Frame<true>::cos_theta(its.wi);
     SpectrumD Fersnelterm = __FersnelDi<true>(1.0f, m_eta.eval<true>(its.uv), cos_theta_i);
     FloatD F = Fersnelterm.x();
@@ -212,7 +214,7 @@ Spectrum<ad> HeterSub::__eval(const Intersection<ad> &its, const BSDFSample<ad> 
     // auto start_time = high_resolution_clock::now();
     // [var 151] baseline with no bsdf
     // FIXME
-    return __eval_sub<ad>(its, bs, active);
+    // return __eval_sub<ad>(its, bs, active);
 
     auto res = select(bs.is_sub, __eval_sub<ad>(its, bs, active), __eval_bsdf<ad>(its, bs, active));
 
@@ -258,8 +260,8 @@ Spectrum<ad> HeterSub::__eval_sub(const Intersection<ad> &its, const BSDFSample<
     
     Spectrum<ad> value;
     // Joon modified: testing null BSDF
-    value = sp * sw  * cos_theta_o;
-    // value = sp * sw * (1.0f - F) * cos_theta_o;
+    // value = sp * sw  * cos_theta_o;
+    value = sp * sw * (1.0f - F) * cos_theta_o;
     if constexpr ( ad ) {
         value = value * bs.po.J;    
     }
@@ -284,6 +286,14 @@ BSDFSample<ad> HeterSub::__sample(const Scene *scene, const Intersection<ad> &it
 
     FloatC cos_theta_i = Frame<false>::cos_theta(detach(its.wi));
     SpectrumC probv = __FersnelDi<false>(1.0f, m_eta.eval<false>(detach(its.uv)), cos_theta_i);
+    if(scene->m_opts.mode == 1){ // only bsdf
+        probv = 1.0;
+        PSDR_ASSERT(count(probv.x()!=1.0)==0);
+    }
+    else if(scene->m_opts.mode == 2){
+        probv = 0.0;
+        PSDR_ASSERT(count(probv.x()!=0.0)==0);
+    }
     FloatC prob = probv.x();
     
     bs.wo = select(sample.x() > prob, bs.wo, bsdf_bs.wo);
@@ -307,6 +317,42 @@ BSDFSample<ad> HeterSub::__sample(const Scene *scene, const Intersection<ad> &it
     bs.po.poly_coeff = select(sample.x() > prob, bs.po.poly_coeff, bsdf_bs.po.poly_coeff);
     bs.maxDist = select(sample.x() > prob, bs.maxDist, bsdf_bs.maxDist);
     bs.velocity = select(sample.x() > prob, bs.velocity, bsdf_bs.velocity);
+
+    if constexpr(ad){
+
+        bs.pair.num = select(sample.x() > prob, bs.pair.num, bsdf_bs.pair.num);
+        bs.pair.n = select(sample.x() > prob, bs.pair.n, bsdf_bs.pair.n);
+        bs.pair.p = select(sample.x() > prob, bs.pair.p, bsdf_bs.pair.p);
+        bs.pair.J = select(sample.x() > prob, bs.pair.J, bsdf_bs.pair.J);
+        bs.pair.uv = select(sample.x() > prob, bs.pair.uv, bsdf_bs.pair.uv);
+        bs.pair.shape = select(sample.x() > prob, bs.pair.shape, bsdf_bs.pair.shape);
+        bs.pair.t = select(sample.x() > prob, bs.pair.t, bsdf_bs.pair.t);
+        bs.pair.wi = select(sample.x() > prob, bs.pair.wi, bsdf_bs.pair.wi);
+        bs.pair.sh_frame.s = select(sample.x() > prob, bs.pair.sh_frame.s, bsdf_bs.pair.sh_frame.s);
+        bs.pair.sh_frame.t = select(sample.x() > prob, bs.pair.sh_frame.t, bsdf_bs.pair.sh_frame.t);
+        bs.pair.sh_frame.n = select(sample.x() > prob, bs.pair.sh_frame.n, bsdf_bs.pair.sh_frame.n);
+        bs.pair.abs_prob = select(sample.x() > prob, bs.pair.abs_prob, bsdf_bs.pair.abs_prob);
+        bs.pair.poly_coeff = select(sample.x() > prob, bs.pair.poly_coeff, bsdf_bs.pair.poly_coeff);
+       
+        bs.pair2.num = select(sample.x() > prob, bs.pair2.num, bsdf_bs.pair2.num);
+        bs.pair2.n = select(sample.x() > prob, bs.pair2.n, bsdf_bs.pair2.n);
+        bs.pair2.p = select(sample.x() > prob, bs.pair2.p, bsdf_bs.pair2.p);
+        bs.pair2.J = select(sample.x() > prob, bs.pair2.J, bsdf_bs.pair2.J);
+        bs.pair2.uv = select(sample.x() > prob, bs.pair2.uv, bsdf_bs.pair2.uv);
+        bs.pair2.shape = select(sample.x() > prob, bs.pair2.shape, bsdf_bs.pair2.shape);
+        bs.pair2.t = select(sample.x() > prob, bs.pair2.t, bsdf_bs.pair2.t);
+        bs.pair2.wi = select(sample.x() > prob, bs.pair2.wi, bsdf_bs.pair2.wi);
+        bs.pair2.sh_frame.s = select(sample.x() > prob, bs.pair2.sh_frame.s, bsdf_bs.pair2.sh_frame.s);
+        bs.pair2.sh_frame.t = select(sample.x() > prob, bs.pair2.sh_frame.t, bsdf_bs.pair2.sh_frame.t);
+        bs.pair2.sh_frame.n = select(sample.x() > prob, bs.pair2.sh_frame.n, bsdf_bs.pair2.sh_frame.n);
+        bs.pair2.abs_prob = select(sample.x() > prob, bs.pair2.abs_prob, bsdf_bs.pair2.abs_prob);
+        bs.pair2.poly_coeff = select(sample.x() > prob, bs.pair2.poly_coeff, bsdf_bs.pair2.poly_coeff);
+    }
+    else{
+        bs.pair = bs.po;
+        bs.pair2 = bs.po;
+    }
+    
     return bs;
 }
 
@@ -332,6 +378,9 @@ BSDFSample<ad> HeterSub::__sample_bsdf(const Intersection<ad> &its, const Vector
     bs.maxDist = full<Float<ad>>(-1.0f);
     bs.velocity = full<Vector3f<ad>>(0.0f);
     bs.po.abs_prob = full<Float<ad>>(0.0f);
+    bs.pair = bs.po;
+    bs.pair2 = bs.po;
+
     return bs;
 }
 
@@ -536,7 +585,6 @@ std::tuple<Intersection<ad>,Float<ad>,Vector3f<ad>,Vector3f<ad>> HeterSub::__sam
         // NOTE: modified for viz
         auto outPos = its.p + r * (vx * cos(phi)+ vy * sin(phi));
         auto projDir = vz;
-        
 
         return std::tuple<Intersection<ad>,Float<ad>,Vector3f<ad>,Vector3f<ad>>(its2,sample[5],outPos,projDir);
     }

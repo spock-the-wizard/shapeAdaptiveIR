@@ -83,8 +83,11 @@ PYBIND11_MODULE(psdr_cuda, m) {
         .def_readwrite("sppsce", &RenderOption::sppsce)
         .def_readwrite("log_level", &RenderOption::log_level)
         .def_readwrite("rgb", &RenderOption::rgb)
+        .def_readwrite("isFull", &RenderOption::isFull)
+        .def_readwrite("vaeMode", &RenderOption::vaeMode)
         .def_readwrite("debug", &RenderOption::debug)
         .def_readwrite("epsM", &RenderOption::epsM)
+        .def_readwrite("mode", &RenderOption::mode)
         .def("__repr__",
             [](const RenderOption &ro) {
                 std::stringstream oss;
@@ -283,10 +286,39 @@ PYBIND11_MODULE(psdr_cuda, m) {
         .def("setSigmaT", &VaeSub::setSigmaT, "sigma_t"_a)
         .def("setAlbedoTexture", &VaeSub::setAlbedoTexture, "filename"_a)
         .def("setSigmaTexture", &VaeSub::setSigmaTexture, "filename"_a)  
-        .def("setEpsM", &VaeSub::setEpsM, "epsM"_a)
-        .def("setEpsMTexture", &VaeSub::setEpsMTexture, "filename"_a)
         .def("setAlphaTexture", &VaeSub::setAlphaTexture, "filename"_a) ;  
-        // .def("getKernelEps", &VaeSub::getKernelEps<true>, "Intersection"_a,"idx"_a);    
+        // .def("setEpsM", &VaeSub::setEpsM, "epsM"_a)
+        // .def("setEpsMTexture", &VaeSub::setEpsMTexture, "filename"_a)
+    // py::class_<VaeSubLightModel, BSDF>(m, "VaesubLightBSDF")
+    //     .def_readwrite("alpha_u", &VaeSub::m_alpha_u)
+    //     .def_readwrite("monochrome", &VaeSub::m_monochrome)
+    //     .def_readwrite("alpha_v", &VaeSub::m_alpha_v)
+    //     .def_readwrite("eta", &VaeSub::m_eta)
+    //     .def_readwrite("g", &VaeSub::m_g)
+    //     .def_readwrite("epsM", &VaeSub::m_epsM)
+    //     .def_readwrite("albedo", &VaeSub::m_albedo)
+    //     .def_readwrite("sigma_t", &VaeSub::m_sigma_t)
+    //     .def_readwrite("specular_reflectance", &VaeSub::m_specular_reflectance)
+    //     .def("setAlbedo", &VaeSub::setAlbedo, "albedo"_a)
+    //     .def("setSigmaT", &VaeSub::setSigmaT, "sigma_t"_a)
+    //     .def("setAlbedoTexture", &VaeSub::setAlbedoTexture, "filename"_a)
+    //     .def("setSigmaTexture", &VaeSub::setSigmaTexture, "filename"_a)  
+    //     .def("setAlphaTexture", &VaeSub::setAlphaTexture, "filename"_a) ;  
+    // py::class_<VaeSubFullModel, BSDF>(m, "VaesubFullBSDF")
+    //     .def_readwrite("alpha_u", &VaeSub::m_alpha_u)
+    //     .def_readwrite("monochrome", &VaeSub::m_monochrome)
+    //     .def_readwrite("alpha_v", &VaeSub::m_alpha_v)
+    //     .def_readwrite("eta", &VaeSub::m_eta)
+    //     .def_readwrite("g", &VaeSub::m_g)
+    //     .def_readwrite("epsM", &VaeSub::m_epsM)
+    //     .def_readwrite("albedo", &VaeSub::m_albedo)
+    //     .def_readwrite("sigma_t", &VaeSub::m_sigma_t)
+    //     .def_readwrite("specular_reflectance", &VaeSub::m_specular_reflectance)
+    //     .def("setAlbedo", &VaeSub::setAlbedo, "albedo"_a)
+    //     .def("setSigmaT", &VaeSub::setSigmaT, "sigma_t"_a)
+    //     .def("setAlbedoTexture", &VaeSub::setAlbedoTexture, "filename"_a)
+    //     .def("setSigmaTexture", &VaeSub::setSigmaTexture, "filename"_a)  
+    //     .def("setAlphaTexture", &VaeSub::setAlphaTexture, "filename"_a) ;  
 
 
     py::class_<Microfacet, BSDF>(m, "MicrofacetBSDF")

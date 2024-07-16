@@ -7,7 +7,7 @@ import enoki as ek
 import cv2
 import numpy as np
 import math
-from enoki.cuda_autodiff import Float32 as FloatD, Vector3f as Vector3fD, Matrix4f as Matrix4fD, Vector3i
+from enoki.cuda_autodiff import Float32 as FloatD, Vector3f as Vector3fD, Matrix4f as Matrix4fD, Vector3i as Vector3iD
 from enoki.cuda import Vector20f as Vector20fC
 from psdr_cuda import Bitmap3fD
 # from enoki.cuda_autodiff import Vector20fD as Vector20fD
@@ -201,6 +201,7 @@ parser.add_argument('--rough_laplacian',   type=float,    default=0)
 
 parser.add_argument('--n_iters',            type=int,      default=30000)
 parser.add_argument('--n_resize',           type=int,      default=10000)
+parser.add_argument('--n_remesh',           type=int,      default=10000)
 parser.add_argument('--n_reduce_step',      type=int,      default=200)
 parser.add_argument('--n_dump',             type=int,      default=100)
 parser.add_argument('--n_crops',             type=int,      default=1)
@@ -382,15 +383,15 @@ def compute_vertex_normals(verts, faces, face_normals):
             normals[j].index_add_(0, fi[i], nn[j])
     return (normals / torch.norm(normals, dim=0)).transpose(0, 1)
 
-def remesh(verts, faces):
+def remesh(verts, faces,steps=5,length_scale=0.5):
     " copy right belongs to Baptiste Nicolet"
     v_cpu = verts.detach().cpu().numpy()
     f_cpu = faces.detach().cpu().numpy()
 
     # Target edge length
-    h = (average_edge_length(verts.detach(), faces.detach())).cpu().numpy()*0.5
+    h = (average_edge_length(verts.detach(), faces.detach())).cpu().numpy()*length_scale
 
-    v_new, f_new = remesh_botsch(v_cpu.astype(np.double),f_cpu.astype(np.int32), 5, h, True)
+    v_new, f_new = remesh_botsch(v_cpu.astype(np.double),f_cpu.astype(np.int32), steps, h, True)
 
     v_src = torch.from_numpy(v_new).cuda().float().contiguous()
     f_src = torch.from_numpy(f_new).cuda().contiguous()
@@ -514,7 +515,6 @@ def opt_task(isSweep=True):
     if args.d_type == "syn":
         lightdir = LIGHT_DIR + '/lights-sy-{}.npy'.format(args.light_file)
     elif args.scene == "duck":
-        # TODO: fix this...
         lightdir = LIGHT_DIR + '/lights-head.npy'
     elif args.d_type == "custom":
         lightdir = LIGHT_DIR + '/lights-{}.npy'.format(args.scene)
@@ -692,7 +692,6 @@ def opt_task(isSweep=True):
         return loss
 
     def renderC(scene,integrator,sensor_id,coeffs=None,fit_mode='avg'):
-        # TODO: add mode select (baseline)
         if False:
         # if False:
             its = integrator.getIntersection(scene,sensor_id)
@@ -1001,13 +1000,6 @@ def opt_task(isSweep=True):
             eta       = ek.select(_eta      < 1.0,       1.0,   _eta)
             epsM       = ek.select(_epsM      < 0.0 ,       0.01,   ek.select(_epsM > 10.0, 10.0,_epsM))
 
-            # # TODO: diffusion reparam
-            # breakpoint()
-            # V = from_differential(M,V)
-            # breakpoint()
-            # _u = from_differential(M,_vertex)
-            # sc.param_map[mesh_key].vertex_positions  = _u
-
 
             sc.param_map[mesh_key].vertex_positions  = _vertex
             sc.param_map[material_key].albedo.data   = albedo
@@ -1133,9 +1125,9 @@ def opt_task(isSweep=True):
 
             result = (gradV, gradA, gradS, gradR, gradG, gradE, None,None,None)
             del ctx.output, ctx.input1, ctx.input2, ctx.input3, ctx.input4, ctx.input5, ctx.input6
-            # print("==========================")
-            # print("Estimated gradients")
-            # print("gradA ",gradA,"gradS ",gradS,"gradV ", gradV)
+            print("==========================")
+            print("Estimated gradients")
+            print("gradA ",gradA,"gradS ",gradS,"gradV ", gradV)
             # assert(torch.all(gradA==0.0))
             # assert(torch.all(gradS == 0.0))
             return result
@@ -1309,37 +1301,72 @@ def opt_task(isSweep=True):
                 np.save(filedir+"/rough.npy", np.concatenate(roughhistory, axis=0))
             if len(etahistory) > 0:
                 np.save(filedir+"/eta.npy", np.concatenate(etahistory, axis=0))
+        
+        def init_optimizer(U,M,A,S,R,G,
+                           alb_texture_width,
+                           sig_texture_width,
+                           rgh_texture_width,):
+            params = []
+            params.append({'params': U, 'lr': args.mesh_lr, "I_Ls": M, 'largestep': True})
+            # params.append({'params': V, 'lr': args.mesh_lr, "I_Ls": M, 'largestep': True})
+                        
+            if  args.albedo_texture > 0 and args.albedo_laplacian > 0:
+                AM = compute_image_matrix(alb_texture_width, args.albedo_laplacian)
+                params.append({'params': A, 'lr': args.albedo_lr, "I_Ls": AM, 'largestep': True})
+            else:
+                params.append({'params': A, 'lr': args.albedo_lr})
 
-        params = []
+            if  args.sigma_texture > 0 and args.sigma_laplacian > 0:
+                SM = compute_image_matrix(sig_texture_width, args.sigma_laplacian)
+                params.append({'params': S, 'lr': args.sigma_lr, "I_Ls": SM, 'largestep': True})
+            else:
+                params.append({'params': S, 'lr': args.sigma_lr})
 
-        # Use diffusion reparameterization
-        # u = to_differential(M,V)
-        # U = Variable(u,requires_grad=True)
-        params.append({'params': U, 'lr': args.mesh_lr, "I_Ls": M, 'largestep': True})
-        # params.append({'params': V, 'lr': args.mesh_lr, "I_Ls": M, 'largestep': True})
+            if args.rough_texture > 0 and args.rough_laplacian > 0:
+                RM = compute_image_matrix(rgh_texture_width, args.rough_laplacian)
+                params.append({'params': R, 'lr': args.rough_lr, "I_LS": RM, 'largestep': True})
+            else:
+                params.append({'params': R, 'lr': args.rough_lr})
+
+            params.append({'params': G, 'lr': args.eta_lr})
+                
+            optimizer = UAdam(params)
+            return optimizer
+
+        optimizer = init_optimizer(U,M,A,S,R,G,
+                           alb_texture_width,
+                           sig_texture_width,
+                           rgh_texture_width,)
+        # params = []
+
+        # # Use diffusion reparameterization
+        # # u = to_differential(M,V)
+        # # U = Variable(u,requires_grad=True)
+        # params.append({'params': U, 'lr': args.mesh_lr, "I_Ls": M, 'largestep': True})
+        # # params.append({'params': V, 'lr': args.mesh_lr, "I_Ls": M, 'largestep': True})
                     
-        if  args.albedo_texture > 0 and args.albedo_laplacian > 0:
-            AM = compute_image_matrix(alb_texture_width, args.albedo_laplacian)
-            params.append({'params': A, 'lr': args.albedo_lr, "I_Ls": AM, 'largestep': True})
-        else:
-            params.append({'params': A, 'lr': args.albedo_lr})
+        # if  args.albedo_texture > 0 and args.albedo_laplacian > 0:
+        #     AM = compute_image_matrix(alb_texture_width, args.albedo_laplacian)
+        #     params.append({'params': A, 'lr': args.albedo_lr, "I_Ls": AM, 'largestep': True})
+        # else:
+        #     params.append({'params': A, 'lr': args.albedo_lr})
 
-        if  args.sigma_texture > 0 and args.sigma_laplacian > 0:
-            SM = compute_image_matrix(sig_texture_width, args.sigma_laplacian)
-            params.append({'params': S, 'lr': args.sigma_lr, "I_Ls": SM, 'largestep': True})
-        else:
-            params.append({'params': S, 'lr': args.sigma_lr})
+        # if  args.sigma_texture > 0 and args.sigma_laplacian > 0:
+        #     SM = compute_image_matrix(sig_texture_width, args.sigma_laplacian)
+        #     params.append({'params': S, 'lr': args.sigma_lr, "I_Ls": SM, 'largestep': True})
+        # else:
+        #     params.append({'params': S, 'lr': args.sigma_lr})
 
-        if args.rough_texture > 0 and args.rough_laplacian > 0:
-            RM = compute_image_matrix(rgh_texture_width, args.rough_laplacian)
-            params.append({'params': R, 'lr': args.rough_lr, "I_LS": RM, 'largestep': True})
-        else:
-            params.append({'params': R, 'lr': args.rough_lr})
+        # if args.rough_texture > 0 and args.rough_laplacian > 0:
+        #     RM = compute_image_matrix(rgh_texture_width, args.rough_laplacian)
+        #     params.append({'params': R, 'lr': args.rough_lr, "I_LS": RM, 'largestep': True})
+        # else:
+        #     params.append({'params': R, 'lr': args.rough_lr})
 
-        params.append({'params': E, 'lr': args.epsM_lr})
-        params.append({'params': G, 'lr': args.eta_lr})
+        # params.append({'params': E, 'lr': args.epsM_lr})
+        # params.append({'params': G, 'lr': args.eta_lr})
 
-        optimizer = UAdam(params)                        
+        # optimizer = UAdam(params)                        
 
         for i in range(args.n_iters):
             loss = 0
@@ -1519,6 +1546,19 @@ def opt_task(isSweep=True):
                 if not isBaseline:
                     precompute_mesh_polys()
 
+            if ((i + 1) % args.n_remesh == 0) and args.mesh_lr > 0:
+                V,F = remesh(V,F,steps=3,length_scale=0.8)
+                M = compute_matrix(V, F, lambda_ = args.laplacian)
+                u = to_differential(M,V)
+                U = Variable(u, requires_grad=True)
+                optimizer = init_optimizer(U,M,A,S,R,G,
+                                   alb_texture_width,
+                                   sig_texture_width,
+                                   rgh_texture_width,)
+                sc.param_map[mesh_key].vertex_positions = Vector3fD(V)
+                sc.param_map[mesh_key].face_indices = Vector3iD(F.int())
+                sc.configure()
+
                 
             if ((i + 1) % args.n_resize) == 0:
                 update = False
@@ -1545,36 +1585,13 @@ def opt_task(isSweep=True):
                         update = True
                         sc.param_map[material_key].setRoughTexture(statsdir+"/rough_resize_{}.exr".format(i+1))
                         R = Variable(sc.param_map[material_key].alpha_u.data.torch(), requires_grad=True)
-
-
+                
                 if update:
-                    print(optimizer)
-                    # del optimizer
-                    
-                    params = []
-                    params.append({'params': V, 'lr': args.mesh_lr, "I_Ls": M, 'largestep': True})
-                                
-                    if  args.albedo_texture > 0 and args.albedo_laplacian > 0:
-                        AM = compute_image_matrix(alb_texture_width, args.albedo_laplacian)
-                        params.append({'params': A, 'lr': args.albedo_lr, "I_Ls": AM, 'largestep': True})
-                    else:
-                        params.append({'params': A, 'lr': args.albedo_lr})
+                    optimizer = init_optimizer(U,M,A,S,R,G,
+                                       alb_texture_width,
+                                       sig_texture_width,
+                                       rgh_texture_width,)
 
-                    if  args.sigma_texture > 0 and args.sigma_laplacian > 0:
-                        SM = compute_image_matrix(sig_texture_width, args.sigma_laplacian)
-                        params.append({'params': S, 'lr': args.sigma_lr, "I_Ls": SM, 'largestep': True})
-                    else:
-                        params.append({'params': S, 'lr': args.sigma_lr})
-
-                    if args.rough_texture > 0 and args.rough_laplacian > 0:
-                        RM = compute_image_matrix(rgh_texture_width, args.rough_laplacian)
-                        params.append({'params': R, 'lr': args.rough_lr, "I_LS": RM, 'largestep': True})
-                    else:
-                        params.append({'params': R, 'lr': args.rough_lr})
-
-                    params.append({'params': G, 'lr': args.eta_lr})
-                        
-                    optimizer = UAdam(params)
             torch.cuda.empty_cache()
             ek.cuda_malloc_trim()
 

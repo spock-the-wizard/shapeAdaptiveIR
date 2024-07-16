@@ -474,7 +474,6 @@ std::tuple<Vector3fC, Vector3fC, Vector3fC, Vector20fC, FloatC> Integrator::samp
     Float<ad> pdf;
     Sampler sampler;
     sampler.seed(arange<UInt64C>(slices(pts)));
-
     // Type<HeterSub*,ad> vaesub_array = its.shape->bsdf(true);
     Type<VaeSub*,ad> vaesub_array = its.shape->bsdf(true);
     auto res = vaesub_array[0] -> __sample_sp<ad>(&scene, its, (sampler.next_nd<8, false>()),pdf, active);
@@ -529,13 +528,13 @@ SpectrumD Integrator::renderD(const Scene &scene, int sensor_id) const {
     // __render_boundary(scene,sensor_id,result);
 
     // Boundary integral
-    // if ( likely(scene.m_opts.sppe > 0) ) {
-    //     render_primary_edges(scene, sensor_id, result);
-    // }
+    if ( likely(scene.m_opts.sppe > 0) ) {
+        render_primary_edges(scene, sensor_id, result);
+    }
 
-    // if ( likely(scene.m_opts.sppse > 0) ) {
-    //     render_secondary_edges(scene, sensor_id, result);
-    // }
+    if ( likely(scene.m_opts.sppse > 0) ) {
+        render_secondary_edges(scene, sensor_id, result);
+    }
     
     cuda_eval(); cuda_sync();
 
@@ -711,7 +710,7 @@ void Integrator::render_primary_edges(const Scene &scene, int sensor_id, Spectru
         valid &= ~its.is_valid();
         std::cout << "hmmm " << std::endl;
 #endif
-        std::cout << "count(valid) " << count(valid) << std::endl;
+        std::cout << "[render_primary_edges] count(valid) " << count(valid) << std::endl;
         SpectrumC delta_L = Li(scene, scene.m_samplers[1], edge_samples.ray_n, valid, sensor_id) - 
                             Li(scene, scene.m_samplers[1], edge_samples.ray_p, valid, sensor_id);
                             
@@ -723,9 +722,9 @@ void Integrator::render_primary_edges(const Scene &scene, int sensor_id, Spectru
         }
 
         // TODO: Normal
-        // value -= detach(value);
+        value -= detach(value);
         // Debugging silhouette detection
-        value = SpectrumD(1000.0f);
+        // value = SpectrumD(1000.0f);
 
         scatter_add(result, value, IntD(edge_samples.idx), valid);
     }

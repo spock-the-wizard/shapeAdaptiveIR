@@ -414,6 +414,19 @@ void SceneLoader::load_bsdf(const pugi::xml_node &node, Scene &scene) {
         pugi::xml_node specular_reflectance = find_child_by_name(node, {"specular_reflectance"});
         
         VaeSub *b = new VaeSub();
+        // VaeSub *b = new VaeSubFullModel();
+    //     VaeSub *b;
+    //     if (scene.m_opts.isFull == 1){
+    //         std::cout << "scene.m_opts.isFull " << scene.m_opts.isFull << std::endl;
+    //         b = new VaeSubFullModel();
+    // }
+    //     else
+    //         {
+    //         std::cout << "scene.m_opts.isFull " << scene.m_opts.isFull << std::endl;
+
+    //         b = new VaeSubLightModel();
+    //         }
+        
         load_texture(alpha, b->m_alpha_u);
         load_texture(alpha, b->m_alpha_v);
         load_texture(eta, b->m_eta);
@@ -502,8 +515,6 @@ void SceneLoader::load_shape(const pugi::xml_node &node, Scene &scene) {
         const char *file_name = name_node.attribute("value").value();
         mesh = new Mesh();
         mesh->load(file_name);
-        std::cout << "mesh->m_num_coeffs" << mesh->m_num_vertices << std::endl;
-
 
         pugi::xml_node poly_coeff_node;
         const char* file_name_poly;

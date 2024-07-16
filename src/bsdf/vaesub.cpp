@@ -27,56 +27,6 @@ using Matrix = enoki::Array<Array<T,C>, R>;
 
 namespace psdr
 {
-    void VaeSub::loadNetwork() {
-        //Load Network
-
-        const std::string variablePath = "../../../variables";
-        const std::string featStatsFilePath = "../../../data_stats.json";
-        const std::string shapeFeaturesName = "mlsPolyLS3";
-        int PolyOrder = 3;
-
-        int size = 32;
-        
-        NetworkHelpers::loadMat(variablePath + "/scatter_decoder_fcn_fcn_0_weights.bin",(float*) &m_scatter_decoder_fcn_fcn_0_weights);
-        NetworkHelpers::loadMat(variablePath + "/scatter_decoder_fcn_fcn_1_weights.bin",(float*) &m_scatter_decoder_fcn_fcn_1_weights);
-        NetworkHelpers::loadMat(variablePath + "/scatter_decoder_fcn_fcn_2_weights.bin",(float*) &m_scatter_decoder_fcn_fcn_2_weights);
-        NetworkHelpers::loadVector(variablePath + "/scatter_decoder_fcn_fcn_0_biases.bin",(float*) &m_scatter_decoder_fcn_fcn_0_biases);
-        NetworkHelpers::loadVector(variablePath + "/scatter_decoder_fcn_fcn_1_biases.bin",(float*) &m_scatter_decoder_fcn_fcn_1_biases);
-        NetworkHelpers::loadVector(variablePath + "/scatter_decoder_fcn_fcn_2_biases.bin",(float*) &m_scatter_decoder_fcn_fcn_2_biases);
-        NetworkHelpers::loadMat(variablePath + "/scatter_dense_2_kernel.bin", (float*) &m_scatter_dense_2_kernel,3);
-        NetworkHelpers::loadVector(variablePath + "/scatter_dense_2_bias.bin",(float*) &m_scatter_dense_2_bias);
-
-        NetworkHelpers::loadMat(variablePath + "/shared_preproc_mlp_2_shapemlp_fcn_0_weights.bin",(float*) &m_shared_preproc_mlp_2_shapemlp_fcn_0_weights);
-        NetworkHelpers::loadMat(variablePath + "/shared_preproc_mlp_2_shapemlp_fcn_1_weights.bin",(float*) &m_shared_preproc_mlp_2_shapemlp_fcn_1_weights);
-        NetworkHelpers::loadMat(variablePath + "/shared_preproc_mlp_2_shapemlp_fcn_2_weights.bin",(float*) &m_shared_preproc_mlp_2_shapemlp_fcn_2_weights);
-        NetworkHelpers::loadVector(variablePath + "/shared_preproc_mlp_2_shapemlp_fcn_0_biases.bin",(float*) &shared_preproc_mlp_2_shapemlp_fcn_0_biases);
-        NetworkHelpers::loadVector(variablePath + "/shared_preproc_mlp_2_shapemlp_fcn_1_biases.bin",(float*) &shared_preproc_mlp_2_shapemlp_fcn_1_biases);
-        NetworkHelpers::loadVector(variablePath + "/shared_preproc_mlp_2_shapemlp_fcn_2_biases.bin",(float*) &shared_preproc_mlp_2_shapemlp_fcn_2_biases);
-
-        NetworkHelpers::loadMat(variablePath + "/absorption_dense_kernel.bin",(float*) &m_absorption_dense_kernel,1);
-        NetworkHelpers::loadMat(variablePath + "/absorption_mlp_fcn_0_weights.bin",(float*) &m_absorption_mlp_fcn_0_weights,32); //[32,64]
-        NetworkHelpers::loadVector(variablePath + "/absorption_dense_bias.bin", (float*) &m_absorption_dense_bias);
-        NetworkHelpers::loadVector(variablePath + "/absorption_mlp_fcn_0_biases.bin", (float*) &m_absorption_mlp_fcn_0_biases);
-
-        std::ifstream inStreamStats(featStatsFilePath);
-        if (inStreamStats) {
-            std::cout << "Loading statistics...\n";
-
-            inStreamStats >> stats;
-        } else {
-            std::cout << "STATS NOT FOUND " << featStatsFilePath << std::endl;
-        }
-        m_gMean            = stats["g_mean"][0];
-        m_gStdInv          = stats["g_stdinv"][0];
-        m_albedoMean       = stats["effAlbedo_mean"][0];
-        m_albedoStdInv     = stats["effAlbedo_stdinv"][0];
-        
-        std::string degStr = std::to_string(PolyOrder);
-        for (int i = 0; i < NetworkHelpers::nPolyCoeffs(PolyOrder); ++i) {
-            m_shapeFeatMean[i]   = stats[shapeFeaturesName + "_mean"][i];
-            m_shapeFeatStdInv[i] = stats[shapeFeaturesName + "_stdinv"][i];
-        }
-    }
 
 SpectrumC VaeSub::eval(const IntersectionC &its, const Vector3fC &wo, MaskC active) const {
     // check and reverse this
@@ -169,8 +119,6 @@ template <bool ad>
 Spectrum<ad> VaeSub::__Sw(const Intersection<ad>&its, const Vector3f<ad>&wo, Mask<ad >active) const {
 
     Spectrum<ad> c = 1.0f - 2.0f * __FresnelMoment1<ad>(1.0f/m_eta.eval<ad>(its.uv)); 
-    // std::cout << "hsum(hsum(its.uv)) " << hsum(hsum(its.uv)) << std::endl;
-    // std::cout << "hsum(hsum(c)) " << hsum(hsum(c)) << std::endl;
     Spectrum<ad> value = (1.0f - __FersnelDi<ad>(1.0f, m_eta.eval<ad>(its.uv), Frame<ad>::cos_theta(wo))) / (c * Pi);
     return value & active;
 }
@@ -296,8 +244,6 @@ Spectrum<ad> VaeSub::__eval_sub(const Intersection<ad> &its, const BSDFSample<ad
 
     Spectrum<ad> sw =  __Sw<ad>(bs.po, bs.wo, active);
 
-    // std::cout << "count(active) " << count(active) << std::endl;
-    // std::cout << "hsum(hsum(sw)) " << hsum(hsum(sw)) << std::endl;
     
     // ============================= 
     // No Fresnel
@@ -351,7 +297,16 @@ BSDFSample<ad> VaeSub::__sample(const Scene *scene, const Intersection<ad> &its,
     BSDFSample<ad> bsdf_bs =  __sample_bsdf<ad>(its, sample, active);
 
     FloatC cos_theta_i = Frame<false>::cos_theta(detach(its.wi));
+
     SpectrumC probv = __FersnelDi<false>(1.0f, m_eta.eval<false>(detach(its.uv)), cos_theta_i);
+    if(scene->m_opts.mode == 1){ // only bsdf
+        probv = 1.0;
+        PSDR_ASSERT(count(probv.x()!=1.0)==0);
+    }
+    else if(scene->m_opts.mode == 2){
+        probv = 0.0;
+        PSDR_ASSERT(count(probv.x()!=0.0)==0);
+    }
     FloatC prob = probv.x();
     // std::cout << "prob " << prob << std::endl;
     
@@ -376,48 +331,50 @@ BSDFSample<ad> VaeSub::__sample(const Scene *scene, const Intersection<ad> &its,
     bs.po.sh_frame.n = select(sample.x() > prob, bs.po.sh_frame.n, bsdf_bs.po.sh_frame.n);
     bs.po.abs_prob = select(sample.x() > prob, bs.po.abs_prob, bsdf_bs.po.abs_prob);
     bs.po.poly_coeff = select(sample.x() > prob, bs.po.poly_coeff, bsdf_bs.po.poly_coeff);
-    // std::cout << "[sample] bs.po.poly_coeff " << bs.po.poly_coeff << std::endl;
 
     // Joon added
-    // std::cout << "sample.x() > prob " << (sample.x() > prob) << std::endl;
     bs.rgb_rv = select(sample.x() > prob, bs.rgb_rv, bsdf_bs.rgb_rv);
     bs.maxDist = select(sample.x() > prob, bs.maxDist, bsdf_bs.maxDist);
     bs.velocity = select(sample.x() > prob, bs.velocity, bsdf_bs.velocity);
 
     if constexpr(ad){
+        // std::cout << "here " << std::endl;
 
-        bs.pair.num = select(sample.x() > prob, bs.pair.num, bsdf_bs.pair.num);
-        bs.pair.n = select(sample.x() > prob, bs.pair.n, bsdf_bs.pair.n);
-        bs.pair.p = select(sample.x() > prob, bs.pair.p, bsdf_bs.pair.p);
-        bs.pair.J = select(sample.x() > prob, bs.pair.J, bsdf_bs.pair.J);
-        bs.pair.uv = select(sample.x() > prob, bs.pair.uv, bsdf_bs.pair.uv);
-        bs.pair.shape = select(sample.x() > prob, bs.pair.shape, bsdf_bs.pair.shape);
-        bs.pair.t = select(sample.x() > prob, bs.pair.t, bsdf_bs.pair.t);
-        bs.pair.wi = select(sample.x() > prob, bs.pair.wi, bsdf_bs.pair.wi);
-        bs.pair.sh_frame.s = select(sample.x() > prob, bs.pair.sh_frame.s, bsdf_bs.pair.sh_frame.s);
-        bs.pair.sh_frame.t = select(sample.x() > prob, bs.pair.sh_frame.t, bsdf_bs.pair.sh_frame.t);
-        bs.pair.sh_frame.n = select(sample.x() > prob, bs.pair.sh_frame.n, bsdf_bs.pair.sh_frame.n);
-        bs.pair.abs_prob = select(sample.x() > prob, bs.pair.abs_prob, bsdf_bs.pair.abs_prob);
-        bs.pair.poly_coeff = select(sample.x() > prob, bs.pair.poly_coeff, bsdf_bs.pair.poly_coeff);
+        // bs.pair.num = select(sample.x() > prob, bs.pair.num, bsdf_bs.pair.num);
+        // bs.pair.n = select(sample.x() > prob, bs.pair.n, bsdf_bs.pair.n);
+        // bs.pair.p = select(sample.x() > prob, bs.pair.p, bsdf_bs.pair.p);
+        // bs.pair.J = select(sample.x() > prob, bs.pair.J, bsdf_bs.pair.J);
+        // bs.pair.uv = select(sample.x() > prob, bs.pair.uv, bsdf_bs.pair.uv);
+        // bs.pair.shape = select(sample.x() > prob, bs.pair.shape, bsdf_bs.pair.shape);
+        // bs.pair.t = select(sample.x() > prob, bs.pair.t, bsdf_bs.pair.t);
+        // bs.pair.wi = select(sample.x() > prob, bs.pair.wi, bsdf_bs.pair.wi);
+        // bs.pair.sh_frame.s = select(sample.x() > prob, bs.pair.sh_frame.s, bsdf_bs.pair.sh_frame.s);
+        // bs.pair.sh_frame.t = select(sample.x() > prob, bs.pair.sh_frame.t, bsdf_bs.pair.sh_frame.t);
+        // bs.pair.sh_frame.n = select(sample.x() > prob, bs.pair.sh_frame.n, bsdf_bs.pair.sh_frame.n);
+        // bs.pair.abs_prob = select(sample.x() > prob, bs.pair.abs_prob, bsdf_bs.pair.abs_prob);
+        // bs.pair.poly_coeff = select(sample.x() > prob, bs.pair.poly_coeff, bsdf_bs.pair.poly_coeff);
        
-        bs.pair2.num = select(sample.x() > prob, bs.pair2.num, bsdf_bs.pair2.num);
-        bs.pair2.n = select(sample.x() > prob, bs.pair2.n, bsdf_bs.pair2.n);
-        bs.pair2.p = select(sample.x() > prob, bs.pair2.p, bsdf_bs.pair2.p);
-        bs.pair2.J = select(sample.x() > prob, bs.pair2.J, bsdf_bs.pair2.J);
-        bs.pair2.uv = select(sample.x() > prob, bs.pair2.uv, bsdf_bs.pair2.uv);
-        bs.pair2.shape = select(sample.x() > prob, bs.pair2.shape, bsdf_bs.pair2.shape);
-        bs.pair2.t = select(sample.x() > prob, bs.pair2.t, bsdf_bs.pair2.t);
-        bs.pair2.wi = select(sample.x() > prob, bs.pair2.wi, bsdf_bs.pair2.wi);
-        bs.pair2.sh_frame.s = select(sample.x() > prob, bs.pair2.sh_frame.s, bsdf_bs.pair2.sh_frame.s);
-        bs.pair2.sh_frame.t = select(sample.x() > prob, bs.pair2.sh_frame.t, bsdf_bs.pair2.sh_frame.t);
-        bs.pair2.sh_frame.n = select(sample.x() > prob, bs.pair2.sh_frame.n, bsdf_bs.pair2.sh_frame.n);
-        bs.pair2.abs_prob = select(sample.x() > prob, bs.pair2.abs_prob, bsdf_bs.pair2.abs_prob);
-        bs.pair2.poly_coeff = select(sample.x() > prob, bs.pair2.poly_coeff, bsdf_bs.pair2.poly_coeff);
+        // bs.pair2.num = select(sample.x() > prob, bs.pair2.num, bsdf_bs.pair2.num);
+        // bs.pair2.n = select(sample.x() > prob, bs.pair2.n, bsdf_bs.pair2.n);
+        // bs.pair2.p = select(sample.x() > prob, bs.pair2.p, bsdf_bs.pair2.p);
+        // bs.pair2.J = select(sample.x() > prob, bs.pair2.J, bsdf_bs.pair2.J);
+        // bs.pair2.uv = select(sample.x() > prob, bs.pair2.uv, bsdf_bs.pair2.uv);
+        // bs.pair2.shape = select(sample.x() > prob, bs.pair2.shape, bsdf_bs.pair2.shape);
+        // bs.pair2.t = select(sample.x() > prob, bs.pair2.t, bsdf_bs.pair2.t);
+        // bs.pair2.wi = select(sample.x() > prob, bs.pair2.wi, bsdf_bs.pair2.wi);
+        // bs.pair2.sh_frame.s = select(sample.x() > prob, bs.pair2.sh_frame.s, bsdf_bs.pair2.sh_frame.s);
+        // bs.pair2.sh_frame.t = select(sample.x() > prob, bs.pair2.sh_frame.t, bsdf_bs.pair2.sh_frame.t);
+        // bs.pair2.sh_frame.n = select(sample.x() > prob, bs.pair2.sh_frame.n, bsdf_bs.pair2.sh_frame.n);
+        // bs.pair2.abs_prob = select(sample.x() > prob, bs.pair2.abs_prob, bsdf_bs.pair2.abs_prob);
+        // bs.pair2.poly_coeff = select(sample.x() > prob, bs.pair2.poly_coeff, bsdf_bs.pair2.poly_coeff);
+        bs.pair = bs.po;
+        bs.pair2 = bs.po;
     }
     else{
         bs.pair = bs.po;
         bs.pair2 = bs.po;
     }
+    // std::cout << "__sample,return " << std::endl;
 
     return bs;
 }
@@ -444,8 +401,6 @@ BSDFSample<ad> VaeSub::__sample_bsdf(const Intersection<ad> &its, const Vector8f
     bs.rgb_rv = full<Float<ad>>(-1.0f);
     bs.maxDist = full<Float<ad>>(-1.0f);
     bs.velocity = full<Vector3f<ad>>(0.0f);
-    bs.pair = its;
-    bs.pair2 = its;
     bs.po.abs_prob = full<Float<ad>>(0.0f);
     return bs;
 }
@@ -558,6 +513,7 @@ template <int C, int R,bool ad>
 Array<Float<ad>,R> matmul(Array<Array<float,R>,C> mat, Array<Float<ad>,C> vec) {
     using EVector = Array<Float<ad>,R>;
     Array<Float<ad>,R> sum = mat.coeff(0) * EVector::full_(vec[0],1); //[64] * [1,N]
+    // auto sum = mat.coeff(0) * EVector::full_(vec[0],1); //[64] * [1,N]
     
     for (int i=1;i<C;i++){
         sum = fmadd(mat.coeff(i),EVector::full_(vec.coeff(i),1),sum);
@@ -565,30 +521,63 @@ Array<Float<ad>,R> matmul(Array<Array<float,R>,C> mat, Array<Float<ad>,C> vec) {
     return sum;
 }
 
-template <bool ad>
-std::pair<Vector3f<ad>,Float<ad>> VaeSub::_run(Array<Float<ad>,23> x,Array<Float<ad>,4> latent) const {
+// template <bool ad>
+// auto matmul2(auto mat, auto vec, const int R, const int C){
+//     // using EVector = Array<Float<ad>,R>;
+//     // Array<Float<ad>,R>
+//     auto sum = mat.coeff(0) * EVector::full_(vec[0],1); //[64] * [1,N]
+    
+//     for (int i=1;i<C;i++){
+//         sum = fmadd(mat.coeff(i),EVector::full_(vec.coeff(i),1),sum);
+//     }
+//     return sum;
+// }
+// template <bool ad,int size>
+// std::pair<Vector3f<ad>,Float<ad>> VaeSubFullModel::_run(Array<Float<ad>,23> x,Array<Float<ad>,4> latent, bool isFullModel) const override {
+//     Vector3f<ad> outPos2;
+//     Float<ad> absorption;
+//         const int hidden_dim = 64;
+//         const int hidden_dim_abs = 32;
+        
+//         auto features = max(matmul<23,hidden_dim,ad>(m_shared_preproc_mlp_2_shapemlp_fcn_0_weights,x) + shared_preproc_mlp_2_shapemlp_fcn_0_biases,0.0f);
+//         features = max(matmul<hidden_dim,hidden_dim,ad>(m_shared_preproc_mlp_2_shapemlp_fcn_1_weights,features) + shared_preproc_mlp_2_shapemlp_fcn_1_biases,0.0f);
+//         features = max(matmul<hidden_dim,hidden_dim,ad>(m_shared_preproc_mlp_2_shapemlp_fcn_2_weights,features) + shared_preproc_mlp_2_shapemlp_fcn_2_biases,0.0f);
+
+//         auto abs1 = max(matmul<hidden_dim,hidden_dim_abs,ad>(m_absorption_mlp_fcn_0_weights, features) + m_absorption_mlp_fcn_0_biases,0.0f); // Vector hidden_dim_abs
+//         auto abs2 = matmul<hidden_dim_abs,1,ad>(m_absorption_dense_kernel, abs1) + m_absorption_dense_bias;
+//         absorption = NetworkHelpers::sigmoid<ad>(abs2.x());
+
+//         auto featLatent = concat(latent,features);
+//         auto y2 = max(matmul<hidden_dim + 4,hidden_dim,ad>(m_scatter_decoder_fcn_fcn_0_weights,featLatent)+m_scatter_decoder_fcn_fcn_0_biases,0.0f);
+//         y2 = max(matmul<hidden_dim,hidden_dim,ad>(m_scatter_decoder_fcn_fcn_1_weights,y2)+m_scatter_decoder_fcn_fcn_1_biases,0.0f);
+//         y2 = max(matmul<hidden_dim,hidden_dim,ad>(m_scatter_decoder_fcn_fcn_2_weights,y2)+m_scatter_decoder_fcn_fcn_2_biases,0.0f);
+//         outPos2 = matmul<hidden_dim,3,ad>(m_scatter_dense_2_kernel,y2) + m_scatter_dense_2_bias;
+//         return std::pair(outPos2,absorption);
+// }
+
+template <bool ad,int size>
+std::pair<Vector3f<ad>,Float<ad>> VaeSub::_run(Array<Float<ad>,23> x,Array<Float<ad>,4> latent, bool isFullModel) const {
     Vector3f<ad> outPos2;
     Float<ad> absorption;
+        const int hidden_dim = size;
+        const int hidden_dim_abs = size / 2;
         
-        // auto tmp = matmul<23,64,ad2>(m_shared_preproc_mlp_2_shapemlp_fcn_0_weights,x);
-        // auto features = max(matmul<23,64,ad>(m_shared_preproc_mlp_2_shapemlp_fcn_0_weights,x) + shared_preproc_mlp_2_shapemlp_fcn_0_biases,0.0f);
-        // features = max(matmul<64,64,ad>(m_shared_preproc_mlp_2_shapemlp_fcn_1_weights,features) + shared_preproc_mlp_2_shapemlp_fcn_1_biases,0.0f);
-        // features = max(matmul<64,64,ad>(m_shared_preproc_mlp_2_shapemlp_fcn_2_weights,features) + shared_preproc_mlp_2_shapemlp_fcn_2_biases,0.0f);
-        
-        // Array<Float<ad>,32> abs1 = max(matmul<64,32,ad>(m_absorption_mlp_fcn_0_weights, features) + m_absorption_mlp_fcn_0_biases,0.0f); // Vector 32
-        // auto abs2 = matmul<32,1,ad>(m_absorption_dense_kernel, abs1) + m_absorption_dense_bias[0];
-        // auto absorption = NetworkHelpers::sigmoid<ad>(abs2.x());
+        auto features = max(matmul<23,hidden_dim,ad>(m_shared_preproc_mlp_2_shapemlp_fcn_0_weights,x) + shared_preproc_mlp_2_shapemlp_fcn_0_biases,0.0f);
+        features = max(matmul<hidden_dim,hidden_dim,ad>(m_shared_preproc_mlp_2_shapemlp_fcn_1_weights,features) + shared_preproc_mlp_2_shapemlp_fcn_1_biases,0.0f);
+        if(size!=32)
+            features = max(matmul<hidden_dim,hidden_dim,ad>(m_shared_preproc_mlp_2_shapemlp_fcn_2_weights,features) + shared_preproc_mlp_2_shapemlp_fcn_2_biases,0.0f);
 
-        // // Gaussian noise
-        // latent = float(M_SQRT2) * erfinv(2.f*latent - 1.f);
-        // std::cout << "latent" << latent << std::endl;
-        // auto featLatent = concat(latent,features);
-        // auto y2 = max(matmul<68,64,ad>(m_scatter_decoder_fcn_fcn_0_weights,featLatent)+m_scatter_decoder_fcn_fcn_0_biases,0.0f);
-        // y2 = max(matmul<64,64,ad>(m_scatter_decoder_fcn_fcn_1_weights,y2)+m_scatter_decoder_fcn_fcn_1_biases,0.0f);
-        // y2 = max(matmul<64,64,ad>(m_scatter_decoder_fcn_fcn_2_weights,y2)+m_scatter_decoder_fcn_fcn_2_biases,0.0f);
-        // auto outPos2 = matmul<64,3,ad>(m_scatter_dense_2_kernel,y2) + m_scatter_dense_2_bias;
+        auto abs1 = max(matmul<hidden_dim,hidden_dim_abs,ad>(m_absorption_mlp_fcn_0_weights, features) + m_absorption_mlp_fcn_0_biases,0.0f); // Vector hidden_dim_abs
+        auto abs2 = matmul<hidden_dim_abs,1,ad>(m_absorption_dense_kernel, abs1) + m_absorption_dense_bias;
+        absorption = NetworkHelpers::sigmoid<ad>(abs2.x());
 
-        // std::cout << "outPos " << outPos2 << std::endl;
+        auto featLatent = concat(latent,features);
+        auto y2 = max(matmul<hidden_dim+4,hidden_dim,ad>(m_scatter_decoder_fcn_fcn_0_weights,featLatent)+m_scatter_decoder_fcn_fcn_0_biases,0.0f);
+        y2 = max(matmul<hidden_dim,hidden_dim,ad>(m_scatter_decoder_fcn_fcn_1_weights,y2)+m_scatter_decoder_fcn_fcn_1_biases,0.0f);
+        if(size!=32)
+            y2 = max(matmul<hidden_dim,hidden_dim,ad>(m_scatter_decoder_fcn_fcn_2_weights,y2)+m_scatter_decoder_fcn_fcn_2_biases,0.0f);
+        outPos2 = matmul<hidden_dim,3,ad>(m_scatter_dense_2_kernel,y2) + m_scatter_dense_2_bias;
+    
         return std::pair(outPos2,absorption);
 }
 
@@ -797,7 +786,7 @@ VaeSub::RetTypeSampleSp<ad> VaeSub::__sample_sp(const Scene *scene, const Inters
         using namespace std::chrono;
         
         auto opts = scene->m_opts;
-        auto isFD = opts.sppse > 0.0f;
+        auto isFD = false; //opts.sppse > 0.0f;
 
         Float<ad> rnd = sample[5];
         if(scene->m_opts.rgb != 0){
@@ -807,11 +796,19 @@ VaeSub::RetTypeSampleSp<ad> VaeSub::__sample_sp(const Scene *scene, const Inters
 
         // float is_plane = false;
         // float is_light_space = true;
-        float is_plane = true;
-        float is_light_space = true; //false;
+        // float is_plane = true;
+        // float is_light_space = false;
+        float is_plane = opts.vaeMode >= 2;
+        float is_light_space = opts.vaeMode % 2 == 0;
+        std::cout << "opts.vaeMode" << opts.vaeMode << std::endl;
+        std::cout << "is_plane" << is_plane << std::endl;
+        std::cout << "is_light_space" << is_light_space << std::endl;
+        // bool isFullModel = opts.isFull == 1;
+
 
         Spectrum<ad> albedo = m_albedo.eval<ad>(its.uv);
         Float<ad> albedo_ch = select(rnd < (1.0f / 3.0f), albedo.x(),albedo.y());
+        
         albedo_ch = select(rnd > (2.0f / 3.0f), albedo.z(),albedo_ch);
         Spectrum<ad> sigma_t = m_sigma_t.eval<ad>(its.uv);
         auto sigma_t_ch = select(rnd < (1.0f / 3.0f), sigma_t.x(),sigma_t.y());
@@ -822,65 +819,22 @@ VaeSub::RetTypeSampleSp<ad> VaeSub::__sample_sp(const Scene *scene, const Inters
         Spectrum<ad> epsM = m_epsM.eval<ad>(its.uv);
         auto epsM_ch = select(rnd < (1.0f / 3.0f), epsM.x(),epsM.y());
         epsM_ch = select(rnd > (2.0f / 3.0f), epsM.z(),epsM_ch);
-        // std::cout << "siepsMma_t_ch " << siepsMma_t_ch << std::endl;
-
-        // Float<ad> sigma_s = sigma_t_ch * albedo_ch;
-        // auto sigma_a = sigma_t_ch - sigma_s;
-
-        // auto miu_s_p = (1.0f - g_ch) * sigma_s;
-        // auto miu_t_p = miu_s_p + sigma_a;
-        // auto alpha_p = miu_s_p / miu_t_p;
-
-        // auto effectiveAlbedo = -log(1.0f-alpha_p * (1.0f - exp(-8.0f))) / 8.0f;
-        // auto val = 0.25f * g_ch + 0.25f * alpha_p + 1.0f * effectiveAlbedo;
-
-        // Float<ad> kernelEps = 4.0f * val * val / (miu_t_p * miu_t_p);
-        // auto kernelEps = getKernelEps<ad>(its,rnd);
-        // auto fitScaleFactor = 1.0f / sqrt(kernelEps);
-        // std::cout << "sigma_t_ch " << sigma_t_ch << std::endl;
-        // std::cout << "albedo_ch " << albedo_ch << std::endl;
         auto fitScaleFactor = getFitScaleFactor<ad>(its,sigma_t_ch,albedo_ch,g_ch);
         
         Array<Float<ad>,4> latent(sample[2],sample[3],sample[6],sample[7]);
-        // std::cout << "latent" << latent << std::endl;
+        latent = float(M_SQRT2) * erfinv(2.f*latent - 1.f);
         Spectrum<ad> outPos,outPosVae;
         Float<ad> absorption;
         auto x = _preprocessFeatures<ad>(its,rnd,is_plane,its.wi,is_light_space);
         
         Int<ad> xoIdx = arange<Int<ad>>(slices(its)) / opts.spp;
         auto isFirstXo = arange<Int<ad>>(slices(its)) % opts.spp == 0;
-        // Intersection<ad> its_tmp = gather<Intersection<ad>>(its,xoIdx); //isFirstXo);
-    // compute idx for matrix entry
+        
+        // Lightweight model 
+        std::tie(outPosVae,absorption) = _run<ad,32>(x,latent);
+        // // Full Model
+        // std::tie(outPosVae,absorption) = _run<ad,64>(x,latent);
 
-        // std::tie(outPosVae,absorption)= _run<ad>(x,latent);
-        //
-        // ============================= Testing reuse
-        // auto x_xo = _preprocessFeatures<ad>()
-        
-        const int hidden_dim = 32; 
-        const int hidden_dim_abs = 16; //hidden_dim / 2;
-        // const int hidden_dim = 64; 
-        // const int hidden_dim_abs = 32;
-        
-        // auto tmp = matmul<23,hidden_dim,ad>(m_shared_preproc_mlp_2_shapemlp_fcn_0_weights,x);
-        auto features = max(matmul<23,hidden_dim,ad>(m_shared_preproc_mlp_2_shapemlp_fcn_0_weights,x) + shared_preproc_mlp_2_shapemlp_fcn_0_biases,0.0f);
-        features = max(matmul<hidden_dim,hidden_dim,ad>(m_shared_preproc_mlp_2_shapemlp_fcn_1_weights,features) + shared_preproc_mlp_2_shapemlp_fcn_1_biases,0.0f);
-        // features = max(matmul<hidden_dim,hidden_dim,ad>(m_shared_preproc_mlp_2_shapemlp_fcn_2_weights,features) + shared_preproc_mlp_2_shapemlp_fcn_2_biases,0.0f);
-        
-        
-        Array<Float<ad>,hidden_dim_abs> abs1 = max(matmul<hidden_dim,hidden_dim_abs,ad>(m_absorption_mlp_fcn_0_weights, features) + m_absorption_mlp_fcn_0_biases,0.0f); // Vector hidden_dim_abs
-        auto abs2 = matmul<hidden_dim_abs,1,ad>(m_absorption_dense_kernel, abs1) + m_absorption_dense_bias;
-        absorption = NetworkHelpers::sigmoid<ad>(abs2.x());
-
-        // Gaussian noise
-        latent = float(M_SQRT2) * erfinv(2.f*latent - 1.f);
-
-        auto featLatent = concat(latent,features);
-        auto y2 = max(matmul<hidden_dim + 4,hidden_dim,ad>(m_scatter_decoder_fcn_fcn_0_weights,featLatent)+m_scatter_decoder_fcn_fcn_0_biases,0.0f);
-        y2 = max(matmul<hidden_dim,hidden_dim,ad>(m_scatter_decoder_fcn_fcn_1_weights,y2)+m_scatter_decoder_fcn_fcn_1_biases,0.0f);
-        // y2 = max(matmul<hidden_dim,hidden_dim,ad>(m_scatter_decoder_fcn_fcn_2_weights,y2)+m_scatter_decoder_fcn_fcn_2_biases,0.0f);
-        outPosVae = matmul<hidden_dim,3,ad>(m_scatter_dense_2_kernel,y2) + m_scatter_dense_2_bias;
-        // ============================= Testing reuse
     
         Vector3f<ad> vz = its.sh_frame.n;
         pdf = 1.0f;
@@ -924,7 +878,7 @@ VaeSub::RetTypeSampleSp<ad> VaeSub::__sample_sp(const Scene *scene, const Inters
         auto relVector = detach(its3.p) - detach(its.p);
         auto s = cross(Vector3f<ad>(relVector),its3.n);
         auto t = normalize(cross(its3.n,s)); 
-        its3.p = t/fitScaleFactor - t/detach(fitScaleFactor) + Vector3f<ad>(detach(its3.p));
+        // its3.p = t/fitScaleFactor - t/detach(fitScaleFactor) + Vector3f<ad>(detach(its3.p));
 
         Vector3f<ad> velocity(0.0f); 
         velocity = its3.p;

@@ -7,7 +7,7 @@ import enoki as ek
 import cv2
 import numpy as np
 import math
-from enoki.cuda_autodiff import Float32 as FloatD, Vector3f as Vector3fD, Matrix4f as Matrix4fD, Vector3i
+from enoki.cuda_autodiff import Float32 as FloatD, Vector3f as Vector3fD, Matrix4f as Matrix4fD, Vector3i as Vector3iD
 from enoki.cuda import Vector20f as Vector20fC
 from psdr_cuda import Bitmap3fD
 # from enoki.cuda_autodiff import Vector20fD as Vector20fD
@@ -201,9 +201,12 @@ parser.add_argument('--rough_laplacian',   type=float,    default=0)
 
 parser.add_argument('--n_iters',            type=int,      default=30000)
 parser.add_argument('--n_resize',           type=int,      default=10000)
+parser.add_argument('--n_remesh',           type=int,      default=10000)
 parser.add_argument('--n_reduce_step',      type=int,      default=200)
 parser.add_argument('--n_dump',             type=int,      default=100)
-parser.add_argument('--n_crops',             type=int,      default=1)
+parser.add_argument('--n_crops',            type=int,      default=1)
+parser.add_argument('--n_vaeModeChange',    type=int,      default=10000, help='No. Iterations after which to change to vaeMode 1')
+parser.add_argument('--vaeMode',            type=int,      default=0)
 
 parser.add_argument('--seed',               type=int,      default=2)
 
@@ -382,15 +385,15 @@ def compute_vertex_normals(verts, faces, face_normals):
             normals[j].index_add_(0, fi[i], nn[j])
     return (normals / torch.norm(normals, dim=0)).transpose(0, 1)
 
-def remesh(verts, faces):
+def remesh(verts, faces,steps=5,length_scale=0.5):
     " copy right belongs to Baptiste Nicolet"
     v_cpu = verts.detach().cpu().numpy()
     f_cpu = faces.detach().cpu().numpy()
 
     # Target edge length
-    h = (average_edge_length(verts.detach(), faces.detach())).cpu().numpy()*0.5
+    h = (average_edge_length(verts.detach(), faces.detach())).cpu().numpy()*length_scale
 
-    v_new, f_new = remesh_botsch(v_cpu.astype(np.double),f_cpu.astype(np.int32), 5, h, True)
+    v_new, f_new = remesh_botsch(v_cpu.astype(np.double),f_cpu.astype(np.int32), steps, h, True)
 
     v_src = torch.from_numpy(v_new).cuda().float().contiguous()
     f_src = torch.from_numpy(f_new).cuda().contiguous()
@@ -514,7 +517,6 @@ def opt_task(isSweep=True):
     if args.d_type == "syn":
         lightdir = LIGHT_DIR + '/lights-sy-{}.npy'.format(args.light_file)
     elif args.scene == "duck":
-        # TODO: fix this...
         lightdir = LIGHT_DIR + '/lights-head.npy'
     elif args.d_type == "custom":
         lightdir = LIGHT_DIR + '/lights-{}.npy'.format(args.scene)
@@ -549,55 +551,64 @@ def opt_task(isSweep=True):
     else:
         refdir = ESSEN_DIR + "/hdr{}/{}/".format(args.scene, args.ref_folder)
 
-    if 'cone' in args.scene:
-        # mesh_file = "../../smoothshape/vicini/cone_subdiv.obj"
-        mesh_file = "../../smoothshape/init/source.obj"
-    elif 'head' in args.scene:
-        mesh_file = "../../smoothshape/init/head_init.obj"
-        # mesh_file = "../../smoothshape/final/head_.obj"
-        # mesh_file = "../../smoothshape/head_v2.obj"
-    elif args.scene == "cylinder4":
-        mesh_file = "../../smoothshape/vicini/cylinder_subdiv.obj"
-    elif 'kettle' in args.scene: #== "kettle1":
-        mesh_file = "../../smoothshape/final/kettle_.obj"
-        # mesh_file = "../../smoothshape/kettle_.obj"
-    elif args.scene == "duck":
-        mesh_file = "../../smoothshape/duck_v2.obj"
-    elif args.scene == "sphere1":
-        mesh_file = "../../smoothshape/sphere_v2.obj"
-    elif 'maneki' in args.scene: #== "maneki1":
-        # mesh_file = "../../smoothshape/final/maneki_.obj"
-        # mesh_file = "../../smoothshape/init/maneki_init_better_5.obj" #init
-        mesh_file = "../../smoothshape/init/source.obj"
-        # mesh_file = "../../smoothshape/maneki.obj"
-    elif args.scene == "pig1":
-        mesh_file = "../../smoothshape/pig.obj"
-    elif args.scene == "horse1":
-        mesh_file = "../../smoothshape/horse.obj"
-    elif args.scene == 'botijo':
-        mesh_file = "../../smoothshape/final/botijo2_.obj"
-        # mesh_file = "../../smoothshape/botijo_.obj"
-    elif args.scene == 'buddha1':
-        mesh_file = "../../smoothshape/final/buddha_.obj"
-        # mesh_file = "../../smoothshape/buddha_.obj"
-    elif 'botijo' in args.scene: # botijo2, botijo3
-        mesh_file = "../../smoothshape/botijo2.obj"
-    elif args.scene == "cube":
-        mesh_file = "../../smoothshape/cube_subdiv25.obj"
-    elif args.scene == "pyramid4":
-        mesh_file = "../../smoothshape/vicini/pyramid_.obj"
-    elif args.scene == "plane":
-        mesh_file = "../../smoothshape/plane_almost_v2.obj"
-    elif args.scene == "kiwi":
-        mesh_file = "../../smoothshape/cube_3_init_uv.obj"
-    elif args.scene == "soap":
-        mesh_file = "../../smoothshape/soap_init.obj"
+    if args.n_iters == 1: # forward mode
+        mesh_file = params_gt[args.scene]['mesh']
     else:
-        mesh_file = "../../smoothshape/init/source.obj"
-        # raise NotImplementedError
+        if 'cone' in args.scene:
+            # mesh_file = "../../smoothshape/vicini/cone_subdiv.obj"
+            mesh_file = "../../smoothshape/init/source.obj"
+        elif 'gargoyle' in args.scene:
+            mesh_file = "../../smoothshape/init/gargoyle_v1.obj"
+        elif 'dragon' in args.scene:
+            mesh_file = "../../smoothshape/init/dragon_v3.obj"
+        elif 'head' in args.scene:
+            mesh_file = "../../smoothshape/init/head_init.obj"
+            # mesh_file = "../../smoothshape/final/head_.obj"
+            # mesh_file = "../../smoothshape/head_v2.obj"
+        elif args.scene == "cylinder4":
+            mesh_file = "../../smoothshape/vicini/cylinder_subdiv.obj"
+        elif 'kettle' in args.scene: #== "kettle1":
+            mesh_file = "../../smoothshape/final/kettle_.obj"
+            # mesh_file = "../../smoothshape/kettle_.obj"
+        elif args.scene == "duck":
+            mesh_file = "../../smoothshape/duck_v2.obj"
+        elif args.scene == "sphere1":
+            mesh_file = "../../smoothshape/sphere_v2.obj"
+        elif 'maneki' in args.scene: #== "maneki1":
+            # mesh_file = "../../smoothshape/final/maneki_.obj"
+            # mesh_file = "../../smoothshape/init/maneki_init_better_5.obj" #init
+            mesh_file = "../../smoothshape/init/source_v1.obj"
+            # mesh_file = "../../smoothshape/maneki.obj"
+        elif args.scene == "pig1":
+            mesh_file = "../../smoothshape/pig.obj"
+        elif args.scene == "horse1":
+            mesh_file = "../../smoothshape/horse.obj"
+        elif args.scene == 'botijo':
+            mesh_file = "../../smoothshape/final/botijo2_.obj"
+            # mesh_file = "../../smoothshape/botijo_.obj"
+        elif args.scene == 'buddha1':
+            mesh_file = "../../smoothshape/final/buddha_.obj"
+            # mesh_file = "../../smoothshape/buddha_.obj"
+        elif 'botijo' in args.scene: # botijo2, botijo3
+            mesh_file = "../../smoothshape/botijo2.obj"
+        elif args.scene == "cube":
+            mesh_file = "../../smoothshape/cube_subdiv25.obj"
+        elif args.scene == "pyramid4":
+            mesh_file = "../../smoothshape/vicini/pyramid_.obj"
+        elif args.scene == "plane":
+            mesh_file = "../../smoothshape/plane_almost_v2.obj"
+        elif args.scene == "kiwi":
+            mesh_file = "../../smoothshape/cube_3_init_uv.obj"
+        elif args.scene == "soap":
+            mesh_file = "../../smoothshape/soap_init.obj"
+        elif args.scene == "croissant":
+            mesh_file = "../../smoothshape/init/croissant_v0.obj"
+        else:
+            mesh_file = "../../smoothshape/init/source.obj"
+            # raise NotImplementedError
 
 
-    def precompute_mesh_polys():
+    def precompute_mesh_polys(mesh_file=mesh_file):
         albedo = sc.param_map[material_key].albedo.data.numpy()
         sigma_t = sc.param_map[material_key].sigma_t.data.numpy()
         g = sc.param_map[material_key].g.data.numpy()[0]
@@ -613,14 +624,6 @@ def opt_task(isSweep=True):
         time_start = time.time()
         app = Scatter3DViewer(mesh_file,alb,sig,g)
         sc.param_map[mesh_key].load_poly(app.mesh_polys,0)
-        # DEBUG: testing poly bug
-        # for i in range(1,3):
-        #     alb = albedo[:,i]
-        #     sig = sigma_t[:,i]
-        #     app.sigma_t = sig
-        #     app.alb = sig
-        #     app.extract_mesh_polys()
-        #     sc.param_map[mesh_key].load_poly(app.mesh_polys,i)
 
         if sc.param_map[material_key].monochrome:
             sc.param_map[mesh_key].load_poly(app.mesh_polys,1)
@@ -633,6 +636,8 @@ def opt_task(isSweep=True):
                 app.alb = sig
                 app.extract_mesh_polys()
                 sc.param_map[mesh_key].load_poly(app.mesh_polys,i)
+        
+        sc.configure()
 
         time_end = time.time()
         print(f"Precomputing polynomials took {time_end - time_start} seconds")
@@ -692,7 +697,6 @@ def opt_task(isSweep=True):
         return loss
 
     def renderC(scene,integrator,sensor_id,coeffs=None,fit_mode='avg'):
-        # TODO: add mode select (baseline)
         if False:
         # if False:
             its = integrator.getIntersection(scene,sensor_id)
@@ -885,7 +889,9 @@ def opt_task(isSweep=True):
         sc.opts.spp = args.spp if not FD else 1
         sc.setseed(seed*npixels)
         sc.setlightposition(Vector3fD(lights[sensor_id][0], lights[sensor_id][1], lights[sensor_id][2]))
+        sc.opts.isFull = 1
         # sc.opts.debug = 1 # Fix random seed for comparison w. FD
+        sc.opts.vaeMode = args.vaeMode
         sc.configure()
 
         if not FD:
@@ -1001,13 +1007,6 @@ def opt_task(isSweep=True):
             eta       = ek.select(_eta      < 1.0,       1.0,   _eta)
             epsM       = ek.select(_epsM      < 0.0 ,       0.01,   ek.select(_epsM > 10.0, 10.0,_epsM))
 
-            # # TODO: diffusion reparam
-            # breakpoint()
-            # V = from_differential(M,V)
-            # breakpoint()
-            # _u = from_differential(M,_vertex)
-            # sc.param_map[mesh_key].vertex_positions  = _u
-
 
             sc.param_map[mesh_key].vertex_positions  = _vertex
             sc.param_map[material_key].albedo.data   = albedo
@@ -1034,6 +1033,7 @@ def opt_task(isSweep=True):
             else:
                 sc.opts.rgb = 0 # blue only
             sc.opts.mode = 1 if args.opaque else 0
+            sc.opts.vaeMode = args.vaeMode
             sc.configure()
             
             render_loss= 0    
@@ -1132,7 +1132,7 @@ def opt_task(isSweep=True):
                 gradE[...,:] = torch.mean(gradE,dim=-1,keepdim=True)
 
             result = (gradV, gradA, gradS, gradR, gradG, gradE, None,None,None)
-            del ctx.output, ctx.input1, ctx.input2, ctx.input3, ctx.input4, ctx.input5, ctx.input6
+            # del ctx.output, ctx.input1, ctx.input2, ctx.input3, ctx.input4, ctx.input5, ctx.input6
             # print("==========================")
             # print("Estimated gradients")
             # print("gradA ",gradA,"gradS ",gradS,"gradV ", gradV)
@@ -1222,8 +1222,6 @@ def opt_task(isSweep=True):
         if not args.debug:
             wandb.log(wandb_args)
 
-
-
     def optTask():
 
         rmsehistory = []
@@ -1237,6 +1235,10 @@ def opt_task(isSweep=True):
         sig_texture_width = args.sigma_texture
         rgh_texture_width = args.rough_texture
         epsM_texture_width = args.epsM_texture
+        
+        sc.opts.isFull = 1
+        sc.opts.vaeMode = args.vaeMode
+        sc.configure()
 
         if args.albedo_texture > 0:
             if args.no_init == "yes":
@@ -1275,7 +1277,6 @@ def opt_task(isSweep=True):
 
         # Load GT mesh for measuring mesh error
         initV = trimesh.load(params_gt[args.scene]['mesh']).vertices
-            
         
         S = Variable(torch.log(sc.param_map[material_key].sigma_t.data.torch()), requires_grad=True)
         A = Variable(sc.param_map[material_key].albedo.data.torch(), requires_grad=True)
@@ -1286,11 +1287,9 @@ def opt_task(isSweep=True):
         V = Variable(sc.param_map[mesh_key].vertex_positions.torch(), requires_grad=not(args.mesh_lr==0))
         F = sc.param_map[mesh_key].face_indices.torch().long()
         M = compute_matrix(V, F, lambda_ = args.laplacian)
-        # TODO: joon added
+        # TODO: joon added. Large Steps reparameterization
         u = to_differential(M,V)
         U = Variable(u, requires_grad=not(args.mesh_lr==0))
-        # res = remesh(V.data,F.data)
-        # breakpoint()
 
         if args.mesh_lr > 0:
             hd = hausdorff_distance(initV,V.detach().cpu())
@@ -1309,37 +1308,42 @@ def opt_task(isSweep=True):
                 np.save(filedir+"/rough.npy", np.concatenate(roughhistory, axis=0))
             if len(etahistory) > 0:
                 np.save(filedir+"/eta.npy", np.concatenate(etahistory, axis=0))
+        
+        def init_optimizer(U,M,A,S,R,G,
+                           alb_texture_width,
+                           sig_texture_width,
+                           rgh_texture_width,):
+            params = []
+            params.append({'params': U, 'lr': args.mesh_lr, "I_Ls": M, 'largestep': True})
+            # params.append({'params': V, 'lr': args.mesh_lr, "I_Ls": M, 'largestep': True})
+                        
+            if  args.albedo_texture > 0 and args.albedo_laplacian > 0:
+                AM = compute_image_matrix(alb_texture_width, args.albedo_laplacian)
+                params.append({'params': A, 'lr': args.albedo_lr, "I_Ls": AM, 'largestep': True})
+            else:
+                params.append({'params': A, 'lr': args.albedo_lr})
 
-        params = []
+            if  args.sigma_texture > 0 and args.sigma_laplacian > 0:
+                SM = compute_image_matrix(sig_texture_width, args.sigma_laplacian)
+                params.append({'params': S, 'lr': args.sigma_lr, "I_Ls": SM, 'largestep': True})
+            else:
+                params.append({'params': S, 'lr': args.sigma_lr})
 
-        # Use diffusion reparameterization
-        # u = to_differential(M,V)
-        # U = Variable(u,requires_grad=True)
-        params.append({'params': U, 'lr': args.mesh_lr, "I_Ls": M, 'largestep': True})
-        # params.append({'params': V, 'lr': args.mesh_lr, "I_Ls": M, 'largestep': True})
-                    
-        if  args.albedo_texture > 0 and args.albedo_laplacian > 0:
-            AM = compute_image_matrix(alb_texture_width, args.albedo_laplacian)
-            params.append({'params': A, 'lr': args.albedo_lr, "I_Ls": AM, 'largestep': True})
-        else:
-            params.append({'params': A, 'lr': args.albedo_lr})
+            if args.rough_texture > 0 and args.rough_laplacian > 0:
+                RM = compute_image_matrix(rgh_texture_width, args.rough_laplacian)
+                params.append({'params': R, 'lr': args.rough_lr, "I_LS": RM, 'largestep': True})
+            else:
+                params.append({'params': R, 'lr': args.rough_lr})
 
-        if  args.sigma_texture > 0 and args.sigma_laplacian > 0:
-            SM = compute_image_matrix(sig_texture_width, args.sigma_laplacian)
-            params.append({'params': S, 'lr': args.sigma_lr, "I_Ls": SM, 'largestep': True})
-        else:
-            params.append({'params': S, 'lr': args.sigma_lr})
+            params.append({'params': G, 'lr': args.eta_lr})
+                
+            optimizer = UAdam(params)
+            return optimizer
 
-        if args.rough_texture > 0 and args.rough_laplacian > 0:
-            RM = compute_image_matrix(rgh_texture_width, args.rough_laplacian)
-            params.append({'params': R, 'lr': args.rough_lr, "I_LS": RM, 'largestep': True})
-        else:
-            params.append({'params': R, 'lr': args.rough_lr})
-
-        params.append({'params': E, 'lr': args.epsM_lr})
-        params.append({'params': G, 'lr': args.eta_lr})
-
-        optimizer = UAdam(params)                        
+        optimizer = init_optimizer(U,M,A,S,R,G,
+                           alb_texture_width,
+                           sig_texture_width,
+                           rgh_texture_width,)
 
         for i in range(args.n_iters):
             loss = 0
@@ -1390,7 +1394,7 @@ def opt_task(isSweep=True):
                 image_loss += image_loss_.item()
                 range_loss += range_loss_.item()
                     
-                del loss_, range_loss_, image_loss_
+                # del loss_, range_loss_, image_loss_
                 n_crops += 1
                 
             optimizer.step()
@@ -1401,7 +1405,6 @@ def opt_task(isSweep=True):
             range_loss /= n_crops
 
         
-            # print("------ Iteration ---- ", i, ' image loss: ', loss.item(), ' eta: ', G.detach().cpu().numpy())   
             print("------ Iteration ---- ", i, ' image loss: ', loss, ' eta: ', G.detach().cpu().numpy())   
             
             if args.albedo_texture == 0:
@@ -1435,7 +1438,6 @@ def opt_task(isSweep=True):
                 "param/sigmaT_b" : log_sig[2],
             })
 
-
             etahistory.append([G.detach().cpu().numpy()])
             losshistory.append([loss])
             
@@ -1458,14 +1460,32 @@ def opt_task(isSweep=True):
                 lrs.append(args.eta_lr)
 
                 optimizer.setLearningRate(lrs)
-            torch.cuda.empty_cache()
-            ek.cuda_malloc_trim()
+            computed_poly = False
+
+            if (i % args.n_remesh == args.n_remesh - 1) and args.mesh_lr > 0:
+                V,F = remesh(V,F,steps=2,length_scale=0.8)
+                M = compute_matrix(V, F, lambda_ = args.laplacian)
+                u = to_differential(M,V)
+                U = Variable(u, requires_grad=True)
+                optimizer = init_optimizer(U,M,A,S,R,G,
+                                   alb_texture_width,
+                                   sig_texture_width,
+                                   rgh_texture_width,)
+                sc.param_map[mesh_key].vertex_positions = Vector3fD(V)
+                sc.param_map[mesh_key].face_indices = Vector3iD(F.int())
+                sc.configure()
+
+                remesh_pth = statsdir+"obj_remesh.obj"
+                sc.param_map[mesh_key].dump(remesh_pth)
+                print(f"[DEBUG] Saving Remeshed Mesh to {remesh_pth}")
+
+                if not computed_poly and not isBaseline:
+                    precompute_mesh_polys(mesh_file=remesh_pth)
+                    mesh_file = remesh_pth
+                    computed_poly = True
 
             if (i % args.n_dump == args.n_dump -1) or (i==10):
             # if (i % args.n_dump == 0):
-            # if i == 0 or ((i+1) %  args.n_dump) == 0:
-                # sensor_indices = active_sensors(1, num_sensors)
-                # renderPreview(i, np.array([0], dtype=np.int32))
                 sc.opts.cropheight = sc.opts.height
                 sc.opts.cropwidth = sc.opts.width
                 sc.opts.crop_offset_x = 0 
@@ -1475,10 +1495,8 @@ def opt_task(isSweep=True):
                 sc.opts.mode = 1 if args.opaque else 0
                 sc.configure()
 
-                # preview_sensors = np.random.choice(num_sensors,size=5)
-                # renderPreview(i, preview_sensors)
-                rmse_avg_img = renderPreview(i, np.array([0, 1, 4, 10, 19], dtype=np.int32))
-                # scheduler.step(rmse_avg_img)
+                print(f"[DEBUG] Rendering selected images from training set")
+                renderPreview(i, np.array([0, 1, 4, 10, 19], dtype=np.int32))
         
                 if args.albedo_texture > 0:
                     albedomap = A.detach().cpu().numpy().reshape((alb_texture_width, alb_texture_width, 3))
@@ -1512,13 +1530,13 @@ def opt_task(isSweep=True):
                         'test/hausdorff_distance':hd
                         })
 
-
                 saveHistory(statsdir)
-                sc.param_map[mesh_key].dump(statsdir+"obj_%d.obj" % (i+1))
+                obj_pth = statsdir+"obj_%d.obj" % (i+1)
+                sc.param_map[mesh_key].dump(obj_pth)
                 # dumpPly(statsdir+"obj_%d" % (i+1), V, F)
-                if not isBaseline:
-                    precompute_mesh_polys()
-
+                if not computed_poly and not isBaseline:
+                    precompute_mesh_polys(mesh_file=obj_pth)
+                    computed_poly = True
                 
             if ((i + 1) % args.n_resize) == 0:
                 update = False
@@ -1545,38 +1563,17 @@ def opt_task(isSweep=True):
                         update = True
                         sc.param_map[material_key].setRoughTexture(statsdir+"/rough_resize_{}.exr".format(i+1))
                         R = Variable(sc.param_map[material_key].alpha_u.data.torch(), requires_grad=True)
-
-
+                
                 if update:
-                    print(optimizer)
-                    # del optimizer
-                    
-                    params = []
-                    params.append({'params': V, 'lr': args.mesh_lr, "I_Ls": M, 'largestep': True})
-                                
-                    if  args.albedo_texture > 0 and args.albedo_laplacian > 0:
-                        AM = compute_image_matrix(alb_texture_width, args.albedo_laplacian)
-                        params.append({'params': A, 'lr': args.albedo_lr, "I_Ls": AM, 'largestep': True})
-                    else:
-                        params.append({'params': A, 'lr': args.albedo_lr})
+                    optimizer = init_optimizer(U,M,A,S,R,G,
+                                       alb_texture_width,
+                                       sig_texture_width,
+                                       rgh_texture_width,)
+            if ((i + 1) % args.n_vaeModeChange) == 0:
+                args.vaeMode = 1
 
-                    if  args.sigma_texture > 0 and args.sigma_laplacian > 0:
-                        SM = compute_image_matrix(sig_texture_width, args.sigma_laplacian)
-                        params.append({'params': S, 'lr': args.sigma_lr, "I_Ls": SM, 'largestep': True})
-                    else:
-                        params.append({'params': S, 'lr': args.sigma_lr})
-
-                    if args.rough_texture > 0 and args.rough_laplacian > 0:
-                        RM = compute_image_matrix(rgh_texture_width, args.rough_laplacian)
-                        params.append({'params': R, 'lr': args.rough_lr, "I_LS": RM, 'largestep': True})
-                    else:
-                        params.append({'params': R, 'lr': args.rough_lr})
-
-                    params.append({'params': G, 'lr': args.eta_lr})
-                        
-                    optimizer = UAdam(params)
-            torch.cuda.empty_cache()
-            ek.cuda_malloc_trim()
+            # torch.cuda.empty_cache()
+            # ek.cuda_malloc_trim()
 
     if args.render_gradient:
         GRAD_DIR = "../../grad2"
@@ -1683,7 +1680,7 @@ def opt_task(isSweep=True):
         
         else:
             if mode != 1:
-                S0 = Variable(sc.param_map[material_key].sigma_t.data.torch() - param_delta , requires_grad=True)
+                S0 = Variable(sc.param_map[material_key].sigma_t.data.torch() - param_delta, requires_grad=True)
                 reset_random()
                 result0 = compute_forward_derivative(A,S=S0,sensor_id=sensor_id,idx_param=idx_param,FD=True)
                 fname=f"{grad_dir}/{args.scene}_{sensor_id}_{fd_delta}_fd_0"
@@ -1771,6 +1768,6 @@ if __name__ == "__main__":
     # sweep_id = '58h89sm7'
     # wandb.agent(sweep_id, project='inverse-learned-sss',function=opt_task,) # count=10)
 
-    opt_task(isSweep=True)
+    opt_task(isSweep=False)
 
     # opt_isSweepisSweep=False)

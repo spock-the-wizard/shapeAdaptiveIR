@@ -104,7 +104,6 @@ class Scatter3DViewer(ViewerApp):
         t0 = time.time()
         # feat_name = self.absorption_config.shape_features_name
         for i in tqdm.tqdm(range(self.mesh.mesh_positions.shape[1])):
-            # breakpoint()
             pos = self.mesh.mesh_positions[:, i].ravel()
             normal = self.mesh.mesh_normal[:, i].ravel()
 
@@ -115,93 +114,6 @@ class Scatter3DViewer(ViewerApp):
             coeff_list.append(coeffs_ts)
 
         self.mesh_polys = np.array(coeff_list)
-
-            # # cfg = copy.deepcopy(self.scatter_config)
-            # cfg = self.scatter_config
-            # cfg.polynomial_space = 'TS'
-
-            # import vae.model
-            # # self.sigma_t = 10
-            # # self.albedo = 0.8
-            # features = vae.model.extract_shape_features(cfg, pos, self.scene, self.constraint_kd_tree, -normal,
-            #                                             self.g, self.sigma_t, self.albedo, True, self.mesh,
-            #                                             normal, False, self.kdtree_threshold, self.fit_regularization, self.use_hard_surface_constraint)
-            # poly_coeffs = features['coeffs']
-            # # features = vae.model.extract_shape_features(cfg, pos, self.scene, self.constraint_kd_tree, -normal,
-            # #                                             self.g, self.sigma_t, self.albedo, False, self.mesh,
-            # #                                             # self.g, self.sigma_t, self.albedo, True, self.mesh,
-            # #                                             normal, False, self.kdtree_threshold, self.fit_regularization, self.use_hard_surface_constraint)
-            # # poly_coeffs = features['coeffs']
-            # coeffs_to_show = np.copy(poly_coeffs)
-
-            # thickness = None
-            # nor_hist = None
-            # NOTE: tmp
-            # if not self.visualize_gt_absorption:
-            # if not self.visualize_gt_absorption:
-
-            #     absorption = vae.model.estimate_absorption(self.session, pos, -normal, normal,
-            #                                                self.absorption_config, self.absorption_pred, self.feature_statistics, self.albedo,
-            #                                                self.sigma_t, self.g, self.eta, features)
-
-            #     t0 = time.time()
-            #     ref_pos_mts = vae.utils.mts_p(pos)
-            #     ref_dir_mts = vae.utils.mts_v(-normal)
-            #     kernel_eps = vae.utils.kernel_epsilon(self.g, self.sigma_t, self.albedo)
-            #     scale_fac = float(vae.utils.get_poly_scale_factor(kernel_eps))
-            #     # TODO: tmp
-            #     thickness = 0.0
-            #     # thickness = mitsuba.render.Volpath3D.samplePolyThickness([float(c) for c in features['coeffs'].ravel()], ref_pos_mts, ref_dir_mts, False,
-            #     #                                                          scale_fac, 8,
-            #     #                                                          ref_pos_mts, ref_dir_mts, 123, 0.0, 3.0 * float(np.sqrt(kernel_eps)))
-            #     thickness = np.array([[thickness]])
-
-            #     if 'nor_constraints' in features:
-            #         nors = vae.utils.mts_to_np(features['nor_constraints'])
-            #         cos_theta = np.sum(normal * nors, axis=1)
-            #         nor_hist, _ = np.histogram(cos_theta, 4, [-1.01, 1.01])
-            #         nor_hist = nor_hist[None, :]
-            # else:
-            #     medium = vae.utils.medium_params_list([mitsuba.core.Spectrum(self.albedo)],
-            #                                           [mitsuba.core.Spectrum(self.sigma_t)], [self.g], [self.eta])
-
-            #     ref_pos_mts = vae.utils.mts_p(pos)
-            #     ref_dir_mts = vae.utils.mts_v(-normal)
-            #     in_dir_mts = vae.utils.mts_v(normal / np.sqrt(np.sum(normal ** 2)))
-            #     kernel_eps = vae.utils.kernel_epsilon(self.g, self.sigma_t, self.albedo)
-            #     t0 = time.time()
-            #     coeffs, _, _ = mitsuba.render.Volpath3D.fitPolynomials(ref_pos_mts, in_dir_mts, vae.utils.mts_v(normal),
-            #                                                            vae.utils.kernel_epsilon(
-            #         self.g, self.sigma_t, self.albedo),
-            #         self.fit_regularization, self.scatter_config.poly_order(), 'gaussian',
-            #         self.kdtree_threshold, self.constraint_kd_tree, False, self.sigma_t, self.use_hard_surface_constraint)
-
-            #     coeffs = np.array(coeffs)
-            #     # coeffs[0] = 0.0  # Polygon should really be zero on the current position
-            #     seed = int(np.random.randint(10000))
-            #     scale_fac = float(vae.utils.get_poly_scale_factor(kernel_eps))
-            #     tmp_result = mitsuba.render.Volpath3D.samplePolyFixedStart([float(c) for c in coeffs], ref_pos_mts, ref_dir_mts,
-            #                                                                False, scale_fac, medium, 128, 128, 256,
-            #                                                                ref_pos_mts, ref_dir_mts, self.ignore_zero_scatter,
-            #                                                                self.disable_rr, seed)
-            #     absorption = np.mean(tmp_result['absorptionProb'])
-            #     absorption = np.array([[absorption]])
-
-            #     t0 = time.time()
-            #     thickness = mitsuba.render.Volpath3D.samplePolyThickness([float(c) for c in coeffs], ref_pos_mts, ref_dir_mts, False,
-            #                                                              scale_fac, 8,
-            #                                                              ref_pos_mts, ref_dir_mts, seed, 0.0, 3.0 * float(kernel_eps))
-            #     thickness = np.array([[thickness]])
-
-            # feat_to_show = [1.0 - absorption]
-            # feat_to_show = [np.array([[1.0]])]
-            # if False:  # For now, do not visualize any of these extra features
-            #     if nor_hist is not None:
-            #         feat_to_show.append(nor_hist)
-            #     if thickness is not None:
-            #         feat_to_show.append(thickness)
-            # feat_to_show.append(coeffs_to_show[None])
-            # all_coeffs.append(np.concatenate(feat_to_show, 1))
 
         print(f'Took {time.time() - t0} s')
         print(f"self.mesh_polys.shape: {self.mesh_polys.shape}")
@@ -356,6 +268,8 @@ class Scatter3DViewer(ViewerApp):
         add_checkbox(self, tools, 'show_outgoing_dir', False, label='Show Outgoing Directions')
         self.poly_coeff_to_show = 0
         self.poly_coeff_show_slider = LabeledSlider(self, tools, 'poly_coeff_to_show', 0, 20, int, slider_width=160)
+        self.vaeMode = 0
+        self.vaeMode_slider = LabeledSlider(self, tools, 'vaeMode', 0, 3, int, slider_width=160)
         # self.mesh_idx_slider = LabeledSlider(self, tools, 'mesh_idx', 0, 100, int, update_mesh_idx, slider_width=160)
 
         add_checkbox(self, tools, 'show_fit_kernel', False, label='Show Fit Kernel')
@@ -446,35 +360,16 @@ class Scatter3DViewer(ViewerApp):
                                      'Poly Reference', 'Poly Train', 'Boundary'])
         self.mode_combobox.setCallback(cb)
 
-        # Label(tools, 'Data Set')
-        # self.data_set_combobox = ComboBox(tools)
-        # self.data_set_combobox.setItems(self.datasets)
-
-        # def cb_dataset(value):
-        #     self.set_dataset(self.datasets[value])
-
-        # self.data_set_combobox.setCallback(cb_dataset)
-
         self.networks = sorted(glob.glob("../../../models/*"))
 
         if args.n < len(self.networks):
             self.networks = self.networks[-args.n:]
 
-        # self.absorption_networks = sorted(glob.glob(os.path.join(OUTPUT3D, 'models_abs', '*')))
-        # self.angular_networks = sorted(glob.glob(os.path.join(OUTPUT3D, 'models_angular', '*')))
-        # self.networks_short = [os.path.split(n)[-1] for n in self.networks]
-        # self.absorption_networks_short = [os.path.split(n)[-1] for n in self.absorption_networks]
-        # self.angular_networks_short = [os.path.split(n)[-1] for n in self.angular_networks]
         self.session = None
         self.scatter_net = self.networks[-1]
-        # self.absorption_net = self.absorption_networks[-1]
-        # self.angular_scatter_net = self.angular_networks[-1]
 
         if args.net:
             self.scatter_net = os.path.join(OUTPUT3D, 'models', args.net)
-        # if args.absnet:
-        #     self.absorption_net = os.path.join(OUTPUT3D, 'models_abs', args.absnet)
-        #     self.predict_absorption = True
 
         self.load_networks()
 
@@ -548,11 +443,11 @@ class Scatter3DViewer(ViewerApp):
             scene_file = self.scene_file
         else:
             if "head" in mesh_name:
-                scene_file = "/sss/InverseTranslucent/examples/scenes/head_test.xml"
+                scene_file = "/sss/InverseTranslucent/examples/scenes/viz/head_test.xml"
             elif "duck" in mesh_name:
                 scene_file = "/sss/InverseTranslucent/examples/scenes/duck_test.xml"
             elif "kiwi" in mesh_name:
-                scene_file = "/sss/InverseTranslucent/examples/scenes/inverse/kiwi_out.xml"
+                scene_file = "/sss/InverseTranslucent/examples/scenes/viz/kiwi_out.xml"
             elif "soap" in mesh_name:
                 scene_file = "/sss/InverseTranslucent/examples/scenes/inverse/soap_out.xml"
             elif "kettle" in mesh_name:
@@ -570,9 +465,12 @@ class Scatter3DViewer(ViewerApp):
                 # scene_file = "/sss/InverseTranslucent/examples/scenes/botijo_out.xml"
             elif "plane" in mesh_name:
                 scene_file = "/sss/InverseTranslucent/examples/scenes/inverse/plane_out.xml"
+            elif "obj" in mesh_name:
+                scene_file = "/sss/InverseTranslucent/examples/scenes/viz/test.xml"
+
             else: #if "cube_subdiv" in self.mesh_file:
-                scene_file = "/sss/InverseTranslucent/examples/scenes/cone4_out.xml"
-                scene_file = scene_file.replace('cone',mesh_name)
+                scene_file = f"/sss/InverseTranslucent/examples/scenes/viz/{mesh_name}_test.xml"
+                # scene_file = scene_file.replace('cone',mesh_name)
         LIGHT_DIR = os.path.join('../../scenes', "light")
         lightdir = LIGHT_DIR + '/lights-{}.npy'.format(self.mesh_name)
         if self.mesh_name == "duck":
@@ -591,6 +489,12 @@ class Scatter3DViewer(ViewerApp):
             lightdir = LIGHT_DIR + '/lights-gantry.npy'
         elif 'cylinder' in self.mesh_name:
             lightdir = LIGHT_DIR + '/lights-cylinder4.npy'
+        elif 'croissant' in self.mesh_name:
+            lightdir = LIGHT_DIR + '/lights-croissant1.npy'
+        elif 'torus' in self.mesh_name:
+            lightdir = LIGHT_DIR + '/lights-torus1.npy'
+        else:
+            lightdir = LIGHT_DIR + '/lights-head1.npy'
         lights = np.load(lightdir)
         if self.mesh_name == "duck":
             lights = lights[:25,:]
@@ -604,6 +508,7 @@ class Scatter3DViewer(ViewerApp):
         sc.setlightposition(Vector3f(light[0],light[1],light[2]))
         self.extract_mesh_polys()
         self.precompute_mesh_polys(sc)
+        sc.opts.vaeMode = self.vaeMode
         sc.configure()
 
         ro = sc.opts
@@ -757,8 +662,8 @@ class Scatter3DViewer(ViewerApp):
             n = self.n_scatter_samples
 
             its_loc = Vector3f((self.its_loc-self.inDirection).reshape(-1,3).repeat(n,0))
+            # its_dir = -Vector3f(self.face_normals.reshape(-1,3).repeat(n,0))
             its_dir = Vector3f(self.inDirection.reshape(-1,3).repeat(n,0))
-
 
             p_proj, p_sampled, p_projdir, poly_coeffs, p_weight = self.sampler.sample_sub(self.scene,its_loc,its_dir)
             print(f"Number of Invalid points: {(np.array(p_proj)[:,0]==0).sum()}/{self.n_scatter_samples}")
@@ -998,6 +903,7 @@ class Scatter3DViewer(ViewerApp):
             # its_dir /= np.linalg.norm(its_dir)
             its_dir = self.inDirection
 
+            # its_dir = -Vector3f(self.face_normal.reshape(-1,3).repeat(n,0))
             its_dir = Vector3f(its_dir.reshape(-1,3).repeat(n,0))
             print("self.inDirection",self.inDirection)
             print("its_dir",its_dir)
@@ -1007,8 +913,9 @@ class Scatter3DViewer(ViewerApp):
             self.sc.param_map[self.material_key].g.data = self.g
             self.sc.param_map[self.material_key].sigma_t.data = self.sigma_t
             self.sc.param_map[self.material_key].albedo.data = self.albedo
+            self.sc.opts.vaeMode = self.vaeMode
             self.sc.configure()
-            breakpoint()
+
             p_proj, p_sampled, p_projdir, poly_coeffs, p_weight = self.sampler.sample_sub(self.sc,its_loc,its_dir)
             print(f"Number of Invalid points: {(np.array(p_proj)[:,0]==0).sum()}/{self.n_scatter_samples}")
             self.sampled_pts = np.array(p_sampled)
@@ -1028,7 +935,7 @@ class Scatter3DViewer(ViewerApp):
             #                                                            self.disable_rr, seed)
 
             # breakpoint()
-            self.viewer_data = ViewerState(self, need_projection=False, poly_order=self.scatter_config.poly_order(), prediction_space="LS")
+            self.viewer_data = ViewerState(selfself., need_projection=False, poly_order=self.scatter_config.poly_order(), prediction_space="LS")
             poly_coeffs = poly_coeffs.numpy()[0]
             # self.viewer_data.coeffs = poly_coeffs 
             # coeffs_plane = np.zeros(20)
