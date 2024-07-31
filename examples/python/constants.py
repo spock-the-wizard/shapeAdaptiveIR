@@ -5,7 +5,7 @@ HOME_DIR = "/sss/InverseTranslucent"
 
 ROOT_DIR = os.path.join(HOME_DIR)
 DATA_DIR = os.path.join(HOME_DIR, "data_kiwi_soap")
-SCENES_DIR = os.path.join(ROOT_DIR, "examples/scenes/")
+SCENES_DIR = os.path.join(ROOT_DIR, "examples/scenes/inverse/")
 
 RAW_TEXTURE_DIR = os.path.join(ROOT_DIR, "examples/data/textures_raw/")
 TEXTURE_DIR = os.path.join(DATA_DIR, "examples/textures")
@@ -16,7 +16,7 @@ BLENDER_EXEC = "blender2.8" # Change this if you have a different blender instal
 REAL_DIR = os.path.join(DATA_DIR, "realdata")
 # data folders
 ESSEN_DIR = os.path.join(DATA_DIR, "essen/")
-LIGHT_DIR = os.path.join(SCENES_DIR, "light/")
+LIGHT_DIR = os.path.join(SCENES_DIR, "../light/")
 SHAPE_DIR = os.path.join(DATA_DIR, "smoothshape/")
 
 params_gt = {
@@ -200,6 +200,8 @@ params_gt = {
     'head4':{
         'albedo': [0.90, 0.90, 0.90],
         'sigmat': [100.0,100.0,100.0],
+
+        'mesh': '../../smoothshape/head_v2.obj',
     },
     'kettle4':{
         'albedo': [0.90, 0.90, 0.90],

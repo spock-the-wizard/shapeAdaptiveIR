@@ -1,0 +1,44 @@
+program: opt_task
+project: inverse-learned-sss
+method: grid
+metric:
+  goal: minimize
+  name: loss/rmse_param_sig
+parameters:
+  debug:
+    values: [False]
+  isSweep:
+    values: [True]
+  sweep_num:
+    # values: [0, 1,] # 2, 3, 4, 5, 6,]
+    # values: [2,3,] # 2, 3, 4, 5, 6,]
+    values: [0, 1, 2, 3, 4, 5, 6,]
+    # values: [0, 1, 2,]
+  isFD: 
+    values: [False,]
+  isBaseline:
+    values: [False]
+  spp:
+    values: [32]
+    # values: [8, 16, 32]
+  # n_vaeModeChange:
+  #   values: [500]
+  scene:
+    values: [
+      # 'croissant1',
+      # 'duck',
+    'botijo3',
+    'maneki1',
+    'head1',
+    # 'kettle2',
+    # 'gargoyle1',
+    # 'head4',
+    # 'botijo2',
+    # 'maneki5',
+    # 'maneki6',
+    # 'maneki4',
+    # 'torus1',
+    ]
+command:
+- ./exp_rebuttal.sh
+- maneki1

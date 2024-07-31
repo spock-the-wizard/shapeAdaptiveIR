@@ -16,6 +16,30 @@ def replace_element(xml_prev,root,new_tag="float"):
     index = list(root).index(element_to_change)
     root.remove(element_to_change)
     root.insert(index, new_element)
+
+def create_baseline_xml(xml_pth,out_pth):
+    et = ET.parse(xml_pth)
+    root = et.getroot()
+
+    xml_med = root.findall("bsdf")[0]
+    xml_med.set("type","hetersub")
+
+    et.write(out_pth)
+
+def replace_element(xml_pth,out_pth,str_nodes,value,):
+    """ Replace nested element with given value """
+    et = ET.parse(xml_pth)
+    root = et.getroot()
+
+    node = root
+    for str_node in str_nodes:
+        node = node.findall(str_node)[0]
+
+    node.set("value",value)
+    breakpoint()
+
+    et.write(out_pth)
+    
     
 if __name__ =="__main__":
     parser = argparse.ArgumentParser()

@@ -295,6 +295,7 @@ BSDFSample<ad> VaeSub::__sample(const Scene *scene, const Intersection<ad> &its,
     // Joon added; 100% BSSRDF samples
     // return bs;
     BSDFSample<ad> bsdf_bs =  __sample_bsdf<ad>(its, sample, active);
+    std::cout << "__sample_bsdf\n" << std::endl;
 
     FloatC cos_theta_i = Frame<false>::cos_theta(detach(its.wi));
 
@@ -303,26 +304,22 @@ BSDFSample<ad> VaeSub::__sample(const Scene *scene, const Intersection<ad> &its,
         probv = 1.0;
         PSDR_ASSERT(count(probv.x()!=1.0)==0);
     }
-    else if(scene->m_opts.mode == 2){
+    else if(scene->m_opts.mode == 2){ //only SSS
         probv = 0.0;
         PSDR_ASSERT(count(probv.x()!=0.0)==0);
     }
     FloatC prob = probv.x();
-    // std::cout << "prob " << prob << std::endl;
     
     bs.wo = select(sample.x() > prob, bs.wo, bsdf_bs.wo);
     bs.is_sub = select(sample.x() > prob, bs.is_sub, bsdf_bs.is_sub);
     bs.pdf = select(sample.x() > prob, bs.pdf, bsdf_bs.pdf);
     bs.is_valid = select(sample.x() > prob, bs.is_valid, bsdf_bs.is_valid);
-
-    // std::cout << "count(bs.is_sub) " << count(bs.is_sub) << std::endl;
-    // std::cout << "[sample] bsdf_bs.po.p " << bsdf_bs.po.p << std::endl;
-
     bs.po.num = select(sample.x() > prob, bs.po.num, bsdf_bs.po.num);
     bs.po.n = select(sample.x() > prob, bs.po.n, bsdf_bs.po.n);
     bs.po.p = select(sample.x() > prob, bs.po.p, bsdf_bs.po.p);
     bs.po.J = select(sample.x() > prob, bs.po.J, bsdf_bs.po.J);
     bs.po.uv = select(sample.x() > prob, bs.po.uv, bsdf_bs.po.uv);
+
     bs.po.shape = select(sample.x() > prob, bs.po.shape, bsdf_bs.po.shape);
     bs.po.t = select(sample.x() > prob, bs.po.t, bsdf_bs.po.t);
     bs.po.wi = select(sample.x() > prob, bs.po.wi, bsdf_bs.po.wi);
@@ -338,43 +335,41 @@ BSDFSample<ad> VaeSub::__sample(const Scene *scene, const Intersection<ad> &its,
     bs.velocity = select(sample.x() > prob, bs.velocity, bsdf_bs.velocity);
 
     if constexpr(ad){
-        // std::cout << "here " << std::endl;
 
-        // bs.pair.num = select(sample.x() > prob, bs.pair.num, bsdf_bs.pair.num);
-        // bs.pair.n = select(sample.x() > prob, bs.pair.n, bsdf_bs.pair.n);
-        // bs.pair.p = select(sample.x() > prob, bs.pair.p, bsdf_bs.pair.p);
-        // bs.pair.J = select(sample.x() > prob, bs.pair.J, bsdf_bs.pair.J);
-        // bs.pair.uv = select(sample.x() > prob, bs.pair.uv, bsdf_bs.pair.uv);
-        // bs.pair.shape = select(sample.x() > prob, bs.pair.shape, bsdf_bs.pair.shape);
-        // bs.pair.t = select(sample.x() > prob, bs.pair.t, bsdf_bs.pair.t);
-        // bs.pair.wi = select(sample.x() > prob, bs.pair.wi, bsdf_bs.pair.wi);
-        // bs.pair.sh_frame.s = select(sample.x() > prob, bs.pair.sh_frame.s, bsdf_bs.pair.sh_frame.s);
-        // bs.pair.sh_frame.t = select(sample.x() > prob, bs.pair.sh_frame.t, bsdf_bs.pair.sh_frame.t);
-        // bs.pair.sh_frame.n = select(sample.x() > prob, bs.pair.sh_frame.n, bsdf_bs.pair.sh_frame.n);
-        // bs.pair.abs_prob = select(sample.x() > prob, bs.pair.abs_prob, bsdf_bs.pair.abs_prob);
-        // bs.pair.poly_coeff = select(sample.x() > prob, bs.pair.poly_coeff, bsdf_bs.pair.poly_coeff);
+        bs.pair.num = select(sample.x() > prob, bs.pair.num, bsdf_bs.pair.num);
+        bs.pair.n = select(sample.x() > prob, bs.pair.n, bsdf_bs.pair.n);
+        bs.pair.p = select(sample.x() > prob, bs.pair.p, bsdf_bs.pair.p);
+        bs.pair.J = select(sample.x() > prob, bs.pair.J, bsdf_bs.pair.J);
+        bs.pair.uv = select(sample.x() > prob, bs.pair.uv, bsdf_bs.pair.uv);
+        bs.pair.shape = select(sample.x() > prob, bs.pair.shape, bsdf_bs.pair.shape);
+        bs.pair.t = select(sample.x() > prob, bs.pair.t, bsdf_bs.pair.t);
+        bs.pair.wi = select(sample.x() > prob, bs.pair.wi, bsdf_bs.pair.wi);
+        bs.pair.sh_frame.s = select(sample.x() > prob, bs.pair.sh_frame.s, bsdf_bs.pair.sh_frame.s);
+        bs.pair.sh_frame.t = select(sample.x() > prob, bs.pair.sh_frame.t, bsdf_bs.pair.sh_frame.t);
+        bs.pair.sh_frame.n = select(sample.x() > prob, bs.pair.sh_frame.n, bsdf_bs.pair.sh_frame.n);
+        bs.pair.abs_prob = select(sample.x() > prob, bs.pair.abs_prob, bsdf_bs.pair.abs_prob);
+        bs.pair.poly_coeff = select(sample.x() > prob, bs.pair.poly_coeff, bsdf_bs.pair.poly_coeff);
        
-        // bs.pair2.num = select(sample.x() > prob, bs.pair2.num, bsdf_bs.pair2.num);
-        // bs.pair2.n = select(sample.x() > prob, bs.pair2.n, bsdf_bs.pair2.n);
-        // bs.pair2.p = select(sample.x() > prob, bs.pair2.p, bsdf_bs.pair2.p);
-        // bs.pair2.J = select(sample.x() > prob, bs.pair2.J, bsdf_bs.pair2.J);
-        // bs.pair2.uv = select(sample.x() > prob, bs.pair2.uv, bsdf_bs.pair2.uv);
-        // bs.pair2.shape = select(sample.x() > prob, bs.pair2.shape, bsdf_bs.pair2.shape);
-        // bs.pair2.t = select(sample.x() > prob, bs.pair2.t, bsdf_bs.pair2.t);
-        // bs.pair2.wi = select(sample.x() > prob, bs.pair2.wi, bsdf_bs.pair2.wi);
-        // bs.pair2.sh_frame.s = select(sample.x() > prob, bs.pair2.sh_frame.s, bsdf_bs.pair2.sh_frame.s);
-        // bs.pair2.sh_frame.t = select(sample.x() > prob, bs.pair2.sh_frame.t, bsdf_bs.pair2.sh_frame.t);
-        // bs.pair2.sh_frame.n = select(sample.x() > prob, bs.pair2.sh_frame.n, bsdf_bs.pair2.sh_frame.n);
-        // bs.pair2.abs_prob = select(sample.x() > prob, bs.pair2.abs_prob, bsdf_bs.pair2.abs_prob);
-        // bs.pair2.poly_coeff = select(sample.x() > prob, bs.pair2.poly_coeff, bsdf_bs.pair2.poly_coeff);
-        bs.pair = bs.po;
-        bs.pair2 = bs.po;
+        bs.pair2.num = select(sample.x() > prob, bs.pair2.num, bsdf_bs.pair2.num);
+        bs.pair2.n = select(sample.x() > prob, bs.pair2.n, bsdf_bs.pair2.n);
+        bs.pair2.p = select(sample.x() > prob, bs.pair2.p, bsdf_bs.pair2.p);
+        bs.pair2.J = select(sample.x() > prob, bs.pair2.J, bsdf_bs.pair2.J);
+        bs.pair2.uv = select(sample.x() > prob, bs.pair2.uv, bsdf_bs.pair2.uv);
+        bs.pair2.shape = select(sample.x() > prob, bs.pair2.shape, bsdf_bs.pair2.shape);
+        bs.pair2.t = select(sample.x() > prob, bs.pair2.t, bsdf_bs.pair2.t);
+        bs.pair2.wi = select(sample.x() > prob, bs.pair2.wi, bsdf_bs.pair2.wi);
+        bs.pair2.sh_frame.s = select(sample.x() > prob, bs.pair2.sh_frame.s, bsdf_bs.pair2.sh_frame.s);
+        bs.pair2.sh_frame.t = select(sample.x() > prob, bs.pair2.sh_frame.t, bsdf_bs.pair2.sh_frame.t);
+        bs.pair2.sh_frame.n = select(sample.x() > prob, bs.pair2.sh_frame.n, bsdf_bs.pair2.sh_frame.n);
+        bs.pair2.abs_prob = select(sample.x() > prob, bs.pair2.abs_prob, bsdf_bs.pair2.abs_prob);
+        bs.pair2.poly_coeff = select(sample.x() > prob, bs.pair2.poly_coeff, bsdf_bs.pair2.poly_coeff);
+        // bs.pair = bs.po;
+        // bs.pair2 = bs.po;
     }
     else{
         bs.pair = bs.po;
         bs.pair2 = bs.po;
     }
-    // std::cout << "__sample,return " << std::endl;
 
     return bs;
 }
@@ -402,6 +397,9 @@ BSDFSample<ad> VaeSub::__sample_bsdf(const Intersection<ad> &its, const Vector8f
     bs.maxDist = full<Float<ad>>(-1.0f);
     bs.velocity = full<Vector3f<ad>>(0.0f);
     bs.po.abs_prob = full<Float<ad>>(0.0f);
+    bs.pair = its;
+    bs.pair2 = its;
+
     return bs;
 }
 
@@ -786,7 +784,7 @@ VaeSub::RetTypeSampleSp<ad> VaeSub::__sample_sp(const Scene *scene, const Inters
         using namespace std::chrono;
         
         auto opts = scene->m_opts;
-        auto isFD = false; //opts.sppse > 0.0f;
+        auto isFD = opts.isFD == 1; 
 
         Float<ad> rnd = sample[5];
         if(scene->m_opts.rgb != 0){
@@ -800,11 +798,7 @@ VaeSub::RetTypeSampleSp<ad> VaeSub::__sample_sp(const Scene *scene, const Inters
         // float is_light_space = false;
         float is_plane = opts.vaeMode >= 2;
         float is_light_space = opts.vaeMode % 2 == 0;
-        std::cout << "opts.vaeMode" << opts.vaeMode << std::endl;
-        std::cout << "is_plane" << is_plane << std::endl;
-        std::cout << "is_light_space" << is_light_space << std::endl;
-        // bool isFullModel = opts.isFull == 1;
-
+        // std::cout << "opts.vaeMode" << opts.vaeMode << std::endl;
 
         Spectrum<ad> albedo = m_albedo.eval<ad>(its.uv);
         Float<ad> albedo_ch = select(rnd < (1.0f / 3.0f), albedo.x(),albedo.y());
@@ -832,7 +826,7 @@ VaeSub::RetTypeSampleSp<ad> VaeSub::__sample_sp(const Scene *scene, const Inters
         
         // Lightweight model 
         std::tie(outPosVae,absorption) = _run<ad,32>(x,latent);
-        // // Full Model
+        // Full Model
         // std::tie(outPosVae,absorption) = _run<ad,64>(x,latent);
 
     
@@ -850,7 +844,6 @@ VaeSub::RetTypeSampleSp<ad> VaeSub::__sample_sp(const Scene *scene, const Inters
 
         outPos = inPos + local_frame.to_world(outPosVae);
         outPos = inPos + (outPos - inPos) / fitScaleFactor;
-        
 
         if(is_light_space)
             inNormal = local_frame.to_world(its.wi);
@@ -878,7 +871,7 @@ VaeSub::RetTypeSampleSp<ad> VaeSub::__sample_sp(const Scene *scene, const Inters
         auto relVector = detach(its3.p) - detach(its.p);
         auto s = cross(Vector3f<ad>(relVector),its3.n);
         auto t = normalize(cross(its3.n,s)); 
-        // its3.p = t/fitScaleFactor - t/detach(fitScaleFactor) + Vector3f<ad>(detach(its3.p));
+        its3.p = t/fitScaleFactor - t/detach(fitScaleFactor) + Vector3f<ad>(detach(its3.p));
 
         Vector3f<ad> velocity(0.0f); 
         velocity = its3.p;

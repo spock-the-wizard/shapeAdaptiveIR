@@ -12,6 +12,10 @@ import random
 
 from scipy.spatial import cKDTree
 
+def rmse(predictions, targets):
+    # Computes error map for each pixel
+    return np.sqrt(((predictions - targets) ** 2).mean(axis=-1))
+
 def active_sensors(batch, num_sensors):
     indices = torch.tensor(random.sample(range(num_sensors), batch))
     return indices

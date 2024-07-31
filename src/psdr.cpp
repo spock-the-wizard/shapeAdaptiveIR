@@ -86,6 +86,7 @@ PYBIND11_MODULE(psdr_cuda, m) {
         .def_readwrite("isFull", &RenderOption::isFull)
         .def_readwrite("vaeMode", &RenderOption::vaeMode)
         .def_readwrite("debug", &RenderOption::debug)
+        .def_readwrite("isFD", &RenderOption::isFD)
         .def_readwrite("epsM", &RenderOption::epsM)
         .def_readwrite("mode", &RenderOption::mode)
         .def("__repr__",

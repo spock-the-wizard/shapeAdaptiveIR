@@ -169,9 +169,9 @@ Spectrum<ad> DirectIntegrator::getContribution(const Scene &scene, BSDFArray<ad>
     // return ((bsdf_val)) & active1;
     // return (bsdf_val / pdfpoint) & active1;
     // return (bsdf_val * Le) / detach(pdfpoint); //& active1;// & active1;
-    return (bsdf_val * detach(Le)) / detach(pdfpoint); //& active1;// & active1;
-    // return (bsdf_val * Le / detach(pdfpoint); //& active1;// & active1;
-    return (detach(bsdf_val) * detach(Le)) / detach(pdfpoint); //& active1;// & active1;
+    // return (bsdf_val * detach(Le)) / detach(pdfpoint); //& active1;// & active1;
+    return (bsdf_val * Le) / detach(pdfpoint); //& active1;// & active1;
+    // return (detach(bsdf_val) * detach(Le)) / detach(pdfpoint); //& active1;// & active1;
     // return ((Le)); // / pdfpoint) & active1;
 }
 
@@ -180,7 +180,7 @@ Spectrum<ad> DirectIntegrator::__Li(const Scene &scene, Sampler &sampler, const 
     std::cout<<"rendering ... "<<std::endl;
 
     const RenderOption &opts = scene.m_opts;
-    auto isFD = opts.sppse > 0.0f;
+    auto isFD = opts.isFD == 1;
 
     // Intersection<false> its_ = scene.ray_intersect<false>(detach(ray), detach(active));
     Intersection<ad> its = scene.ray_intersect<ad>(ray, active);
@@ -204,55 +204,56 @@ Spectrum<ad> DirectIntegrator::__Li(const Scene &scene, Sampler &sampler, const 
     //     bs = bsdf_array->sample(&scene, its, sampler.next_nd<8, ad>(), active);
     // }
     bs = bsdf_array->sample(&scene, its, sampler.next_nd<8, ad>(), active);
+    std::cout << "bs.maxDist " << bs.maxDist << std::endl;
 
     Mask<ad> active1 = active && bs.is_valid;
     auto value = getContribution<ad>(scene,bsdf_array,its,bs,active1);
     masked(result, active1) += value;
 
-    // if  constexpr(ad) {
-    //     if (isFD) {
-    //         std::cout << "isFD " << std::endl;
-    //     BSDFSample<ad> bsM = bs;
-    //     bsM.po = bs.pair;
-    //     auto activeM = active && bs.pair.is_valid();
-    //     bsM.rgb_rv = bs.rgb_rv;
-    //     bsM.po.abs_prob = bs.po.abs_prob;
-    //     bsM.is_sub = bs.is_sub;
-    //     bsM.is_valid = activeM;
-    //     bsM.pdf = bs.pdf;
-    //     bsM.po.J = bs.po.J;
-    //     bsM.maxDist = bs.maxDist;
-    //     bsM.velocity = bs.velocity;
-    //     auto value_0 = getContribution<false>(scene,detach(bsdf_array),detach(its),detach(bsM),detach(activeM));
-        
-    //     BSDFSample<ad> bsM2 = bs;
-    //     bsM2.po = bs.pair2;
-    //     auto activeM2 = active && bs.pair2.is_valid();
-    //     bsM2.is_valid = activeM2;
-    //     bsM2.rgb_rv = bs.rgb_rv;
-    //     bsM2.po.abs_prob = bs.po.abs_prob;
-    //     bsM2.is_sub = bs.is_sub;
-    //     bsM2.pdf = bs.pdf;
-    //     bsM2.po.J = bs.po.J;
-    //     bsM2.maxDist = bs.maxDist;
-    //     bsM2.velocity = bs.velocity;
-    //     auto value_1 = getContribution<false>(scene,detach(bsdf_array),detach(its),detach(bsM2),detach(activeM2));
-        
-    //     masked(value_0, ~enoki::isfinite<SpectrumC>(value_0)) = 0.f;
-    //     masked(value_1, ~enoki::isfinite<SpectrumC>(value_1)) = 0.f;
+    if  constexpr(ad) {
 
-    //     float epsM = 1.0f;
+        if (isFD) {
+        BSDFSample<ad> bsM = bs;
+        bsM.po = bs.pair;
+        auto activeM = active && bs.pair.is_valid();
+        bsM.rgb_rv = bs.rgb_rv;
+        bsM.po.abs_prob = bs.po.abs_prob;
+        bsM.is_sub = bs.is_sub;
+        bsM.is_valid = activeM;
+        bsM.pdf = bs.pdf;
+        bsM.po.J = bs.po.J;
+        bsM.maxDist = bs.maxDist;
+        bsM.velocity = bs.velocity;
+        auto value_0 = getContribution<false>(scene,detach(bsdf_array),detach(its),detach(bsM),detach(activeM));
         
+        BSDFSample<ad> bsM2 = bs;
+        bsM2.po = bs.pair2;
+        auto activeM2 = active && bs.pair2.is_valid();
+        bsM2.is_valid = activeM2;
+        bsM2.rgb_rv = bs.rgb_rv;
+        bsM2.po.abs_prob = bs.po.abs_prob;
+        bsM2.is_sub = bs.is_sub;
+        bsM2.pdf = bs.pdf;
+        bsM2.po.J = bs.po.J;
+        bsM2.maxDist = bs.maxDist;
+        bsM2.velocity = bs.velocity;
+        auto value_1 = getContribution<false>(scene,detach(bsdf_array),detach(its),detach(bsM2),detach(activeM2));
+        
+        masked(value_0, ~enoki::isfinite<SpectrumC>(value_0)) = 0.f;
+        masked(value_1, ~enoki::isfinite<SpectrumC>(value_1)) = 0.f;
 
-    //     Vector3fD diff = (value_0 - value_1) / 2.0f;
-    //     diff /= epsM;
-    //     // auto isBoundary = activeM ^ activeM2; // Visibility is different
-    //     // isBoundary |= dot(bsM2.po.sh_frame.n,bsM.po.sh_frame.n) < 0.8f;
-    //     // // isBoundary |= dot(bsM2.sh_frame.n,bsM.sh_frame.n) < 0.6f;
-    //     // diff &= isBoundary;
-    //     result += bs.maxDist * diff - diff * detach(bs.maxDist);
-    //     }
-    // }
+        float epsM = 1.0f;
+
+        Vector3fD diff = (value_0 - value_1) / 2.0f;
+        diff /= epsM;
+        // auto isBoundary = activeM ^ activeM2; // Visibility is different
+        // isBoundary |= dot(bsM2.po.sh_frame.n,bsM.po.sh_frame.n) < 0.8f;
+        // // isBoundary |= dot(bsM2.sh_frame.n,bsM.sh_frame.n) < 0.6f;
+        // diff &= isBoundary;
+        
+        result += bs.maxDist * diff - diff * detach(bs.maxDist);
+        }
+    }
 
     return result;
 }
