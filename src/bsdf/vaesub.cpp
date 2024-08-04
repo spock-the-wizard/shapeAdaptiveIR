@@ -295,7 +295,6 @@ BSDFSample<ad> VaeSub::__sample(const Scene *scene, const Intersection<ad> &its,
     // Joon added; 100% BSSRDF samples
     // return bs;
     BSDFSample<ad> bsdf_bs =  __sample_bsdf<ad>(its, sample, active);
-    std::cout << "__sample_bsdf\n" << std::endl;
 
     FloatC cos_theta_i = Frame<false>::cos_theta(detach(its.wi));
 
@@ -740,7 +739,10 @@ Intersection<ad> VaeSub::projectPointToSurface(const Scene* scene, const Interse
     // float maxDistScale = 2.0f;
     // float eps = 0.01f;
     // float maxDistScale = 2.0f;
-    float maxDistScale = 10.0f;
+
+    auto opts = scene->m_opts;
+    float maxDistScale = opts.maxDistScale;
+    std::cout << "maxDistScale " << maxDistScale << std::endl;
 
     Intersection<ad> its3;
     auto vz = its.sh_frame.n;

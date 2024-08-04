@@ -36,11 +36,14 @@ def scene2mesh(scene):
         return "../../examples/smoothshape/final/botijo2_.obj" 
     elif 'torus' in scene:
         return "../../examples/smoothshape/final/torus.obj" 
+    elif 'kettle' in scene:
+        return "../../examples/smoothshape/final/kettle_.obj" 
 
 def replace_element(xml_pth,out_pth,str_nodes,value,):
     """ Replace nested element with given value """
     et = ET.parse(xml_pth)
     root = et.getroot()
+    breakpoint()
 
     node = root
     for str_node in str_nodes:
@@ -70,9 +73,9 @@ parser.add_argument('--debug', action="store_true", default=False)
 parser.add_argument('--onlySig', action="store_true", default=False)
 
 
-def wandb_log(wandb_args,):
+def wandb_log(*wandb_args,**kwargs):
     if not args.debug:
-        wandb.log(wandb_args)
+        wandb.log(*wandb_args,**kwargs)
 def rmse(predictions, targets):
     # Computes error map for each pixel
     return np.sqrt(((predictions - targets) ** 2).mean(axis=-1))
@@ -106,6 +109,7 @@ if __name__ == "__main__":
         scene_file = f"./related/scene/croissant1_out.xml"
         # Replace obj of scene_file
         out_file = scene_file.replace("croissant1",args.scene)
+        breakpoint()
         replace_element(scene_file,out_file,["shape","string"],scene2mesh(args.scene))
         scene_file = out_file
 
@@ -204,7 +208,7 @@ if __name__ == "__main__":
                 "test/rmse_alb" : rmse(params[key_alb].numpy(),gt_alb),
                 "test/rmse_sig" : rmse(param_sig,gt_sig),
                 "test/rmse_img" : np.array(list_rmse).mean()
-                })
+                },step=it)
             continue
         
         time_start = time.time()
@@ -237,14 +241,14 @@ if __name__ == "__main__":
 
         total_loss += loss[0]
         param_sig = params[key_sig].numpy() * params[key_scale]
-        if it % args.n_log == 0: 
-            wandb_log({
-                "train/loss": total_loss,
-                "train/epoch": it,
-                "train/rmse_alb" : rmse(params[key_alb].numpy(),gt_alb),
-                "train/rmse_sig" : rmse(param_sig,gt_sig),
-                "train/time": avg_time,
-                # "train/rmse_img" : rmse(img,list_refs[sensor_idx]).mean(),
-                })
+        wandb_log({
+            "train/loss": total_loss,
+            "train/epoch": it,
+            "train/rmse_alb" : rmse(params[key_alb].numpy(),gt_alb),
+            "train/rmse_sig" : rmse(param_sig,gt_sig),
+            "train/time": avg_time,
+            },step=it)
+
+        # if it % args.n_log == 0: 
 
         tqdm.write(f"Iteration {it:02d}: error={total_loss:6f}", end='\r')

@@ -236,6 +236,7 @@ struct RenderOption {
     int debug = 0;
     int isFD = 0;
     float epsM = 2.0f;
+    float maxDistScale = 2.0f;
     // Options for vaesub
     // 0: shape-adaptive, light-space, 1: shape-adaptive: tangent-space
     // 2: planar, light-space, 3: planar, tangent-space

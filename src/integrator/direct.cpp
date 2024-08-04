@@ -204,7 +204,7 @@ Spectrum<ad> DirectIntegrator::__Li(const Scene &scene, Sampler &sampler, const 
     //     bs = bsdf_array->sample(&scene, its, sampler.next_nd<8, ad>(), active);
     // }
     bs = bsdf_array->sample(&scene, its, sampler.next_nd<8, ad>(), active);
-    std::cout << "bs.maxDist " << bs.maxDist << std::endl;
+    // std::cout << "bs.maxDist " << bs.maxDist << std::endl;
 
     Mask<ad> active1 = active && bs.is_valid;
     auto value = getContribution<ad>(scene,bsdf_array,its,bs,active1);
