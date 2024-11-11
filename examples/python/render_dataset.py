@@ -39,7 +39,7 @@ from pytorch_msssim import ssim
 from AdamUniform import UAdam
 from tool_functions import checkpath
 
-from constants import REMESH_DIR, RESULT_DIR, TEXTURE_DIR, SCENES_DIR, ROOT_DIR, REAL_DIR, LIGHT_DIR, ESSEN_DIR
+from constants import REMESH_DIR, RESULT_DIR, TEXTURE_DIR, SCENES_DIR, ROOT_DIR, IMG_DIR, LIGHT_DIR, ESSEN_DIR
 from constants import params_gt
 sys.path.append(REMESH_DIR)
 
@@ -355,10 +355,10 @@ def opt_task(isSweep=True):
         refdir = RESULT_DIR + "/{}/{}/".format(args.scene, args.ref_folder)
         maskdir = RESULT_DIR + "/{}/silhouette/".format(args.scene)
     elif args.d_type == "real":
-        refdir = REAL_DIR + "/hdr{}/{}/".format(args.scene, args.ref_folder)
+        refdir = IMG_DIR + "/hdr{}/{}/".format(args.scene, args.ref_folder)
     elif args.d_type == "custom":
         # NOTE: tmp setting for sanity check
-        refdir = REAL_DIR + "/{}/{}/".format(args.scene,args.ref_folder)
+        refdir = IMG_DIR + "/{}/{}/".format(args.scene,args.ref_folder)
     else:
         refdir = ESSEN_DIR + "/hdr{}/{}/".format(args.scene, args.ref_folder)
 

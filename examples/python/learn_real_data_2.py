@@ -38,7 +38,7 @@ from pytorch_msssim import ssim
 from AdamUniform import UAdam
 from tool_functions import checkpath
 
-from constants import REMESH_DIR, RESULT_DIR, TEXTURE_DIR, SCENES_DIR, ROOT_DIR, REAL_DIR, LIGHT_DIR, ESSEN_DIR
+from constants import REMESH_DIR, RESULT_DIR, TEXTURE_DIR, SCENES_DIR, ROOT_DIR, IMG_DIR, LIGHT_DIR, ESSEN_DIR
 from constants import params_gt
 sys.path.append(REMESH_DIR)
 # from largesteps.optimize import AdamUnifom
@@ -541,10 +541,10 @@ def opt_task(isSweep=True):
         refdir = RESULT_DIR + "/{}/{}/".format(args.scene, args.ref_folder)
         maskdir = RESULT_DIR + "/{}/silhouette/".format(args.scene)
     elif args.d_type == "real":
-        refdir = REAL_DIR + "/hdr{}/{}/".format(args.scene, args.ref_folder)
+        refdir = IMG_DIR + "/hdr{}/{}/".format(args.scene, args.ref_folder)
     elif args.d_type == "custom":
         # NOTE: tmp setting for sanity check
-        refdir = REAL_DIR + "/{}/{}/".format(args.scene,args.ref_folder)
+        refdir = IMG_DIR + "/{}/{}/".format(args.scene,args.ref_folder)
     else:
         refdir = ESSEN_DIR + "/hdr{}/{}/".format(args.scene, args.ref_folder)
 
@@ -1662,7 +1662,7 @@ def opt_task(isSweep=True):
             print(f"Write gradient image to {fname}")
 
             # Vis image error btw estimate and GT
-            target = f"../../../data_kiwi_soap/realdata/{args.scene}/exr_ref/{sensor_id}.exr"
+            target = f"{IMG_DIR}/{args.scene}/exr_ref/{sensor_id}.exr"
             tar = cv2.imread(target)
             fname=f"{grad_dir}/{args.scene}_{sensor_id}_{fd_delta}_diff"
             # breakpoint()
@@ -1671,36 +1671,6 @@ def opt_task(isSweep=True):
             print(f"Write gradient image to {fname}")
         
 
-        # cmax = max(img.max(),abs(img.min()))
-        # norm = MidpointNormalize(vmin=-cmax,vmax=cmax,midpoint=0.0)
-        # plt.imshow(img, cmap='RdBu_r',norm=norm)
-        # plt.tight_layout()
-        # plt.colorbar()
-        # plt.axis('off')
-        # plt.savefig(filename,bbox_inches='tight',pad_inches=0)
-        # plt.close()
-
-        # filename = filename.replace('.png','_nolegend.png')
-        # mapper = cm.ScalarMappable(norm=norm, cmap=cmap_key)
-        # img_fd = np.copy(mapper.to_rgba(img))
-        # plt.tight_layout()
-        # plt.axis('off')
-        # plt.imshow(img_fd,extent=extent)
-        # plt.savefig(filename,bbox_inches='tight',pad_inches=0)
-        # plt.close()
-        
-        # # Visualize absolute difference between FD and ours
-        # filename = filename.replace('_nolegend.png','.png')
-        # filename = filename.replace('FD','absdiff')
-        # img_diff = np.abs(img_fd[...,:3] - img_ours[...,:3])# * 255.0
-        # img_diff = img_diff[...,[2,1,0]].sum(axis=-1)
-        # plt.imshow(img_diff,cmap='viridis',extent=extent)
-        # plt.tight_layout()
-        # plt.colorbar()
-        # plt.axis('off')
-        # # print(f"Write gradient image to {filename}")
-        # plt.savefig(filename,bbox_inches='tight')
-        # plt.close()
     else:
         optTask()
         

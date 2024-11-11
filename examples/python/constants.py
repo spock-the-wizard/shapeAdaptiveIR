@@ -13,7 +13,7 @@ REMESH_DIR = os.path.join(HOME_DIR, "ext/botsch-kobbelt-remesher-libigl/build")
 RESULT_DIR = os.path.join(DATA_DIR, "results")
 BLEND_SCENE = os.path.join(SCENES_DIR, "render.blend")
 BLENDER_EXEC = "blender2.8" # Change this if you have a different blender installation
-REAL_DIR = os.path.join(DATA_DIR, "realdata")
+IMG_DIR = os.path.join(DATA_DIR, "imgs")
 # data folders
 ESSEN_DIR = os.path.join(DATA_DIR, "essen/")
 LIGHT_DIR = os.path.join(SCENES_DIR, f"{DATA_DIR}/light/")
