@@ -14,7 +14,7 @@ wandb/
 *.npy
 *.dot
 *.png
-core*
+*.core
 *.ps
 *.svg
 *.mp4
@@ -41,3 +41,4 @@ trash/
 !examples/scenes/**.xml
 !CMakeLists.txt
 !CMake/*.cmake
+!docs/*.txt
