@@ -1,12 +1,13 @@
 #! /bin/bash
 
-root=/sss/InverseTranslucent/examples/python/scripts
+root='.' 
 
 exp_name="final/cleanup"
 
 name=$1
 echo $exp_name
 xml_file=$root/../../scenes/${name}_out.xml
+mkdir -p $root/../../scenes/tmp
 out_file=$root/../../scenes/tmp/${name}_out_tmp.xml
 
 sigma_t="100.0, 70.0, 60.0" # init
@@ -18,7 +19,7 @@ python ../replace_xml.py --sigma_t "$sigma_t" \
 --out_xml "$out_file" \
 # --is_baseline
 
-spp=128
+spp=1
 spp_inv=4
 n_crops=1
 sppse=0 # 0 for autograd -1 for naive FD 1 for FD_ours

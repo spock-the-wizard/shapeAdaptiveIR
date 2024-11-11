@@ -63,9 +63,7 @@ if( WIN32 )
     set(OptiX_INSTALL_DIR "${CMAKE_SOURCE_DIR}/ext_win64/optix" CACHE PATH "Path to OptiX installed location.")
 else()
     set(OptiX_INSTALL_DIR "${CMAKE_SOURCE_DIR}/ext/optix" CACHE PATH "Path to OptiX installed location.")
-    message(OptiX_INSTALL_DIR)
 endif()
-message(${OptiX_INSTALL_DIR})
 find_package(OptiX REQUIRED)
 
 # Added Eigen

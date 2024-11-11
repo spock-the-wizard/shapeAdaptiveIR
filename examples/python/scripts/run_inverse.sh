@@ -12,7 +12,7 @@ python3.8 ../learn_real_data_2.py \
         --eta_lr 0.00 \
         --n_reduce_step 5000 \
         --n_iters 300 \
-        --n_dump 50 \
+        --n_dump 5 \
         --laplacian 20 \
         --sigma_laplacian 0 \
         --albedo_laplacian 0 \
@@ -30,6 +30,6 @@ python3.8 ../learn_real_data_2.py \
         --sigma_texture  0 \
         --albedo_texture 0 \
         --epsM_texture 0 \
-        # --debug \
+        --debug \
         # --opaque \
         # --isSweep \

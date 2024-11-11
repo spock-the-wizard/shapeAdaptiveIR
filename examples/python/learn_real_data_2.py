@@ -1,7 +1,5 @@
 
 import sys
-# sys.path.append("/sss/InverseTranslucent/build")
-# sys.path.append("/sss/InverseTranslucent/build/lib")
 import psdr_cuda
 import enoki as ek
 import cv2
@@ -38,12 +36,10 @@ from pytorch_msssim import ssim
 from AdamUniform import UAdam
 from tool_functions import checkpath
 
-from constants import REMESH_DIR, RESULT_DIR, TEXTURE_DIR, SCENES_DIR, ROOT_DIR, IMG_DIR, LIGHT_DIR, ESSEN_DIR
+from constants import HOME_DIR, RESULT_DIR, TEXTURE_DIR, SCENES_DIR, ROOT_DIR, IMG_DIR, LIGHT_DIR, ESSEN_DIR
 from constants import params_gt
-sys.path.append(REMESH_DIR)
 # from largesteps.optimize import AdamUnifom
 from largesteps.geometry import compute_matrix, laplacian_uniform
-from pyremesh import remesh_botsch
 from largesteps.parameterize import to_differential, from_differential
 
 import argparse
@@ -75,7 +71,7 @@ import nanogui
 sys.path.append('../viz')
 sys.path.append('../viz/vae')
 
-os.chdir("/sss/InverseTranslucent/examples/python/scripts")
+os.chdir(f"{HOME_DIR}/examples/python/scripts")
 # import vae.config
 import vae.config_abs
 import vae.utils
@@ -94,7 +90,6 @@ def reset_random():
     torch.backends.cudnn.benchmark = False
     np.random.seed(random_seed)
     random.seed(random_seed) # if use multi-GPU
-
 
 
 class Mode(Enum):
@@ -371,24 +366,6 @@ def compute_vertex_normals(verts, faces, face_normals):
         for j in range(3):
             normals[j].index_add_(0, fi[i], nn[j])
     return (normals / torch.norm(normals, dim=0)).transpose(0, 1)
-
-def remesh(verts, faces):
-    " copy right belongs to Baptiste Nicolet"
-    v_cpu = verts.detach().cpu().numpy()
-    f_cpu = faces.detach().cpu().numpy()
-
-    # Target edge length
-    h = (average_edge_length(verts.detach(), faces.detach())).cpu().numpy()*0.5
-
-    v_new, f_new = remesh_botsch(v_cpu.astype(np.double),f_cpu.astype(np.int32), 5, h, True)
-
-    v_src = torch.from_numpy(v_new).cuda().float().contiguous()
-    f_src = torch.from_numpy(f_new).cuda().contiguous()
-
-    v_unique, f_unique, duplicate_idx = remove_duplicates(v_src, f_src)
-
-    return v_unique, f_unique
-        
 
 import matplotlib as mpl
 class MidpointNormalize(mpl.colors.Normalize):
@@ -693,15 +670,13 @@ def opt_task(isSweep=True):
                 
     def renderNtimes(scene, integrator, n, sensor_id):
 
-        image,coeffs = renderC(scene,integrator,sensor_id)
-        # image = integrator.renderC(scene, sensor_id)
+        image = integrator.renderC(scene, sensor_id)
         
         weight = 1.0 / n
         out = image.numpy().reshape((scene.opts.cropheight, scene.opts.cropwidth, 3))
         
         for i in range(1, n):
-            image,_ = renderC(scene, integrator, sensor_id, coeffs=coeffs)
-            # image = integrator.renderC(scene, sensor_id)
+            image = integrator.renderC(scene, sensor_id)
             out += image.numpy().reshape((scene.opts.cropheight, scene.opts.cropwidth, 3))
             
         out *= weight
@@ -1242,7 +1217,6 @@ def opt_task(isSweep=True):
         # TODO: joon added
         u = to_differential(M,V)
         U = Variable(u, requires_grad=not(args.mesh_lr==0))
-        # res = remesh(V.data,F.data)
         # breakpoint()
 
         if args.mesh_lr > 0:
@@ -1415,10 +1389,6 @@ def opt_task(isSweep=True):
             ek.cuda_malloc_trim()
 
             if (i % args.n_dump == args.n_dump -1) or (i==10):
-            # if (i % args.n_dump == 0):
-            # if i == 0 or ((i+1) %  args.n_dump) == 0:
-                # sensor_indices = active_sensors(1, num_sensors)
-                # renderPreview(i, np.array([0], dtype=np.int32))
                 sc.opts.cropheight = sc.opts.height
                 sc.opts.cropwidth = sc.opts.width
                 sc.opts.crop_offset_x = 0 
@@ -1427,6 +1397,7 @@ def opt_task(isSweep=True):
                 sc.opts.rgb = 0
                 sc.opts.mode = 1 if args.opaque else 0
                 sc.configure()
+                breakpoint()
 
                 # preview_sensors = np.random.choice(num_sensors,size=5)
                 # renderPreview(i, preview_sensors)

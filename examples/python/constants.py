@@ -1,7 +1,7 @@
 import os
 
 # replace this as home directory
-HOME_DIR = "/sss/InverseTranslucent"
+HOME_DIR = "/sss/shapeAdaptiveIR"
 
 ROOT_DIR = os.path.join(HOME_DIR)
 DATA_DIR = os.path.join(HOME_DIR, "data_kiwi_soap")
