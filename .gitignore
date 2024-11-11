@@ -40,3 +40,4 @@ trash/
 !examples/python/scripts/resources/*.xml
 !examples/scenes/**.xml
 !CMakeLists.txt
+!CMake/*.cmake
