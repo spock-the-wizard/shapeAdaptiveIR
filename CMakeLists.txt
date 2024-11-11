@@ -12,8 +12,8 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 if( WIN32 )
     add_definitions(-D_USE_MATH_DEFINES -D_CRT_SECURE_NO_WARNINGS -DNDEBUG)
 else()
-    # set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -O0 -g -Wall -Wno-unused-variable -w -Wextra")
-    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -O0 -g -Wall -Wno-unused-variable -w -Wextra -DNDEBUG")
+    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -O0 -g -Wall -Wno-unused-variable -w -Wextra")
+    # set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -O0 -g -Wall -Wno-unused-variable -w -Wextra -DNDEBUG")
     # -DNDEBUG
 endif()
 
@@ -63,14 +63,13 @@ if( WIN32 )
     set(OptiX_INSTALL_DIR "${CMAKE_SOURCE_DIR}/ext_win64/optix" CACHE PATH "Path to OptiX installed location.")
 else()
     set(OptiX_INSTALL_DIR "${CMAKE_SOURCE_DIR}/ext/optix" CACHE PATH "Path to OptiX installed location.")
+    message(OptiX_INSTALL_DIR)
 endif()
+message(${OptiX_INSTALL_DIR})
 find_package(OptiX REQUIRED)
 
 # Added Eigen
 find_package (Eigen3 3.3 REQUIRED NO_MODULE)
-# Added cnpy
-# add_subdirectory( ../../usr/local/lib)
-# find_package(sdf)
 
 
 if( WIN32 )
