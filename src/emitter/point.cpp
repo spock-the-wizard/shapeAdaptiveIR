@@ -48,7 +48,6 @@ PositionSample<ad> PointLight::__sample_position(const Vector3f<ad> &ref_p, cons
         result.p = Vector3fC(detach(m_position));
         result.n = Vector3fC(normalize(ref_p - result.p));
     }
-    std::cout << "m_position " << m_position << std::endl;
     result.J = 1.0f;
     result.pdf = 1.0f;
     return result;

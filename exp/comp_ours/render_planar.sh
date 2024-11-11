@@ -14,6 +14,13 @@ albedo="0.89, 0.89, 0.90" #sphere1
 sigma_t="63, 42, 72"
 albedo="0.99, 0.99, 0.99"
 
+# Planar
+albedo="0.95, 0.95, 0.95"
+sigma_t="118, 122, 48"
+
+sigma_t="47, 80, 81"
+albedo="0.99, 0.99, 0.99"
+
 spp=1024
 spp_inv=1
 n_crops=1

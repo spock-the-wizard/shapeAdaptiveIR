@@ -1,14 +1,19 @@
 #! /bin/bash
 root=/sss/InverseTranslucent/examples/python/scripts
 
-exp_name="fig6/var19"
+exp_name="fig7/var77"
 
 name=$1
 echo $exp_name
 xml_file=$root/../../scenes/inverse/${name}_out.xml
 out_file=$root/../../scenes/inverse/${name}_out_tmp.xml
-sigma_t="50.0, 50.0, 50.0" # init
-albedo="0.90" #sphere1
+sigma_t="40.0, 50.0, 30.0" # init
+albedo="0.9, 0.9, 0.85" #$70, 0.80, 0.50" #sphere1
+# sigma_t="40.0, 50,0, 30.0"
+# albedo="0.9" #, 0.9, 0.8"
+sigma_t="50.0"
+albedo="0.5"
+
 spp=128
 spp_inv=32
 n_crops=4
@@ -28,12 +33,12 @@ python3.8 ./inverse_render.py \
         --scene $name \
         --ref_folder "exr_ref" \
         --mesh_lr 0.00 \
-        --sigma_lr 0.02 \
-        --albedo_lr 0.005 \
+        --sigma_lr 0.015 \
+        --albedo_lr 0.02 \
         --epsM_lr 0.00 \
         --rough_lr 0.00 \
         --eta_lr 0.00 \
-        --n_reduce_step 100 \
+        --n_reduce_step 50 \
         --n_iters 300 \
         --n_dump 50 \
         --n_remesh 10000 \
@@ -56,12 +61,15 @@ python3.8 ./inverse_render.py \
         --onlySSS \
         --scene_file $out_file \
         --isFD \
-        --vaeMode 0 \
-        --n_fitpoly 25 \
-        --randomInit \
-        --sweep_num 5 \
-        --maxDistScale 5.0 \
+        --n_fitpoly 500 \
+        --maxDistScale 2.0 \
+        --epsM 1.0 \
+        --vaeMode 2 \
+        # --randomInit \
+        # --sweep_num 4 \ # Need to do 4 and 5
+        # --isSplit \
         # --n_vaeModeChange 200 \
+        # --debug \
         # --debug \
         # --isBaseline \
         # --render_gradient

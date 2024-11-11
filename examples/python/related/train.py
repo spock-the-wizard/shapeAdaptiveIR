@@ -18,6 +18,9 @@ from tqdm import tqdm
 import wandb
 
 # os.chdir("../")
+# root_code="/home/spock-the-wizard/slurm/sss-relighting/InverseTranslucent/examples/python"
+# os.chdir(root_code)
+# sys.path.append(f"{root_code}")
 from constants import params_gt
             # import mitsuba.llvm_ad_rgb.Color3f as Color3f
 
@@ -36,6 +39,8 @@ def scene2mesh(scene):
         return "../../examples/smoothshape/final/botijo2_.obj" 
     elif 'torus' in scene:
         return "../../examples/smoothshape/final/torus.obj" 
+    elif 'dragon' in scene:
+        return "../../examples/smoothshape/final/dragon.obj" 
     elif 'kettle' in scene:
         return "../../examples/smoothshape/final/kettle_.obj" 
 
@@ -43,7 +48,6 @@ def replace_element(xml_pth,out_pth,str_nodes,value,):
     """ Replace nested element with given value """
     et = ET.parse(xml_pth)
     root = et.getroot()
-    breakpoint()
 
     node = root
     for str_node in str_nodes:
@@ -68,8 +72,10 @@ parser.add_argument('--sweep_num',                type=int,      default=0)
 parser.add_argument('--n_iters',            type=int,      default=300)
 parser.add_argument('--n_dump',            type=int,      default=100)
 parser.add_argument('--n_log',            type=int,      default=10)
+parser.add_argument('--lr',            type=float,      default=0.05)
 
 parser.add_argument('--debug', action="store_true", default=False)
+parser.add_argument('--render', action="store_true", default=False)
 parser.add_argument('--onlySig', action="store_true", default=False)
 
 
@@ -109,7 +115,6 @@ if __name__ == "__main__":
         scene_file = f"./related/scene/croissant1_out.xml"
         # Replace obj of scene_file
         out_file = scene_file.replace("croissant1",args.scene)
-        breakpoint()
         replace_element(scene_file,out_file,["shape","string"],scene2mesh(args.scene))
         scene_file = out_file
 
@@ -169,7 +174,19 @@ if __name__ == "__main__":
             params[key_alb] = init_albedo
     else:
         params[key_sig] = np.array([0.5,0.5,0.5])
-        params[key_alb] = np.array([0.9,0.9,0.9])
+        params[key_alb] = np.array([0.5,0.5,0.5])
+
+        # # maneki / PRB (64 spp)
+        # params[key_sig] = np.array([0.62, 0.50, 0.50])
+        # params[key_alb] = np.array([0.89, 0.88, 0.88])
+
+        # # maneki / PRB (32 spp)
+        # params[key_sig] = np.array([0.31, 0.99, 0.99])
+        # params[key_alb] = np.array([0.89, 0.88, 0.88])
+
+        # maneki / PRB (32 spp)
+        params[key_sig] = np.array([0.50, 0.53, 0.53])
+        params[key_alb] = np.array([0.85, 0.88, 0.88])
 
 
     # # Debugging forward rendering
@@ -177,78 +194,105 @@ if __name__ == "__main__":
     # params[key_alb] = gt_alb
     # params[key_sig] = gt_sig /  params[key_scale]
 
-    opt = mi.ad.Adam(lr=0.05)
+    opt = mi.ad.Adam(lr=args.lr)
     opt[key_sig] = params[key_sig]
     if not args.onlySig:
         opt[key_alb] = params[key_alb]
     params.update(opt)
 
     list_times = []
-    for it in tqdm(range(iteration_count)):
-        total_loss = 0.0
 
-        
-        if ((it+1)%args.n_dump) == 0:
-            list_rmse = []
-            for sensor_idx in [0,1,4,10]:
-                params['point-light.position'] = lights[sensor_idx]
-                img_pth = f"{statsdir}/iter{it}_{sensor_idx}_out.exr"
-                img = mi.render(scene, params, sensor=sensor_idx, spp=ref_spp, seed=it)
-                mi.util.write_bitmap(img_pth,img)
+    sensor_list =[11,]
+    it = 1
+    if args.render:
+        print(f"Render Images")
+        for sensor_idx in sensor_list:
+            params['point-light.position'] = lights[sensor_idx]
+            img_pth = f"{statsdir}/iter{it}_{sensor_idx}_out.exr"
+            img = mi.render(scene, params, sensor=sensor_idx, spp=ref_spp, seed=it)
+            mi.util.write_bitmap(img_pth,img)
 
-                gt_pth = f"{statsdir}/iter{it}_{sensor_idx}_gt.exr"
-                gt = list_refs[sensor_idx]
-                mi.util.write_bitmap(gt_pth,gt)
-                list_rmse.append(rmse(img.numpy(),gt).mean())
+            gt_pth = f"{statsdir}/iter{it}_{sensor_idx}_gt.exr"
+            gt = list_refs[sensor_idx]
+            mi.util.write_bitmap(gt_pth,gt)
+            print(f"Wrote image {sensor_idx}")
 
+    else:
+        for it in tqdm(range(iteration_count)):
+            total_loss = 0.0
+
+            
+            if ((it+1)%args.n_dump) == 0:
+                list_rmse = []
+                for sensor_idx in [0,1,4,10]:
+                    params['point-light.position'] = lights[sensor_idx]
+                    img_pth = f"{statsdir}/iter{it}_{sensor_idx}_out.exr"
+                    img = mi.render(scene, params, sensor=sensor_idx, spp=ref_spp, seed=it)
+                    mi.util.write_bitmap(img_pth,img)
+
+                    gt_pth = f"{statsdir}/iter{it}_{sensor_idx}_gt.exr"
+                    gt = list_refs[sensor_idx]
+                    mi.util.write_bitmap(gt_pth,gt)
+                    list_rmse.append(rmse(img.numpy(),gt).mean())
+
+                param_sig = params[key_sig].numpy() * params[key_scale]
+                wandb_log({
+                    # "test/loss": total_loss,
+                    "test/epoch": it,
+                    "test/rmse_alb" : rmse(params[key_alb].numpy(),gt_alb),
+                    "test/rmse_sig" : rmse(param_sig,gt_sig),
+                    "test/rmse_img" : np.array(list_rmse).mean()
+                    },step=it)
+                continue
+            
+            time_start = time.time()
+
+            sensor_idx = random.randint(0,sensor_count-1) 
+            # print(sensor_idx)
+            params['point-light.position'] = lights[sensor_idx]
+            img = mi.render(scene, params, sensor=sensor_idx, spp=spp, seed=it)
+            # img = mi.render(scene, params, sensor=0, spp=spp, seed=it)
+            # tmp = img.numpy() * 255
+            # cv2.imwrite('test3.png',tmp)
+            # breakpoint()
+
+            loss = dr.mean(dr.sqr(img - list_refs[sensor_idx]))
+            dr.backward(loss)
+            opt.step()
+
+            # Clamp the optimized density values. Since we used the `scale` parameter
+            # when instantiating the volume, we are in fact optimizing extinction
+            # in a range from [1e-6 * scale, scale].
+            opt[key_sig] = dr.clamp(opt[key_sig], 1e-6, 1.0)
+            if not args.onlySig:
+                opt[key_alb] = dr.clamp(opt[key_alb], 1e-6, 1.0)
+            # else:
+            #     opt[key_sig] = Color3f(opt[key_sig].numpy().mean())
+            print(opt[key_sig])
+
+            # Propagate changes to the scene
+            params.update(opt)
+            time_end = time.time()
+            elapsed_time = time_end - time_start
+            list_times.append(elapsed_time)
+            avg_time = sum(list_times) / len(list_times)
+
+            total_loss += loss[0]
             param_sig = params[key_sig].numpy() * params[key_scale]
             wandb_log({
-                # "test/loss": total_loss,
-                "test/epoch": it,
-                "test/rmse_alb" : rmse(params[key_alb].numpy(),gt_alb),
-                "test/rmse_sig" : rmse(param_sig,gt_sig),
-                "test/rmse_img" : np.array(list_rmse).mean()
+                "train/loss": total_loss,
+                "train/epoch": it,
+                "train/rmse_alb" : rmse(params[key_alb].numpy(),gt_alb),
+                "train/rmse_sig" : rmse(param_sig,gt_sig),
+                "train/time": avg_time,
+                "param/sigmaT_r": params[key_sig][0].numpy(),
+                "param/sigmaT_g": params[key_sig][1].numpy(),
+                "param/sigmaT_b": params[key_sig][2].numpy(),
+                "param/albedo_r": params[key_alb][0].numpy(),
+                "param/albedo_g": params[key_alb][1].numpy(),
+                "param/albedo_b": params[key_alb][2].numpy(),
                 },step=it)
-            continue
-        
-        time_start = time.time()
 
-        sensor_idx = random.randint(0,sensor_count-1) 
-        print(sensor_idx)
-        params['point-light.position'] = lights[sensor_idx]
-        img = mi.render(scene, params, sensor=sensor_idx, spp=spp, seed=it)
+            # if it % args.n_log == 0: 
 
-        loss = dr.mean(dr.sqr(img - list_refs[sensor_idx]))
-        dr.backward(loss)
-        opt.step()
-
-        # Clamp the optimized density values. Since we used the `scale` parameter
-        # when instantiating the volume, we are in fact optimizing extinction
-        # in a range from [1e-6 * scale, scale].
-        opt[key_sig] = dr.clamp(opt[key_sig], 1e-6, 1.0)
-        if not args.onlySig:
-            opt[key_alb] = dr.clamp(opt[key_alb], 1e-6, 1.0)
-        # else:
-        #     opt[key_sig] = Color3f(opt[key_sig].numpy().mean())
-        print(opt[key_sig])
-
-        # Propagate changes to the scene
-        params.update(opt)
-        time_end = time.time()
-        elapsed_time = time_end - time_start
-        list_times.append(elapsed_time)
-        avg_time = sum(list_times) / len(list_times)
-
-        total_loss += loss[0]
-        param_sig = params[key_sig].numpy() * params[key_scale]
-        wandb_log({
-            "train/loss": total_loss,
-            "train/epoch": it,
-            "train/rmse_alb" : rmse(params[key_alb].numpy(),gt_alb),
-            "train/rmse_sig" : rmse(param_sig,gt_sig),
-            "train/time": avg_time,
-            },step=it)
-
-        # if it % args.n_log == 0: 
-
-        tqdm.write(f"Iteration {it:02d}: error={total_loss:6f}", end='\r')
+            tqdm.write(f"Iteration {it:02d}: error={total_loss:6f}", end='\r')

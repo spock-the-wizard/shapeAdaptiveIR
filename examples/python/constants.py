@@ -82,6 +82,22 @@ params_gt = {
         'sigmat': [78.37, 54.169, 83.51],
         'mesh': '../../smoothshape/final/maneki_.obj',
     },
+    'maneki11':{
+        'albedo': [0.90, 0.90, 0.90],
+        'sigmat': [30.0, 30.0, 30.0],
+        'mesh': '../../smoothshape/final/maneki_.obj',
+    },
+    'maneki12':{
+        'albedo': [0.20, 0.20, 0.20],
+        'sigmat': [30.0, 30.0, 30.0],
+        'mesh': '../../smoothshape/final/maneki_.obj',
+    },
+    'maneki13':{
+        'albedo': [0.3, 0.40, 0.30],
+        'sigmat': [25.0, 20.0, 30.0],
+        'mesh': '../../smoothshape/final/maneki_.obj',
+
+    },
     'maneki3':{
         'albedo': [0.89, 0.89, 0.89],
         'sigmat': [78.37, 54.169, 83.51],

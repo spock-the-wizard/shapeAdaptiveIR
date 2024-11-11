@@ -1,7 +1,7 @@
 #! /bin/bash
 root=/sss/InverseTranslucent/examples/python/scripts
 
-exp_name="fig9planar/var19"
+exp_name="fig9planar/var65"
 
 name=$1
 echo $exp_name
@@ -9,6 +9,12 @@ xml_file=$root/../../scenes/inverse/${name}_out.xml
 out_file=$root/../../scenes/inverse/${name}_out_tmp.xml
 sigma_t="50.0, 50.0, 50.0" # init
 albedo="0.85" #sphere1
+sigma_t="50.0, 50.0, 50.0" # init
+albedo="0.70, 0.50, 0.99" #sphere1
+
+sigma_t="50.0, 50.0, 50.0" # init
+albedo="0.50"
+
 spp=128
 spp_inv=32
 n_crops=4
@@ -30,7 +36,7 @@ python3.8 ./inverse_render.py \
         --ref_folder "exr_ref" \
         --mesh_lr 0.00 \
         --sigma_lr 0.015 \
-        --albedo_lr 0.005 \
+        --albedo_lr 0.01 \
         --epsM_lr 0.00 \
         --rough_lr 0.00 \
         --eta_lr 0.00 \
@@ -58,8 +64,8 @@ python3.8 ./inverse_render.py \
         --onlySSS \
         --scene_file $out_file \
         --isBaseline \
-        --randomInit \
-        --sweep_num 2 \
+        # --randomInit \
+        # --sweep_num 5 \
         # --debug \
         # --n_vaeModeChange 200 \
         # --render_gradient

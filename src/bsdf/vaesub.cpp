@@ -266,7 +266,7 @@ Spectrum<ad> VaeSub::__eval_sub(const Intersection<ad> &its, const BSDFSample<ad
     // }
     // std::cout << "hsum(hsum(sw) " << hsum(hsum(sw)) << std::endl;
     // std::cout << "hsum(hsum(value) " << hsum(hsum(value)) << std::endl;
-    std::cout << "count(!isnan(value)) " << count((~isnan(hsum(value))) & (hsum(value) != 0.0f))<< std::endl;
+    // std::cout << "count(!isnan(value)) " << count((~isnan(hsum(value))) & (hsum(value) != 0.0f))<< std::endl;
     
     
     return value & active;
@@ -596,8 +596,8 @@ Array<Float<ad>,23> VaeSub::_preprocessFeatures(const Intersection<ad>&its, Floa
     auto sigma_t_ch = select(rnd < (1.0f / 3.0f), sigma_t.x(), sigma_t.y());
     sigma_t_ch = select(rnd > (2.0f / 3.0f),sigma_t.z(),sigma_t_ch);
 
-    std::cout << "m_sigma_t" << m_sigma_t.eval<ad>(its.uv)  << std::endl;
-    std::cout << "m_albedo" << m_albedo.eval<ad>(its.uv)  << std::endl;
+    // std::cout << "m_sigma_t" << m_sigma_t.eval<ad>(its.uv)  << std::endl;
+    // std::cout << "m_albedo" << m_albedo.eval<ad>(its.uv)  << std::endl;
     
     // auto effectiveAlbedo = -log(1.0f-albedo * (1.0f - exp(-8.0f))) / 8.0f;
     auto effectiveAlbedo = -log(1.0f-alpha_p * (1.0f - exp(-8.0f))) / 8.0f;
@@ -742,7 +742,6 @@ Intersection<ad> VaeSub::projectPointToSurface(const Scene* scene, const Interse
 
     auto opts = scene->m_opts;
     float maxDistScale = opts.maxDistScale;
-    std::cout << "maxDistScale " << maxDistScale << std::endl;
 
     Intersection<ad> its3;
     auto vz = its.sh_frame.n;
@@ -879,7 +878,8 @@ VaeSub::RetTypeSampleSp<ad> VaeSub::__sample_sp(const Scene *scene, const Inters
         velocity = its3.p;
         Intersection<ad> its3M, its3M2;
         if (isFD && ad) { //(constexpr(isFD && ad)){ //&& isFD){
-            float epsM = 1.0f;
+            // float epsM = 1.0f;
+            float epsM = opts.epsM;
             // float epsM = opts.epsM;
             // auto  epsM = epsM_ch; 
             auto fitScaleFactor1 = getFitScaleFactor<ad>(its,sigma_t_ch+epsM,albedo_ch,g_ch);

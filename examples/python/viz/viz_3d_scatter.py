@@ -1221,7 +1221,6 @@ class Scatter3DViewer(ViewerApp):
             self.inDirectionViz.draw_contents(self.camera, self.render_context)
             light_dir = VectorCloud(self.its_loc,-self.inDirection)
             light_dir.draw_contents(self.camera, self.render_context)
-
         if self.viewer_data is not None and self.show_rec_mesh:
             # print(self.viewer_data.coeff)
             # self.viewer_data.coeff = np.copy(self.mesh_polys[:, np.minimum(

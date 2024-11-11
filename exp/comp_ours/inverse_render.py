@@ -107,6 +107,7 @@ parser.add_argument('--sppse',              type=int,     default=8192)
 parser.add_argument('--integrator',         type=str,      default='direct')
 
 parser.add_argument('--maxDistScale',            type=float,      default=1.0)
+parser.add_argument('--epsM',            type=float,      default=1.0)
 parser.add_argument('--albedo_texture',     type=int,      default=256)
 parser.add_argument('--sigma_texture',      type=int,      default=256)
 parser.add_argument('--rough_texture',      type=int,      default=256)
@@ -125,6 +126,7 @@ parser.add_argument('--isSweep', action="store_true", default=False)
 parser.add_argument('--opaque', action="store_true", default=False)
 parser.add_argument('--onlySSS', action="store_true", default=True)
 parser.add_argument('--isFD', action="store_true", default=False)
+parser.add_argument('--isSplit', action="store_true", default=False)
 parser.add_argument('--isBaseline', action="store_true", default=False)
 parser.add_argument('--randomInit', action="store_true", default=False)
 parser.add_argument('--sweep_num',      type=int,      default=0)
@@ -212,6 +214,7 @@ def opt_task(isSweep=True):
     # load scene
     sc = psdr_cuda.Scene()
     if os.path.exists(args.scene_file): #args.scene_file is not None:
+        print(args.scene_file)
         sc.load_file(args.scene_file)
     else:
         scene_file = f"{SCENES_DIR}/{args.scene}_out.xml"
@@ -462,7 +465,9 @@ def opt_task(isSweep=True):
                 diff1 = ek.hmean((I1_ - T_) * (I2_ - T_))
                 loss += ek.hmean(diff1) / 3.0 # + ek.hmean(diff2) / 3.0
         else:
+            print("isSplit enabled")
             i = rgb-1
+            print(i)
             I1_ = our_img1[i] / 3.0
             I2_ = our_img2[i] / 3.0
             T_ = ref_img[i] 
@@ -470,7 +475,6 @@ def opt_task(isSweep=True):
             # tmp2 = I1_.numpy().reshape((512,512,-1)) * 255
             # cv2.imwrite('test1.png',tmp)
             # cv2.imwrite('test2.png',tmp2)
-            # breakpoint()
             # print(I1_.numpy().max())
             # print(T_.numpy().max())
             diff1 = (I1_ - T_) * (I2_ - T_)
@@ -696,16 +700,11 @@ def opt_task(isSweep=True):
             
             # isFD =  sc.opts.sppse < 0
             # naiveFD =  sc.opts.sppse < 0
-            
-            # Random select channel
-            if isBaseline:
-                sc.opts.rgb = 0
-            else:
-                sc.opts.rgb = 0 # blue only
             sc.opts.mode = shadeMode
             sc.opts.vaeMode = args.vaeMode
             sc.opts.isFD = args.isFD
             sc.opts.maxDistScale = args.maxDistScale
+            sc.opts.epsM = args.epsM
             sc.configure()
             
             render_loss= 0    
@@ -766,13 +765,9 @@ def opt_task(isSweep=True):
             gradA = ek.gradient(ctx.input2).torch()
             gradA[torch.isnan(gradA)] = 0.0
             gradA[torch.isinf(gradA)] = 0.0
-            # FIXME: fix albedo 
-            # gradA = None
             
             if not isBaseline and ctx.mono:
                 gradA[...,:] = torch.mean(gradA,dim=-1)
-            else:
-                print("shold not be happening! Not monochorme")
             # gradA= None
             # result = compute_forward_derivative(A=A, S=S, sensor_id=sensor_id,idx_param=idx_param,poly_fit=True)
             # print("-------------------------S-----------------------------")
@@ -986,6 +981,7 @@ def opt_task(isSweep=True):
             "param/sigmaT_b" : param_sig[2] * scale_sig,
         },step=0)
 
+        list_times = []
         for i in range(args.n_iters):
             loss = 0
             image_loss = 0
@@ -999,8 +995,17 @@ def opt_task(isSweep=True):
             optimizer.zero_grad()
             gradS = torch.zeros((1,3)).cuda()
 
-            list_times = []
             start = time.time() 
+            
+            # Random select channel
+            if isBaseline or not args.isSplit:
+                sc.opts.rgb = 0
+            else:
+                sc.opts.rgb = random.randint(1,3)
+                print("Channel: ",sc.opts.rgb)
+                # sc.opts.rgb = 0 # blue only
+            sc.configure()
+            
             for batch_idx in batch_idxs:
                 
                 ix = batch_idx // args.n_crops
@@ -1156,7 +1161,8 @@ def opt_task(isSweep=True):
         sc.configure()
 
         print(f"[DEBUG] Rendering selected images from training set")
-        renderPreview(0, np.array([1,], dtype=np.int32))
+        # renderPreview(0, np.array([11,36,37,], dtype=np.int32))
+        renderPreview(0, np.array([11,], dtype=np.int32))
         # renderPreview(0, np.array([0, 1, 4, 10, 19], dtype=np.int32))
 
     elif args.render_gradient:
@@ -1255,159 +1261,6 @@ def opt_task(isSweep=True):
         np.save(fname,result_fd)
         print(f"Write gradient image to {fname}")
 
-        # # Joon added: mode for gradient evaluation
-        # mode = 0 # fd 0
-        # mode = 1 # fd 1
-        # mode = 2 # diff
-        # mode = 3 # ours (img derivative)
-        # mode = 4 # all
-        
-        # # grad_dir = statsdir
-        # GRAD_DIR = f"{statsdir}/grad" #"../../grad2"
-        # grad_dir = GRAD_DIR
-        
-        # os.makedirs(GRAD_DIR,exist_ok=True)
-        
-        # A,S = None,None
-        # if isAlbedo:
-        #     A = Variable(sc.param_map[material_key].albedo.data.torch(), requires_grad=True)
-        #     filename = os.path.join(GRAD_DIR,f"sensor{sensor_id}_albedo{sc.param_map[material_key].albedo.data[idx_param]}_{sc.param_map[material_key].type_name()}_delta{fd_delta}_Ours.png")
-        # else:
-        #     S = Variable(sc.param_map[material_key].sigma_t.data.torch(), requires_grad=True)
-        #     filename = os.path.join(GRAD_DIR,f"sensor{sensor_id}_sigmaT{sc.param_map[material_key].sigma_t.data[idx_param]}_{sc.param_map[material_key].type_name()}_delta{fd_delta}_Ours.png")
-
-        # if mode >= 3:
-            
-        #     reset_random()
-        #     result = compute_forward_derivative(A=A, S=S, sensor_id=sensor_id,idx_param=idx_param,poly_fit=True)
-        #     # img = result[...,idx_param]
-        #     # img = torch.mean(result,dim=-1)
-        #     try: 
-        #         img = np.mean(result,axis=-1)
-        #     except:
-        #         img = np.mean(result.numpy(),axis=-1)
-                
-        #     print(f"Number of nonzero pixels: {np.count_nonzero(img)}")
-        #     fname=f"{grad_dir}/{args.scene}_{sensor_id}_{fd_delta}"
-        #     np.save(fname,img)
-        #     print(f"Write gradient image to {fname}")
-
-        #     cmax = max(img.max(),abs(img.min()))
-        #     norm = MidpointNormalize(vmin=-cmax,vmax=cmax,midpoint=0.0)
-        #     plt.imshow(img, cmap='RdBu_r',norm=norm)
-        #     plt.tight_layout()
-        #     # plt.colorbar()
-        #     plt.axis('off')
-        #     print(f"Write gradient image to {filename}")
-        #     plt.savefig(filename,bbox_inches='tight',pad_inches=0)
-        #     plt.close()
-
-        #     cmap_key='RdBu_r'
-        #     # Apply normalization and cmap to image
-        #     extent = (0,img.shape[0],img.shape[1],0)
-        #     # filename = filename.replace('.png','_nolegend.png')
-        #     mapper = cm.ScalarMappable(norm=norm, cmap=cmap_key)
-        #     img_ours = np.copy(mapper.to_rgba(img))#.clone()
-        #     plt.tight_layout()
-        #     # plt.colorbar()
-        #     plt.axis('off')
-        #     plt.imshow(img_ours,extent=extent)
-        #     plt.savefig(filename,bbox_inches='tight',pad_inches=0)
-        #     plt.close()
-        #     if mode != 4:
-        #         return
-
-        
-        # filename = filename.replace("_nolegend.png",".png")
-        # filename = filename.replace("deriv","FD",)
-        # ## Gradient estimate using finite differences
-        # # if os.path.exists(filename):
-        # #     return
-
-        # A,S = None, None
-        # if isAlbedo:
-        #     A0 = Variable(sc.param_map[material_key].albedo.data.torch() - param_delta, requires_grad=True)
-        #     A1 = Variable(sc.param_map[material_key].albedo.data.torch() + param_delta, requires_grad=True)
-        #     result0 = compute_forward_derivative(A0,S=S,sensor_id=sensor_id,idx_param=idx_param,FD=True)
-        #     fname=f"{grad_dir}/{args.scene}_{sensor_id}_{fd_delta}_fd_0"
-        #     np.save(fname,result0.mean(axis=-1))
-        #     print(f"Write gradient image to {fname}")
-        #     img0 = result0 * 255.0
-        #     cv2.imwrite(f"{filename.replace('FD','FD_0')}",img0)
-        #     result1 = compute_forward_derivative(A1,S=S,sensor_id=sensor_id,idx_param=idx_param,FD=True)
-        #     fname=f"{grad_dir}/{args.scene}_{sensor_id}_{fd_delta}_fd_1"
-        #     np.save(fname,result1.mean(axis=-1))
-        #     print(f"Write gradient image to {fname}")
-        #     img1 = result1 * 255.0
-        #     cv2.imwrite(f"{filename.replace('FD','FD_1')}",img1)
-        
-        # else:
-        #     if mode != 1:
-        #         S0 = Variable(sc.param_map[material_key].sigma_t.data.torch() - param_delta, requires_grad=True)
-        #         reset_random()
-        #         result0 = compute_forward_derivative(A,S=S0,sensor_id=sensor_id,idx_param=idx_param,FD=True)
-        #         fname=f"{grad_dir}/{args.scene}_{sensor_id}_{fd_delta}_fd_0"
-        #         np.save(fname,result0.mean(axis=-1))
-        #         print(f"Write gradient image to {fname}")
-        #         img0 = result0 * 255.0
-        #         cv2.imwrite(f"{filename.replace('FD','FD_0')}",img0)
-        #     if mode != 0:
-        #         S1 = Variable(sc.param_map[material_key].sigma_t.data.torch() + 2*param_delta , requires_grad=True)
-        #         reset_random()
-        #         result1 = compute_forward_derivative(A,S=S1,sensor_id=sensor_id,idx_param=idx_param,FD=True)
-        #         fname=f"{grad_dir}/{args.scene}_{sensor_id}_{fd_delta}_fd_1"
-        #         np.save(fname,result1.mean(axis=-1))
-        #         print(f"Write gradient image to {fname}")
-        #         img1 = result1 * 255.0
-        #         cv2.imwrite(f"{filename.replace('FD','FD_1')}",img1)
-        
-        # if mode == 2 or mode == 4:
-        #     result_fd = (result1 - result0) / (2*fd_delta)
-        #     img = np.mean(result_fd,axis=-1)
-        #     fname=f"{grad_dir}/{args.scene}_{sensor_id}_{fd_delta}_fd"
-        #     np.save(fname,img)
-        #     print(f"Write gradient image to {fname}")
-
-        #     # Vis image error btw estimate and GT
-        #     target = f"../../../data_kiwi_soap/realdata/{args.scene}/exr_ref/{sensor_id}.exr"
-        #     tar = cv2.imread(target)
-        #     fname=f"{grad_dir}/{args.scene}_{sensor_id}_{fd_delta}_diff"
-        #     # breakpoint()
-        #     diff = tar - result0
-        #     np.save(fname,diff)
-        #     print(f"Write gradient image to {fname}")
-        
-
-        # cmax = max(img.max(),abs(img.min()))
-        # norm = MidpointNormalize(vmin=-cmax,vmax=cmax,midpoint=0.0)
-        # plt.imshow(img, cmap='RdBu_r',norm=norm)
-        # plt.tight_layout()
-        # plt.colorbar()
-        # plt.axis('off')
-        # plt.savefig(filename,bbox_inches='tight',pad_inches=0)
-        # plt.close()
-
-        # filename = filename.replace('.png','_nolegend.png')
-        # mapper = cm.ScalarMappable(norm=norm, cmap=cmap_key)
-        # img_fd = np.copy(mapper.to_rgba(img))
-        # plt.tight_layout()
-        # plt.axis('off')
-        # plt.imshow(img_fd,extent=extent)
-        # plt.savefig(filename,bbox_inches='tight',pad_inches=0)
-        # plt.close()
-        
-        # # Visualize absolute difference between FD and ours
-        # filename = filename.replace('_nolegend.png','.png')
-        # filename = filename.replace('FD','absdiff')
-        # img_diff = np.abs(img_fd[...,:3] - img_ours[...,:3])# * 255.0
-        # img_diff = img_diff[...,[2,1,0]].sum(axis=-1)
-        # plt.imshow(img_diff,cmap='viridis',extent=extent)
-        # plt.tight_layout()
-        # plt.colorbar()
-        # plt.axis('off')
-        # # print(f"Write gradient image to {filename}")
-        # plt.savefig(filename,bbox_inches='tight')
-        # plt.close()
     else:
         optTask()
         

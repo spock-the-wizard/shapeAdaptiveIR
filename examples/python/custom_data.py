@@ -23,8 +23,8 @@ def datasetIRON2PSDR(src_dir,dst_dir,light_out,xml_file,xml_out,mesh_name,n_ligh
     
     if n_lights == 1:
         lightdir = [lightdir[0]]
-    list_lightidx = np.random.choice(len(lightdir),size=len(list_imgfile))
-    # list_lightidx = np.arange(len(list_imgfile))
+    # list_lightidx = np.random.choice(len(lightdir),size=len(list_imgfile))
+    list_lightidx = np.arange(len(list_imgfile))
     cam_dict = json.load(open(os.path.join(src_dir,lightdir[0],"train/cam_dict_norm.json"),"r"))
     breakpoint()
     
@@ -86,7 +86,7 @@ def datasetIRON2PSDR(src_dir,dst_dir,light_out,xml_file,xml_out,mesh_name,n_ligh
     # img_files = sorted(os.listdir(src_dir))
     list_lightpos = []
     for idx,img_file in enumerate(list_imgfile):
-        dir_light = lightdir[list_lightidx[idx]]
+        dir_light = "light00" #lightdir[list_lightidx[idx]]
         src_file = os.path.join(src_dir,dir_light,"train/image",img_file)
         print(src_file)
         # cam = cam_dict[img_file.replace("exr","png")]
@@ -121,6 +121,7 @@ def datasetIRON2PSDR(src_dir,dst_dir,light_out,xml_file,xml_out,mesh_name,n_ligh
         root.findall("sensor")[idx].find("float").set("value",f"{fov}")
     
     et.write(xml_out) 
+    print(list_lightpos)
     # Set light
     np.save(light_out,np.array(list_lightpos))
 

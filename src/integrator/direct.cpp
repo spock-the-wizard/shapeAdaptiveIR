@@ -242,10 +242,12 @@ Spectrum<ad> DirectIntegrator::__Li(const Scene &scene, Sampler &sampler, const 
         masked(value_0, ~enoki::isfinite<SpectrumC>(value_0)) = 0.f;
         masked(value_1, ~enoki::isfinite<SpectrumC>(value_1)) = 0.f;
 
-        float epsM = 1.0f;
+        float epsM = opts.epsM;
+        // float epsM = 1.0f;
 
         Vector3fD diff = (value_0 - value_1) / 2.0f;
         diff /= epsM;
+        // std::cout << "epsM " << epsM << std::endl;
         // auto isBoundary = activeM ^ activeM2; // Visibility is different
         // isBoundary |= dot(bsM2.po.sh_frame.n,bsM.po.sh_frame.n) < 0.8f;
         // // isBoundary |= dot(bsM2.sh_frame.n,bsM.sh_frame.n) < 0.6f;

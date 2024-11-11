@@ -22,7 +22,53 @@ albedo="0.90, 0.90, 0.90"
 # sigma_t="67.0, 50.0, 72.0" # init
 # albedo="0.98, 0.98, 0.98" #sphere11
 
-spp=1024
+# Init (Head1)
+albedo="0.81, 0.88, 0.79"
+sigma_t="38, 80, 70"
+
+# # Ours (Head1) Final
+# sigma_t="117, 131, 64"
+# albedo="0.93, 0.92, 0.93"
+
+# Ours (Naive)
+albedo="0.91, 0.92, 0.92"
+sigma_t="32, 56, 31"
+
+sigma_t="50.0, 50.0, 50.0"
+albedo="0.70, 0.50, 0.99" 
+
+sigma_t="44.0, 92.0, 102.0"
+albedo="0.97, 0.98, 0.98"
+
+sigma_t="29, 56, 54"
+albedo="0.97, 0.97, 0.97"
+
+# init 
+sigma_t="50.0, 50.0, 50.0"
+albedo="0.50, 0.50, 0.50" 
+
+# init 
+sigma_t="21.95, 47.21, 51.20"
+albedo="0.94, 0.93, 0.93"
+
+# # Ours (32spp)
+# sigma_t="25, 52, 54"
+# albedo="0.94, 0.94, 0.94"
+
+
+# albedo="0.93, 0.84, 0.77"
+# sigma_t="73, 42, 69"
+
+# # cool-dream
+# albedo="0.78, 0.85, 0.80"
+# sigma_t="46, 75, 61"
+
+
+# #revived-sun
+# albedo="0.79, 0.85, 0.85"
+# sigma_t="91, 57, 30"
+
+spp=1024 #1024
 spp_inv=1
 n_crops=1
 sppse=0 # 0 for autograd -1 for naive FD 1 for FD_ours
@@ -69,6 +115,7 @@ python3.8 ./inverse_render.py \
         --onlySSS \
         --scene_file $out_file \
         --render_results \
+        --maxDistScale 2.0 \
         --debug \
         # --randomInit \
         # --debug \
