@@ -14,6 +14,7 @@ variables*/
 *.nsys-rep
 data/
 build_*/
+*.bak
 
 wandb/
 *.npy
@@ -33,7 +34,7 @@ core*
 *.exr
 *.xml
 *.mtl
-*.sh
+examples/python/scripts/*.sh
 .ipynb_checkpoints
 
 *.cmake
@@ -43,3 +44,6 @@ examples/python/viz/outputs/
 examples/python/viz
 forward_model_weights/
 figures/
+results/
+trash/
+old/

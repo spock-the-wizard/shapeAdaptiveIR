@@ -16,7 +16,7 @@ BLENDER_EXEC = "blender2.8" # Change this if you have a different blender instal
 REAL_DIR = os.path.join(DATA_DIR, "realdata")
 # data folders
 ESSEN_DIR = os.path.join(DATA_DIR, "essen/")
-LIGHT_DIR = os.path.join(SCENES_DIR, "../light/")
+LIGHT_DIR = os.path.join(SCENES_DIR, f"{DATA_DIR}/light/")
 SHAPE_DIR = os.path.join(DATA_DIR, "smoothshape/")
 
 params_gt = {

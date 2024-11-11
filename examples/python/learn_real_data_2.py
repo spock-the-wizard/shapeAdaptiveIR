@@ -76,23 +76,13 @@ sys.path.append('../viz')
 sys.path.append('../viz/vae')
 
 os.chdir("/sss/InverseTranslucent/examples/python/scripts")
-import vae.config
+# import vae.config
 import vae.config_abs
 import vae.utils
 from mitsuba.core import *
-from nanogui import (Button, ComboBox,
-                     GroupLayout, ImageView, Label,
-                     PopupButton, Widget, Window, entypo, glfw)
-from utils.experiments import load_config
-from utils.gui import (FilteredListPanel, FilteredPopupListPanel,
-                       LabeledSlider, add_checkbox)
-from vae.global_config import (DATADIR3D, FIT_REGULARIZATION, OUTPUT3D,
-                               RESOURCEDIR, SCENEDIR3D, DATADIR)
+from vae.global_config import (DATADIR3D, FIT_REGULARIZATION)
 import vae.model
-# from viewer.utils import *
 import viewer.utils
-from viewer.viewer import GLTexture, ViewerApp
-from utils.printing import printr, printg
 import utils.mtswrapper
 
 def reset_random():
@@ -487,11 +477,26 @@ def opt_task(isSweep=True):
     else: 
         sc.load_file(SCENES_DIR + "/{}_real.xml".format(args.scene))
     
+    # Parse XML
+    import xml.etree.ElementTree as ET
+
+    def extract_obj_filename(filepath):
+        # Load and parse the XML file
+        tree = ET.parse(filepath)
+        root = tree.getroot()
+
+        # Extract the filename from the <shape> element with type="obj"
+        filename = None
+        for shape in root.findall(".//shape[@type='obj']"):
+            filename_element = shape.find("string[@name='filename']")
+            if filename_element is not None:
+                filename = filename_element.get("value")
+                break  # Assuming only one filename is needed
+
+        return filename
+
+    mesh_file = extract_obj_filename(args.scene_file)
     
-    # sc.opts.cropheight = 256
-    # sc.opts.cropwidth = 256
-    # sc.opts.cropheight = 64
-    # sc.opts.cropwidth = 64
     sc.opts.cropheight = sc.opts.height // args.n_crops
     sc.opts.cropwidth = sc.opts.width // args.n_crops
     
@@ -518,18 +523,12 @@ def opt_task(isSweep=True):
         lightdir = LIGHT_DIR + '/lights-head.npy'
     elif args.d_type == "custom":
         lightdir = LIGHT_DIR + '/lights-{}.npy'.format(args.scene)
-    elif args.d_type == "real":
-        lightdir = LIGHT_DIR + '/lights-gantry.npy'
     else:
-        lightdir = LIGHT_DIR + '/essen-lights-gantry.npy'
+        raise NotImplementedError
     lights = np.load(lightdir)
     if args.scene == "duck":
         lights = lights[:25,:]
         lights[:,:3] = np.array([1.192, -1.3364, 0.889])
-    if args.scene == "plane": 
-        lights[:,:3] = np.array([0.0, 2.0,0.0])
-    if args.scene == 'maneki2':
-        lights[:,:3] = np.array([0.529, 1.5237, 1.2932]) # lights 
 
     if args.integrator == 'direct':
         myIntegrator = psdr_cuda.DirectIntegrator()
@@ -549,52 +548,6 @@ def opt_task(isSweep=True):
     else:
         refdir = ESSEN_DIR + "/hdr{}/{}/".format(args.scene, args.ref_folder)
 
-    if 'cone' in args.scene:
-        # mesh_file = "../../smoothshape/vicini/cone_subdiv.obj"
-        mesh_file = "../../smoothshape/init/source.obj"
-    elif 'head' in args.scene:
-        mesh_file = "../../smoothshape/init/head_init.obj"
-        # mesh_file = "../../smoothshape/final/head_.obj"
-        # mesh_file = "../../smoothshape/head_v2.obj"
-    elif args.scene == "cylinder4":
-        mesh_file = "../../smoothshape/vicini/cylinder_subdiv.obj"
-    elif 'kettle' in args.scene: #== "kettle1":
-        mesh_file = "../../smoothshape/final/kettle_.obj"
-        # mesh_file = "../../smoothshape/kettle_.obj"
-    elif args.scene == "duck":
-        mesh_file = "../../smoothshape/duck_v2.obj"
-    elif args.scene == "sphere1":
-        mesh_file = "../../smoothshape/sphere_v2.obj"
-    elif 'maneki' in args.scene: #== "maneki1":
-        # mesh_file = "../../smoothshape/final/maneki_.obj"
-        # mesh_file = "../../smoothshape/init/maneki_init_better_5.obj" #init
-        mesh_file = "../../smoothshape/init/source.obj"
-        # mesh_file = "../../smoothshape/maneki.obj"
-    elif args.scene == "pig1":
-        mesh_file = "../../smoothshape/pig.obj"
-    elif args.scene == "horse1":
-        mesh_file = "../../smoothshape/horse.obj"
-    elif args.scene == 'botijo':
-        mesh_file = "../../smoothshape/final/botijo2_.obj"
-        # mesh_file = "../../smoothshape/botijo_.obj"
-    elif args.scene == 'buddha1':
-        mesh_file = "../../smoothshape/final/buddha_.obj"
-        # mesh_file = "../../smoothshape/buddha_.obj"
-    elif 'botijo' in args.scene: # botijo2, botijo3
-        mesh_file = "../../smoothshape/botijo2.obj"
-    elif args.scene == "cube":
-        mesh_file = "../../smoothshape/cube_subdiv25.obj"
-    elif args.scene == "pyramid4":
-        mesh_file = "../../smoothshape/vicini/pyramid_.obj"
-    elif args.scene == "plane":
-        mesh_file = "../../smoothshape/plane_almost_v2.obj"
-    elif args.scene == "kiwi":
-        mesh_file = "../../smoothshape/cube_3_init_uv.obj"
-    elif args.scene == "soap":
-        mesh_file = "../../smoothshape/soap_init.obj"
-    else:
-        mesh_file = "../../smoothshape/init/source.obj"
-        # raise NotImplementedError
 
 
     def precompute_mesh_polys():
@@ -1086,10 +1039,10 @@ def opt_task(isSweep=True):
             # print("--------------------------------------------------------")
             FloatD.backward()
             # print("-------------------------V-----------------------------")
-            gradV = ek.gradient(ctx.input1).torch()
-            gradV[torch.isnan(gradV)] = 0.0
-            gradV[torch.isinf(gradV)] = 0.0
-            # gradV = None
+            # gradV = ek.gradient(ctx.input1).torch()
+            # gradV[torch.isnan(gradV)] = 0.0
+            # gradV[torch.isinf(gradV)] = 0.0
+            gradV = None
             # print("-------------------------A-----------------------------")
             gradA = ek.gradient(ctx.input2).torch()
             gradA[torch.isnan(gradA)] = 0.0
@@ -1274,7 +1227,7 @@ def opt_task(isSweep=True):
                 sc.param_map[material_key].setEpsMTexture(destdir + "/epsM_resize_init.exr")
 
         # Load GT mesh for measuring mesh error
-        initV = trimesh.load(params_gt[args.scene]['mesh']).vertices
+        initV = trimesh.load(mesh_file).vertices
             
         
         S = Variable(torch.log(sc.param_map[material_key].sigma_t.data.torch()), requires_grad=True)

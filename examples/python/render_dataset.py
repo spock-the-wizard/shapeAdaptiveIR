@@ -1,7 +1,8 @@
 
+"""
+Code to render mock dataset with BSSRDF model rather than Vol. Path. (Mitsuba)
+"""
 import sys
-# sys.path.append("/sss/InverseTranslucent/build")
-# sys.path.append("/sss/InverseTranslucent/build/lib")
 import psdr_cuda
 import enoki as ek
 import cv2
@@ -10,7 +11,6 @@ import math
 from enoki.cuda_autodiff import Float32 as FloatD, Vector3f as Vector3fD, Matrix4f as Matrix4fD, Vector3i
 from enoki.cuda import Vector20f as Vector20fC
 from psdr_cuda import Bitmap3fD
-# from enoki.cuda_autodiff import Vector20fD as Vector20fD
 from enoki.cuda import Float32 as FloatC
 import matplotlib.pyplot as plt
 import torch
@@ -30,7 +30,6 @@ import time
 import pytorch_ssim
 from enoki import *
 
-# from largesteps.optimize import AdamUnifom
 from largesteps.geometry import compute_matrix, laplacian_uniform
 from largesteps.parameterize import to_differential, from_differential
 

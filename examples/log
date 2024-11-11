@@ -1,3 +1,0 @@
-[  9%] Built target ptx
-Scanning dependencies of target psdr_cuda
-[ 12%] Building CXX object CMakeFiles/psdr_cuda.dir/src/integrator/integrator.cpp.o
