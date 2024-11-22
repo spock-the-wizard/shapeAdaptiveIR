@@ -10,7 +10,7 @@ This is a differentiable renderer for reconstructing scattering parameters of tr
 
 
 ## Installation
-Our implementation is based on the path-space differentiable renderer [PSDR-CUDA](https://diglib.eg.org/items/f57860ef-ec70-44ec-8b02-eddc36dff67b). 
+Our implementation is based on the path-space differentiable renderer [PSDR-CUDA](https://diglib.eg.org/items/f57860ef-ec70-44ec-8b02-eddc36dff67b) and the [extension to BSSRDFs](https://github.com/joyDeng/InverseTranslucent). 
 
 To run our code, you can set up the environment yourself by following the instructions found [here](https://psdr-cuda.readthedocs.io/en/latest/core_compile.html).
 
