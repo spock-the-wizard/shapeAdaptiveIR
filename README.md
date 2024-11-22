@@ -14,13 +14,16 @@ Our implementation is based on the path-space differentiable renderer [PSDR-CUDA
 
 To run our code, you can set up the environment yourself by following the instructions found [here](https://psdr-cuda.readthedocs.io/en/latest/core_compile.html).
 
-We also provide a [docker container](TODO) with necessary libraries installed. (Some may still require manual installation, e.g. OptiX)
+We also provide a docker container with necessary libraries installed. (Some may still require manual installation, e.g. OptiX)
+```bash
+docker pull spockthewizard/shapeadaptiveir:latest
+```
 
 This code was tested on Ubuntu 20.04.6 LTS.
 
 ## Build
 
-```Bash
+```bash
 mkdir build
 cd build
 ../cmake.sh # A script for running cmake and make
@@ -29,7 +32,7 @@ cd .. && source setpath.sh # Add to PYTHONPATH
 
 ## Folder Structure
 
-```Python
+```python
 .
 ├── src/bsdf
 │   ├── vaesub.cpp
@@ -58,7 +61,7 @@ cd examples/python/scripts
 ```
 
 ## Dataset
-We provide an item from our synthetic dataset [here]().
+We provide an item from our synthetic dataset [here](https://drive.google.com/drive/folders/1Jqq-iCiDrXgQrx9BLW3dcvurKiWTD1VO?usp=drive_link).
 
 
 
