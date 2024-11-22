@@ -1,34 +1,64 @@
-# psdr-cuda
-This is a path space differentiable renderer (psdr-cuda) with bssrdf support which forked from [psdr-cuda](https://psdr-cuda.readthedocs.io/en/latest/). The derivation and experimental detail can be found in [paper](https://www.cs.cornell.edu/~xideng/pub/deng22dsss.pdf).
+# Shape-adaptive Inverse Rendering 
+
+Implementation of the paper ["Inverse Rendering of Translucent Objects using Shape-adaptive Importance Sampling"](https://diglib.eg.org/items/f57860ef-ec70-44ec-8b02-eddc36dff67b). 
+Accepted to Pacific Graphics 2024 Conference Track.
+
+[Project Page](https://spock-the-wizard.github.io/shape-adaptive-IR/)
 
 
-## Compile
-To build the code, please follow this process of [compiling psdr-cuda](https://psdr-cuda.readthedocs.io/en/latest/core_compile.html)
-
-## Materials
-The material we use in reconstructing is `HeterSub`, the definition and implementation can be found in `hetersub.h` and `hetersub.cpp`, currently, it is using dipole model, one can switch to better diphole in the future. The expression of diphole model and better diphole model can be found in [this report](http://www.eugenedeon.com/wp-content/uploads/2014/04/betterdipole.pdf).
-
-## Integrators
-
-Here are several integrators implemented in this framework, the one we used for reconstruction is the `DirectIntegrator`, it is a direct light integrator with point light assumption, support gradient estimation of geometry with bssrdf material (both primary and secondary discontintuity). The `OldDirectIntegrator` correspond to the `DirectIntegrator` in the original psdr-cuda codebase; and the `ColocateIntegrator` is integrator with the "point light locates at the same place as camera" assumpition. To validate the implementation of BSSRDF we used the `LaserIntegrator`, where a directional coherent light is pointing down to a plane, it is deprecated now.
+This is a differentiable renderer for reconstructing scattering parameters of translucent objects based on a [neural BSSRDF model](https://rgl.epfl.ch/publications/Vicini2019Learned).
 
 
-## Optimizing
-#### Synthetic data 
-To do: adding sythetic examples ... 
+## Installation
+Our implementation is based on the path-space differentiable renderer [PSDR-CUDA](https://diglib.eg.org/items/f57860ef-ec70-44ec-8b02-eddc36dff67b). 
 
-#### Real data 
-1. The latest optimizing code is in `"examples/python/learn_real_data.py"`.
+To run our code, you can set up the environment yourself by following the instructions found [here](https://psdr-cuda.readthedocs.io/en/latest/core_compile.html).
 
-2. To set the `ROOT_DIR`, `SCENE_DIR`, etc... go to `"examples/python/constants.py"`.
+We also provide a [docker container](TODO) with necessary libraries installed. (Some may still require manual installation, e.g. OptiX)
 
-3. To optimize homogeneous value of `alebdo` and `sigma_t`, set `args.sigma_texture = 0`.
+This code was tested on Ubuntu 20.04.6 LTS.
 
-4. To optimize `albedo` and `sigma_t` as texture, set `args.sigma_texture = 512` and `args.albedo_texture = 512`.
+## Build
 
+```Bash
+mkdir build
+cd build
+../cmake.sh # A script for running cmake and make
+cd .. && source setpath.sh # Add to PYTHONPATH
+```
 
-## Data Folder
-Find real data here [Soap and Kiwi](https://drive.google.com/drive/folders/1JrTtno7c-FnYuNJ044FKbjlZYujJiczN?usp=sharing).
+## Folder Structure
+
+```Python
+.
+├── src/bsdf
+│   ├── vaesub.cpp
+|   |   # code for shape-adaptive BSSRDF model
+│   └── scattereigen.h # helper code 
+├── variables # model weights
+├── data_stats.json # metadata for running neural model
+├── data_kiwi_soap # data (imgs, lights, obj)
+│   ├── imgs
+│   ├── obj
+│   └── light
+├── examples/python/scripts # experiment code
+```
+The provided weights are trained with a more lightweight architecture than proposed in the original forward model paper. No significant performance degradation was noted in our experiments.
+
+## Running Experiments
+1. Prepare your data
+Put your images, lights and obj file in `/data_kiwi_soap`
+
+2. Set necessary constants (e.g. your path) in `/examples/python/constants.py`
+
+3. Run the following code
+```bash
+cd examples/python/scripts
+./exp_ours.sh ${SCENE_NAME}
+```
+
+## Dataset
+We provide an item from our synthetic dataset [here]().
 
 
 
